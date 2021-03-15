@@ -4,13 +4,10 @@
 Generic parser for GTF files.
 """
 
-from . import Parser
+from .parser import Parser
 from .gfannotation import GFAnnotation
 import re
-
-
-# This class has exactly how many attributes I need it to have
-# pylint: disable=too-many-instance-attributes
+from ..exceptions import InvalidParsingFormat
 
 
 class GtfLine(GFAnnotation):
@@ -62,8 +59,10 @@ class GtfLine(GFAnnotation):
         self.attributes.update(attributes)
         self.__name = self.__set_name()
         self.__set_gene()
-        assert "gene_id" in self.attributes
-        assert self.gene is not None, self.attributes
+        if "gene_id" not in self.attributes:
+            raise ValueError("Missing 'gene_id' in the line")
+        if self.gene is None:
+            raise TypeError("Invalid null gene_id; attributes: {}".format(self.attributes))
 
     def _format_attributes(self):
 
@@ -84,7 +83,6 @@ class GtfLine(GFAnnotation):
 
         if not gene:
             pass
-            # assert attributes["gene_id"], attributes
         else:
             attributes['gene_id'] = gene
         if "gene_id" in attributes and isinstance(attributes["gene_id"], list):
@@ -94,8 +92,6 @@ class GtfLine(GFAnnotation):
             attributes["transcript_id"] = attributes.pop("transcript_id", None)
         else:
             attributes["transcript_id"] = transcript
-
-        # assert attributes["transcript_id"]
 
         order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
 
@@ -171,14 +167,7 @@ class GtfLine(GFAnnotation):
 
     def _set_is_transcript(self):
 
-        # if self.feature is None:
-        #     return False
-        # if "transcript" == self.feature or "RNA" in self.feature:
-        #     return True
-        # return False
-
-        return (self.feature is not None) and (self.transcript_pattern.search(
-            self.feature) is not None)
+        return (self.feature is not None) and (self.transcript_pattern.search(self.feature) is not None)
 
     def __set_transcript(self):
         if self.header is True:
@@ -397,15 +386,18 @@ class GTF(Parser):
         """
 
         super().__init__(handle)
+        self.__line_counter = 0
 
     def __next__(self):
-        line = next(self._handle)
+        line = None
         try:
+            line = next(self._handle)
+            self.__line_counter += 1
             return GtfLine(line)
-        except Exception:
-            error = "Invalid line for file {}, position {}:\n{}".format(
-                self.name, self._handle.tell(), line)
-            raise ValueError(error)
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError) as exc:
+            error = "Invalid line for file {name}, line {counter}:\n{line}Error: {exc}\n".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
+            raise InvalidParsingFormat(error)
 
     @property
     def file_format(self):

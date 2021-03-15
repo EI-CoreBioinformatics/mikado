@@ -4,24 +4,12 @@
 Custom exceptions for Mikado.
 """
 
+from marshmallow import ValidationError
+
 
 class NotInLocusError(AssertionError):
     """
     Error to be raised when a method tries to add a transcript to a Locus it does not belong to.
-    """
-    pass
-
-
-class NoJsonConfigError(ValueError):
-    """
-    Exception to be raised if no/an invalid configuration dictionary has been provided.
-    """
-    pass
-
-
-class InvalidLocusError(ValueError):
-    """
-    Exception to be raised when something has made a Locus object invalid.
     """
     pass
 
@@ -31,24 +19,7 @@ class ModificationError(RuntimeError):
     pass
 
 
-class UnrecognizedOperator(ValueError):
-    """
-    Exception to be raised when the configuration file contains an unsupported operator
-    for a scoring/filtering function.
-    """
-    pass
-
-
-class UnrecognizedRescaler(ValueError):
-    """
-    Exception to be raised when the configuration file contains an unsupported rescaling
-    function for a scoring operation.
-    """
-
-    pass
-
-
-class InvalidJson(KeyError):
+class InvalidConfiguration(ValidationError, KeyError):
     """
     Exception to be raised when the JSON/YAML is invalid.
     """
@@ -116,4 +87,10 @@ class InvalidHit(ValueError):
 class InvalidSerialization(KeyError):
     """
     Exception to be raised when trying to include in the Mikado database incongruent data.
+    """
+
+
+class InvalidParsingFormat(TypeError):
+    """
+    Exception to be raised when the format specified for the parsing is incorrect
     """

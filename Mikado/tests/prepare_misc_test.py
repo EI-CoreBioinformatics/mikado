@@ -1,4 +1,6 @@
 import unittest
+import msgpack
+import zlib
 from ..preparation import checking
 from .. import utilities
 from .. import transcripts
@@ -55,11 +57,11 @@ class MiscTest(unittest.TestCase):
     def test_normal(self):
         logger, listener, logging_queue = self.create_logger("test_normal")
 
-        with self.assertLogs(logger=logger, level="DEBUG") as cmo:
+        with self.assertLogs(logger=logger, level="DEBUG") as cmo, \
+                tempfile.NamedTemporaryFile(mode="wb", delete=True) as batch_file:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
 
-            batch_file = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             proc = ProcRunner(checking.CheckingProcess,
                               batch_file.name,
                               logging_queue,
@@ -71,7 +73,6 @@ class MiscTest(unittest.TestCase):
                               seed=None,
                               tmpdir=tempfile.gettempdir(),
                               log_level="DEBUG")
-            import msgpack
             msgpack.dump([], batch_file)
             batch_file.flush()
             proc.start()
@@ -108,10 +109,13 @@ class MiscTest(unittest.TestCase):
         else:
             logger, listener, logging_queue = self.create_logger("test_wrong_initialisation", simple=True)
 
-        kwds = {"batch_file": tempfile.mkstemp(),
+        with tempfile.NamedTemporaryFile() as batch_file, tempfile.NamedTemporaryFile() as shelves:
+            pass
+
+        kwds = {"batch_file": batch_file.name,
                 "logging_queue": logging_queue,
                 "identifier": 0,
-                "shelve_stacks": [tempfile.mkstemp()],
+                "shelve_stacks": [shelves.name],
                 "fasta_out": self.fasta_out,
                 "gtf_out": self.gtf_out,
                 "tmpdir": tempfile.gettempdir(),
@@ -202,11 +206,11 @@ class MiscTest(unittest.TestCase):
 
         logger, listener, logging_queue = self.create_logger("test_example_model_through_process")
         logger.setLevel("DEBUG")
-        with self.assertLogs(logger=logger, level="DEBUG") as cmo:
+        with self.assertLogs(logger=logger, level="DEBUG") as cmo, \
+                tempfile.NamedTemporaryFile(delete=True, suffix=".db", mode="wb") as dumpdb, \
+                tempfile.NamedTemporaryFile(delete=True, mode="wb") as batch:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
-            import msgpack
-            import zlib
             lines = dict()
             lines["chrom"] = "Chr5"
             lines["strand"] = "+"
@@ -218,7 +222,6 @@ class MiscTest(unittest.TestCase):
             lines["features"]["exon"] = [(208937, 209593), (209881, 210445)]
             lines["strand_specific"] = True
             lines["is_reference"] = False
-            dumpdb = tempfile.NamedTemporaryFile(delete=False, suffix=".db", mode="wb")
             write_start = dumpdb.tell()
             dumpdb.write(zlib.compress(msgpack.dumps(lines)))
             write_length = dumpdb.tell() - write_start
@@ -226,9 +229,8 @@ class MiscTest(unittest.TestCase):
 
             keys = [(0, ((lines["tid"], dumpdb.name, write_start, write_length),
                          lines["chrom"], (lines["start"], lines["end"])))]
-            with tempfile.NamedTemporaryFile(delete=False, mode="wb") as batch:
-                msgpack.dump(keys, batch)
-
+            msgpack.dump(keys, batch)
+            batch.flush()
             proc = ProcRunner(checking.CheckingProcess,
                               batch.name,
                               logging_queue,
@@ -239,6 +241,7 @@ class MiscTest(unittest.TestCase):
                               gtf_out=self.gtf_out,
                               seed=None,
                               tmpdir=tempfile.gettempdir(),
+                              strip_faulty_cds=True,
                               log_level="DEBUG")
 
             self.submission_queue.put((lines, lines["start"], lines["end"], 0))
@@ -246,34 +249,36 @@ class MiscTest(unittest.TestCase):
             proc.start()
             proc.join()
             time.sleep(0.5)
-            self.assertTrue(os.stat(proc.func.fasta_out).st_size > 0, proc.func.fasta_out)
-            fasta_lines = []
-            with open(proc.func.fasta_out) as f_out:
-                for line in f_out:
-                    line = line.rstrip()
-                    line = re.sub("0/", "", line)
-                    fasta_lines.append(line)
 
-            self.assertGreater(len(fasta_lines), 1)
-            seq = self.fai.fetch(lines["chrom"], lines["start"] - 1, lines["end"])
-            res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
-            self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
+        self.assertTrue(os.stat(proc.func.fasta_out).st_size > 0, (proc.func.fasta_out,
+                        cmo.output))
+        fasta_lines = []
+        with open(proc.func.fasta_out) as f_out:
+            for line in f_out:
+                line = line.rstrip()
+                line = re.sub("0/", "", line)
+                fasta_lines.append(line)
 
-            with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:
+        self.assertGreater(len(fasta_lines), 1)
+        seq = self.fai.fetch(lines["chrom"], lines["start"] - 1, lines["end"])
+        res = checking.create_transcript(lines, seq, lines["start"], lines["end"])
+        self.assertTrue(len(res.cdna), (209593 - 208937 + 1) + (210445 - 209881 + 1))
 
-                assert len(fasta_lines) > 1
-                assert fasta_lines[0][0] == ">"
-                for line in fasta_lines:
-                    print(line, file=faix)
-                faix.flush()
-                try:
-                    fa = pyfaidx.Fasta(faix.name)
-                except TypeError:
-                    raise TypeError([_ for _ in open(faix.name)])
-                self.assertEqual(list(fa.keys()), ["AT5G01530.0"])
-                self.assertEqual(str(fa["AT5G01530.0"]), str(res.cdna))
-                self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
+        with tempfile.NamedTemporaryFile(suffix="fa", delete=True, mode="wt") as faix:
 
-                os.remove(faix.name + ".fai")
+            assert len(fasta_lines) > 1
+            assert fasta_lines[0][0] == ">"
+            for line in fasta_lines:
+                print(line, file=faix)
+            faix.flush()
+            try:
+                fa = pyfaidx.Fasta(faix.name)
+            except TypeError:
+                raise TypeError([_ for _ in open(faix.name)])
+            self.assertEqual(list(fa.keys()), ["AT5G01530.0"])
+            self.assertEqual(str(fa["AT5G01530.0"]), str(res.cdna))
+            self.assertEqual(len(str(fa["AT5G01530.0"])), res.cdna_length)
+
+            os.remove(faix.name + ".fai")
 
         listener.stop()

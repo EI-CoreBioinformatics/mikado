@@ -7,13 +7,14 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
+import importlib
 import logging
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .excluded import Excluded
 from .monosublocus import Monosublocus
 from ..parsers.GFF import GffLine
-from ..scales.contrast import compare as c_compare
+from ..scales import c_compare
 from ..utilities.log_utils import create_null_logger
 from ..utilities import overlap
 
@@ -33,7 +34,7 @@ class Sublocus(Abstractlocus):
 
     def __init__(self,
                  transcript_instance=None,
-                 json_conf=None,
+                 configuration=None,
                  logger=None,
                  verified_introns=None,
                  **kwargs):
@@ -42,8 +43,8 @@ class Sublocus(Abstractlocus):
         :param transcript_instance: an instance which describes a genomic interval
         :type transcript_instance: Transcript | Abstractlocus
 
-        :param json_conf: a configuration dictionary
-        :type json_conf: dict
+        :param configuration: a configuration dictionary
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         :param logger: a logger instance from the logging library
         :type logger: logging.Logger | None
@@ -56,13 +57,13 @@ class Sublocus(Abstractlocus):
         self.counter = 0  # simple tag for avoiding collisions in the GFF output
         self.__splitted = False
         Abstractlocus.__init__(self, verified_introns=verified_introns,
-                               json_conf=json_conf,
+                               configuration=configuration,
                                logger=logger,
                                **kwargs)
         self.feature = self.__name__
         self.logger.debug("Verified introns for %s: %s", self.id, verified_introns)
         self.fixed_size = False
-        self.source = self.json_conf["pick"]["output_format"]["source"]
+        self.source = self.configuration.pick.output_format.source
 
         self.excluded = None
         self._not_passing = set()
@@ -73,18 +74,16 @@ class Sublocus(Abstractlocus):
         if transcript_instance is not None:
             if transcript_instance.__name__ == "transcript":
                 transcript_instance.finalize()
-            if json_conf is None and transcript_instance.json_conf is not None:
-                json_conf = transcript_instance.json_conf
+            if configuration is None and transcript_instance.configuration is not None:
+                configuration = transcript_instance.configuration
             if transcript_instance and transcript_instance.feature == "sublocus":
                 self.fixed_size = True
 
-        if json_conf is None or not isinstance(json_conf, dict):
-            raise ValueError("I am missing the configuration for prioritizing transcripts!")
+        self.configuration = configuration
 
         # This part is necessary to import modules
-        if "modules" in self.json_conf:
-            import importlib
-            for mod in self.json_conf["modules"]:
+        if hasattr(self.configuration, "modules"):
+            for mod in self.configuration.modules:
                 globals()[mod] = importlib.import_module(mod)
 
         if isinstance(transcript_instance, Transcript):
@@ -102,7 +101,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
-        self.excluded = Excluded(json_conf=json_conf)
+        self.excluded = Excluded(configuration=configuration)
         self.scores = dict()
 
     # pylint: disable=arguments-differ
@@ -125,7 +124,7 @@ class Sublocus(Abstractlocus):
             self.transcripts[tid].parent = self_line.id
             lines.append(self.transcripts[tid].format(
                 "gff3",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                all_orfs=self.configuration.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -139,21 +138,24 @@ class Sublocus(Abstractlocus):
         state["excluded"] = self.excluded.as_dict()
         return state
 
-    def load_dict(self, state):
-        super().load_dict(state)
+    def load_dict(self, state, load_transcripts=True, load_configuration=True):
+        super().load_dict(state, load_transcripts=load_transcripts, load_configuration=load_configuration)
         self.monosubloci = []
         for stat in state["monosubloci"]:
             s = Monosublocus()
             s.load_dict(stat)
             self.monosubloci.append(s)
-        self.excluded = Excluded()
+        self.excluded = Excluded(configuration=self.configuration)
         self.excluded.load_dict(state["excluded"])
 
-    def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):
 
         """
         :param transcript: the transcript which might be putatively added to the Locus.
         :type transcript: Transcript
+
+        :param check_in_locus: whether to check that the transcript is compatible. Boolean, default True.
+        :type check_in_locus: bool
 
         :param kwargs: eventual keyword arguments are ignored.
 
@@ -179,7 +181,7 @@ class Sublocus(Abstractlocus):
         if transcript is None:
             return
 
-        cds_only = self.json_conf["pick"]["clustering"]["cds_only"]
+        cds_only = self.configuration.pick.clustering.cds_only
 
         monoexonic = self._is_transcript_monoexonic(transcript)
 
@@ -201,20 +203,24 @@ class Sublocus(Abstractlocus):
                                            self._is_transcript_monoexonic(transcript)),
                                        "\n".join([_.format("bed12") + "\t{}".format(
                                            self._is_transcript_monoexonic(_)) for _ in self.transcripts.values()])))
-        super().add_transcript_to_locus(transcript)
+        super().add_transcript_to_locus(transcript, check_in_locus=check_in_locus)
         # add the verified introns from the outside
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 
-    def define_monosubloci(self, purge=False):
+    def define_monosubloci(self, purge=False, check_requirements=True):
         """
+        :param excluded: the excluded Locus to which transcripts from purged loci will be added to
+        :type excluded: None
+        :type excluded: Mikado.loci_objects.excluded.Excluded
+
         :param purge: a flag which indicates whether loci whose
         best transcript has a score of 0 should be excluded (True) or retained (False)
         :type purge: bool
 
-        :param excluded: the excluded Locus to which transcripts from purged loci will be added to
-        :type excluded: None
-        :type excluded: Mikado.loci_objects.excluded.Excluded
+        :param check_requirements: Boolean flag, true by default. If set to false transcripts requirements will not
+        be evaluated.
+        :type check_requirements: bool
 
         This function retrieves the best non-overlapping transcripts inside
         the sublocus, according to the score calculated by
@@ -227,7 +233,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         # self.excluded = excluded
         self.logger.debug("Launching calculate scores for {0}".format(self.id))
-        self.filter_and_calculate_scores()
+        self.filter_and_calculate_scores(check_requirements=check_requirements)
 
         if len(self._excluded_transcripts) > 0 and self.purge:
             excluded_tids = list(self._excluded_transcripts.keys())
@@ -264,9 +270,9 @@ class Sublocus(Abstractlocus):
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript,
                                              logger=self.logger,
-                                             json_conf=self.json_conf,
+                                             configuration=self.configuration,
                                              use_transcript_scores=self._use_transcript_scores)
-                    new_locus.json_conf = self.json_conf
+                    new_locus.configuration = self.configuration
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:
                 message = "No transcripts to remove from the pool for {0}\n".format(self.id)
@@ -315,7 +321,8 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.filter_and_calculate_scores()
+        # self.filter_and_calculate_scores()
+        self.get_metrics()
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         for row in self.metric_lines_store:
             yield row
@@ -323,10 +330,7 @@ class Sublocus(Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.filter_and_calculate_scores()
-        if self.regressor is None:
-            score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
-        else:
-            score_keys = sorted(self.regressor.metrics + ["source_score"])
+        score_keys = sorted(list(self.configuration.scoring.scoring.keys()) + ["source_score"])
         keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:
@@ -335,13 +339,11 @@ class Sublocus(Abstractlocus):
             row["alias"] = self.transcripts[tid].alias
             row["parent"] = self.id
             row["score"] = round(self.scores[tid]["score"], 2)
-            calculate_total = (self.regressor is None)
             for key in score_keys:
-                if calculate_total:
-                    assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
-                    row[key] = round(self.scores[tid][key], 2)
+                assert key in self.scores[tid] and self.scores[tid][key] != "NA" and self.scores[tid][key] is not None, (key, self.scores[tid].keys())
+                row[key] = round(self.scores[tid][key], 2)
 
-            if calculate_total is True and tid not in self._not_passing:
+            if tid not in self._not_passing:
                 score_sum = sum(row[key] for key in score_keys)
 
                 if round(score_sum, 2) != round(self.scores[tid]["score"], 2):

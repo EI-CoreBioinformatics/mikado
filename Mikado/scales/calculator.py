@@ -4,12 +4,11 @@ from ..loci import Gene
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 from collections import defaultdict
-import sklearn.utils.extmath
-import numpy
+import numpy as np
 from collections import Counter
 # pylint: disable=E1101
-numpy.seterr(all="ignore")  # Suppress warnings
-numpy.warnings.filterwarnings("ignore")
+np.seterr(all="ignore")  # Suppress warnings
+np.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
 
 
@@ -23,50 +22,114 @@ def itemize(counter):
     """
 
     if len(counter) == 0:
-        return numpy.array([[], []])  # Empty 2dimensional array
+        return np.array([[], []])  # Empty 2dimensional array
     else:
-        return numpy.array(list(zip(*counter.items())))
+        return np.array(list(zip(*counter.items())))
 
 
-def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
+def weighted_mode(a, w, *, axis=0):
+    """Returns an array of the weighted modal (most common) value in a.
+    If there is more than one such value, only the first is returned.
+    The bin-count for the modal bins is also returned.
+    This is an extension of the algorithm in scipy.stats.mode.
+    Copied from sklearn source code on 26/01/2021.
+    Parameters
+    ----------
+    a : array-like
+        n-dimensional array of which to find mode(s).
+    w : array-like
+        n-dimensional array of weights for each value.
+    axis : int, default=0
+        Axis along which to operate. Default is 0, i.e. the first axis.
+    Returns
+    -------
+    vals : ndarray
+        Array of modal values.
+    score : ndarray
+        Array of weighted counts for each mode.
+    Examples
+    --------
+    >>> x = [4, 1, 4, 2, 4, 2]
+    >>> weights = [1, 1, 1, 1, 1, 1]
+    >>> weighted_mode(x, weights)
+    (array([4.]), array([3.]))
+    The value 4 appears three times: with uniform weights, the result is
+    simply the mode of the distribution.
+    >>> weights = [1, 3, 0.5, 1.5, 1, 2]  # deweight the 4's
+    >>> weighted_mode(x, weights)
+    (array([2.]), array([3.5]))
+    The value 2 has the highest score: it appears twice with weights of
+    1.5 and 2: the sum of these is 3.5.
+    See Also
+    --------
+    scipy.stats.mode
+    """
+    if axis is None:
+        a = np.ravel(a)
+        w = np.ravel(w)
+        axis = 0
+    else:
+        a = np.asarray(a)
+        w = np.asarray(w)
+
+    if a.shape != w.shape:
+        w = np.full(a.shape, w, dtype=w.dtype)
+
+    scores = np.unique(np.ravel(a))       # get ALL unique values
+    testshape = list(a.shape)
+    testshape[axis] = 1
+    oldmostfreq = np.zeros(testshape)
+    oldcounts = np.zeros(testshape)
+    for score in scores:
+        template = np.zeros(a.shape)
+        ind = (a == score)
+        template[ind] = w[ind]
+        counts = np.expand_dims(np.sum(template, axis), axis)
+        mostfrequent = np.where(counts > oldcounts, score, oldmostfreq)
+        oldcounts = np.maximum(counts, oldcounts)
+        oldmostfreq = mostfrequent
+    return mostfrequent, oldcounts
+
+
+def weighted_percentile(a, percentile=np.array([75, 25]), weights=None):
     """
     O(nlgn) implementation for weighted_percentile.
     From: http://stackoverflow.com/questions/21844024/weighted-percentile-using-numpy
     Kudos to SO user Nayyary http://stackoverflow.com/users/2004093/nayyarv
 
     :param a: array
-    :type a: (dict|list|numpy.array|set|tuple)
+    :type a: (dict|list|np.array|set|tuple)
 
     :param percentile: the percentiles to calculate.
-    :type percentile: (numpy.array|list|tuple)
+    :type percentile: (np.array|list|tuple)
 
     """
 
-    percentile = numpy.array(percentile)/100.0
+    percentile = np.array(percentile)/100.0
 
     if isinstance(a, (dict, Counter)):
         a, weigths = itemize(a)
     else:
-        assert isinstance(a, (list, set, tuple, numpy.ndarray)), (a, type(a))
-        if not isinstance(a, type(numpy.array)):
-            a = numpy.array(a)
+        assert isinstance(a, (list, set, tuple, np.ndarray)), (a, type(a))
+        if not isinstance(a, type(np.array)):
+            a = np.array(a)
         if weights is None:
-            weights = numpy.ones(len(a))
+            weights = np.ones(len(a))
 
-    a_indsort = numpy.argsort(a)
+    a_indsort = np.argsort(a)
     a_sort = a[a_indsort]
     weights_sort = weights[a_indsort]
-    ecdf = numpy.cumsum(weights_sort)
+    ecdf = np.cumsum(weights_sort)
 
     percentile_index_positions = percentile * (weights.sum() - 1) + 1
     # need the 1 offset at the end due to ecdf not starting at 0
-    locations = numpy.searchsorted(ecdf, percentile_index_positions)
+    locations = np.searchsorted(ecdf, percentile_index_positions)
 
-    out_percentiles = numpy.zeros(len(percentile_index_positions))
+    out_percentiles = np.zeros(len(percentile_index_positions))
 
     for i, empiricalLocation in enumerate(locations):
         # iterate across the requested percentiles
-        if ecdf[empiricalLocation-1] == numpy.floor(percentile_index_positions[i]):
+        if ecdf[empiricalLocation-1] == np.floor(percentile_index_positions[i]):
             # i.e. is the percentile in between 2 separate values
             uppWeight = percentile_index_positions[i] - ecdf[empiricalLocation-1]
             lowWeight = 1 - uppWeight
@@ -120,10 +183,10 @@ class Calculator:
         self.out = parsed_args.out
         self.genes = dict()
         self.coding_genes = []
-        self.__distances = numpy.array([])
+        self.__distances = np.array([])
         self.__positions = defaultdict(list)
         self.__coding_positions = defaultdict(list)
-        self.__coding_distances = numpy.array([])
+        self.__coding_distances = np.array([])
         self.__fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min',
                              '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         self.__rower = csv.DictWriter(self.out,
@@ -141,22 +204,39 @@ class Calculator:
 
         derived_features = set()
 
-        current_gene = None
+        genes = dict()
+        orphaned = set()
+        orphan_counter = 0
 
         for record in self.gff:
             if self.atype == "bed12":
-                self.__store_gene(current_gene)
                 if not record.parent:
                     record.parent = "{}.gene".format(record.id)
                 current_gene = Gene(record, gid=record.parent[0], only_coding=self.only_coding,
                                     logger=self.__logger, use_computer=True)
                 transcript2gene[record.id] = record.parent[0]
                 current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
+                assert current_gene.id not in genes, f"Duplicated ID found: {current_gene.id}"
+                genes[current_gene.id] = current_gene
+            elif self.atype == "bam":
+                transcript = TranscriptComputer(record, logger=self.__logger)
+                transcript.parent = transcript.id + "_gene"
+                gcounter = 0
+                while transcript.parent[0] in genes:
+                    gcounter += 1
+                    transcript.parent = transcript.id + f"_gene.{gcounter}"
+
+                genes[transcript.parent[0]] = Gene(transcript, gid=transcript.parent[0],
+                                                   only_coding=self.only_coding, logger=self.__logger,
+                                                   use_computer=True)
             elif record.is_gene is True:
-                self.__store_gene(current_gene)
-                current_gene = Gene(record,
-                                    only_coding=self.only_coding,
-                                    logger=self.__logger, use_computer=True)
+                if record.id in genes:  # Necessary for unsorted inputs
+                    genes[record.id].attributes.update(record.attributes)
+                    genes[record.id].start, genes[record.id].end = record.start, record.end
+                    assert (genes[record.id].strand, genes[record.id].chrom) == record.strand, record.chrom
+                else:
+                    gene = Gene(record, only_coding=self.only_coding, logger=self.__logger, use_computer=True)
+                    genes[gene.id] = gene
             elif record.is_transcript is True or (self.atype == GFF3.__annot_type__ and record.feature == "match"):
                 if record.parent is None and record.feature != "match":
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
@@ -167,82 +247,101 @@ class Calculator:
                     gid = record.id + ".gene"
                 else:
                     gid = record.parent[0]
-                    # assert current_gene is not None, record
-                if current_gene is None or gid != current_gene.id:
-                    # Create a gene record
-                    self.__store_gene(current_gene)
-                    # if record.feature != "match":
-                    #     new_record.feature = "gene"
-                    current_gene = Gene(
+                if gid not in genes:
+                    gene = Gene(
                         record,
                         gid=gid,
                         only_coding=self.only_coding,
                         logger=self.__logger,
                         use_computer=True)
+                    genes[gid] = gene
+
                 transcript2gene[record.id] = gid
-                current_gene.transcripts[record.id] = TranscriptComputer(record,
-                                                                         logger=self.__logger)
+                if record.id not in genes[gid]:
+                    genes[gid].transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
+                else:
+                    genes[gid].transcripts[record.id].start, genes[gid].transcripts[record.id].end = (record.start,
+                                                                                                      record.end)
+                    genes[gid].transcripts[record.id].attributes.update(record.attributes)
 
             elif record.is_derived is True and record.is_exon is False:
                 derived_features.add(record.id)
             elif record.is_exon is True:
                 if self.atype != GFF3.__annot_type__:
-                    if "transcript_id" not in record.attributes:
-                        # Probably truncated record!
-                        record.header = True
-                        continue
-                    if current_gene is None or record.gene != current_gene.id:
-                        self.__store_gene(current_gene)
-                        # new_record = record.copy()
-                        # new_record.feature = "gene"
-                        # new_record.id = new_record.gene
-                        current_gene = Gene(
+                    if record.gene not in genes:
+                        gene = Gene(
                             record,
                             only_coding=self.only_coding,
                             logger=self.__logger,
                             use_computer=True)
-                        record.id = record.transcript
+                        genes[record.gene] = gene
                         transcript2gene[record.transcript] = record.gene
-                        current_gene.transcripts[record.transcript] = TranscriptComputer(record,
-                                                                                         logger=self.__logger)
-                    elif record.transcript not in current_gene:
-                        assert record.transcript not in transcript2gene, record.transcript
-                        transcript2gene[record.transcript] = record.gene
-                        current_gene.transcripts[record.transcript] = TranscriptComputer(record,
+
+                    transcript2gene[record.transcript] = record.gene
+                    if record.transcript not in genes[record.gene].transcripts:
+                        genes[record.gene].transcripts[record.transcript] = TranscriptComputer(record,
                                                                                          logger=self.__logger)
                     else:
-                        current_gene.transcripts[record.transcript].add_exon(record)
+                        genes[record.gene].transcripts[record.transcript].add_exon(record)
+
                 elif self.atype == GFF3.__annot_type__ and "cDNA_match" in record.feature:
                     # Here we assume that we only have "cDNA_match" lines, with no parents
                     record.parent = record.id
-                    if current_gene is None or record.id != current_gene.id:
-                        self.__store_gene(current_gene)
-                        # new_record = record.copy()
-                        current_gene = Gene(
+                    if record.id not in genes:
+                        genes[record.id] = Gene(
                             record,
                             gid=record.id,
                             only_coding=self.only_coding,
                             logger=self.__logger,
                             use_computer=True)
-                        transcript2gene[record.id] = record.id
-                        current_gene.transcripts[record.id] = TranscriptComputer(record,
-                                                                                 logger=self.__logger,
-                                                                                 )
-                    elif record.id not in current_gene:
-                        raise ValueError(
-                            "cDNA_match instances should not have more than one transcript per \"gene\"!")
+                    transcript2gene[record.id] = record.id
+                    if record.id not in genes[record.id]:
+                        genes[record.id].transcripts[record.id] = TranscriptComputer(record,
+                                                                                     logger=self.__logger)
                     else:
-                        current_gene.transcripts[record.id].add_exon(record)
-
+                        genes[record.id].add_exon(record)
                 elif self.atype == GFF3.__annot_type__:
-                    current_gene.add_exon(record)
-
+                    found = False
+                    for parent in record.parent:
+                        if parent in transcript2gene:
+                            gene_id = transcript2gene[parent]
+                            genes[gene_id].add_exon(record)
+                            found = True
+                            break
+                    if found is False:
+                        orphan_counter += 1
+                        self.__logger.debug(f"Storing orphan line {record.parent}, {record.start}, {record.end}")
+                        orphaned.add(record)
             elif record.header is True:
                 continue
             else:
                 continue
 
-        self.__store_gene(current_gene)
+        assert orphan_counter == len(orphaned), f"We have lost lines! Expected {orphan_counter}, found {len(orphaned)}"
+        self.__logger.debug(f"{len(orphaned)} orphan lines.")
+        for orphan in orphaned:
+            found = False
+            for parent in orphan.parent:
+                if found is True:
+                    continue
+                if parent in transcript2gene:
+                    gene_id = transcript2gene[parent]
+                    genes[gene_id].add_exon(orphan)
+                    found = True
+                    self.__logger.debug(f"Found the gene for the record of {parent} (start {orphan.start}, "
+                                        f"end {orphan.end})")
+            if found is False:  # Create a mock gene
+                self.__logger.debug(f"Line for record {orphan.parent} ({orphan.start}, {orphan.end}) is still "
+                                    f"orphaned")
+                transcript = TranscriptComputer(orphan, logger=self.__logger)
+                transcript.parent = transcript.id + "_gene"
+                gene = Gene(transcript, only_coding=self.only_coding,
+                            logger=self.__logger,
+                            use_computer=True)
+                genes[gene.id] = gene
+
+        for gene_id, gene in genes.items():
+            self.__store_gene(gene)
 
     def __call__(self):
 
@@ -254,7 +353,7 @@ class Calculator:
             for index, position in enumerate(__ordered[:-1]):
                 distances.append(__ordered[index + 1][0] - position[1])
 
-        self.__distances = numpy.array(distances)
+        self.__distances = np.array(distances)
 
         distances = []
         for chromosome in self.__positions:
@@ -262,12 +361,12 @@ class Calculator:
             for index, position in enumerate(__ordered[:-1]):
                 distances.append(__ordered[index + 1][0] - position[1])
 
-        self.__coding_distances = numpy.array(distances)
+        self.__coding_distances = np.array(distances)
         self.writer()
         self.out.close()
 
     @staticmethod
-    def get_stats(row: dict, array: numpy.array) -> dict:
+    def get_stats(row: dict, array: np.array) -> dict:
         """
         Method to calculate the necessary statistic from a row of values.
         :param row: the output dictionary row.
@@ -289,7 +388,7 @@ class Calculator:
             row["Average"] = "{0:,.2f}".format(round(
                 sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
 
-            mode = sklearn.utils.extmath.weighted_mode(array, weights)
+            mode = weighted_mode(array, weights)
             # mode = scipy.stats.mode(array, axis=None)
             row["Mode"] = mode[0][0]
         else:
@@ -398,7 +497,7 @@ class Calculator:
                 row["Coordinates"] = "{}:{}-{}".format(gene.chrom,
                                                        gene.transcripts[tid].start,
                                                        gene.transcripts[tid].end)
-                row["Strand"] = gene.strand
+                row["Strand"] = gene.strand if gene.strand else "."
                 row["Exon number"] = len(gene.transcripts[tid].exon_lengths)
                 row["cDNA length"] = gene.transcripts[tid].cdna_length
                 row["Intronic length"] = sum([_[1] - _[0] for _ in gene.transcripts[tid].introns])
@@ -532,12 +631,12 @@ class Calculator:
                              len(self.__stores["monoexonic_genes"])
                              )
         self.__write_statrow('Transcripts per gene',
-                             total=numpy.dot)
-        self.__write_statrow("Coding transcripts per gene", total=numpy.dot)
+                             total=np.dot)
+        self.__write_statrow("Coding transcripts per gene", total=np.dot)
 
-        self.__write_statrow('CDNA lengths', total=numpy.dot)
-        self.__write_statrow("CDNA lengths (mRNAs)", total=numpy.dot)
-        self.__write_statrow('CDS lengths', total=numpy.dot)
+        self.__write_statrow('CDNA lengths', total=np.dot)
+        self.__write_statrow("CDNA lengths (mRNAs)", total=np.dot)
+        self.__write_statrow('CDS lengths', total=np.dot)
         if self.only_coding is False:
             self.__write_statrow("CDS lengths (mRNAs)", total=False)
 
@@ -545,7 +644,7 @@ class Calculator:
 
         self.__write_statrow('Monoexonic transcripts', total=sum)
         self.__write_statrow('MonoCDS transcripts', total=sum)
-        self.__write_statrow('Exons per transcript', total=numpy.dot)
+        self.__write_statrow('Exons per transcript', total=np.dot)
 
         if self.only_coding is False:
             self.__write_statrow('Exons per transcript (mRNAs)',
@@ -564,12 +663,12 @@ class Calculator:
             self.__write_statrow("CDS exons per transcript (mRNAs)",
                                  total="CDS exon lengths")
 
-        self.__write_statrow("CDS exon lengths", total=numpy.dot)
-        self.__write_statrow("CDS Intron lengths", total=numpy.dot)
+        self.__write_statrow("CDS exon lengths", total=np.dot)
+        self.__write_statrow("CDS Intron lengths", total=np.dot)
         self.__write_statrow("5'UTR exon number", total=sum)
         self.__write_statrow("3'UTR exon number", total=sum)
-        self.__write_statrow("5'UTR length", total=numpy.dot)
-        self.__write_statrow("3'UTR length", total=numpy.dot)
+        self.__write_statrow("5'UTR length", total=np.dot)
+        self.__write_statrow("3'UTR length", total=np.dot)
         self.__write_statrow("Stop distance from junction",
                              total=False)
         self.__write_statrow("Intergenic distances", total=False)
@@ -592,7 +691,7 @@ class Calculator:
             total = "NA"
         elif total is True:
             if len(self.__arrays[stat]) == 2 and isinstance(
-                        self.__arrays[stat], numpy.ndarray):
+                        self.__arrays[stat], np.ndarray):
                 total = len(self.__arrays[stat][0])
             else:
                 total = len(self.__arrays[stat])
@@ -603,14 +702,14 @@ class Calculator:
                     total = sum(weights)
                 except ValueError:
                     total = "NA"
-            elif total is numpy.dot:
-                total = numpy.dot(self.__arrays[stat][0],
+            elif total is np.dot:
+                total = np.dot(self.__arrays[stat][0],
                                   self.__arrays[stat][1])
 
             elif not isinstance(total, int):
                 assert total in self.__arrays
                 if len(self.__arrays[total]) == 2 and isinstance(
-                        self.__arrays[total], numpy.ndarray):
+                        self.__arrays[total], np.ndarray):
 
                     total = len(self.__arrays[total][0])
                 else:
@@ -621,7 +720,6 @@ class Calculator:
         row["Total"] = total
         if stat in self.__arrays:
             current_array = self.__arrays[stat]
-            # assert isinstance(current_array, Counter), type(current_array)
         else:
             current_array = None
         row = self.get_stats(row, current_array)

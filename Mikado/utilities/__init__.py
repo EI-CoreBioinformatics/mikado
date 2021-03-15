@@ -3,26 +3,31 @@ This module contains basic utilities for the suite, like e.g. database connectio
 and log creation.
 """
 
+
 import os
 import functools
+import re
+from typing import Union
+
 from . import dbutils
 from . import log_utils
 import collections
 import gzip
-import numpy
-import json
 from itertools import zip_longest
 from .overlap import overlap
 from . import intervaltree
-from .intervaltree import Interval, IntervalTree
-from collections import Counter
-from ..exceptions import InvalidJson
+from .f1 import calc_f1
+from .intervaltree import Interval, IntervalTree, IntervalNode, distance
+import sys
+
 
 __author__ = 'Luca Venturini'
 
 
 # Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
 # BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
+from ..exceptions import InvalidConfiguration
+
 blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 
@@ -30,25 +35,6 @@ def comma_split(string):
     """Small utility to split a string based on comma. Useful for parsers."""
 
     return string.split(",")
-
-
-def rhasattr(obj, attr, *args):
-    """Recursive version of getattr.
-        Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _hasattr(obj, attr):
-        return hasattr(obj, attr, *args)
-
-    return functools.reduce(_hasattr, [obj] + attr.split("."))
-
-
-def rgetattr(obj, attr, *args):
-    """Recursive version of getattr.
-    Source: https://stackoverflow.com/questions/31174295/getattr-and-setattr-on-nested-objects"""
-
-    def _getattr(obj, attr):
-        return getattr(obj, attr, *args)
-    return functools.reduce(_getattr, [obj] + attr.split("."))
 
 
 def path_join(output_dir, output_file):
@@ -143,7 +129,7 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         raise IndexError
 
     total = max(current_lines.keys())
-
+    logger.debug("Merging %d lines into %s", total, handle.name)
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
@@ -151,7 +137,8 @@ def merge_partial(filenames, handle, logger=None, gzipped=False):
         for line in current_lines[index]:
             print(line, file=handle, end="")
         del current_lines[index]
-
+    logger.debug("Merged %d lines into %s", total, handle.name)
+    handle.flush()
     return total
 
 
@@ -229,7 +216,10 @@ def merge_ranges(ranges):
     yield current_start, current_stop
 
 
-def to_region(string):
+_reg_pat = re.compile(r"^([^:]*):(\d*)(?:-|\.\.)(\d*)$")
+
+
+def to_region(string: Union[str, bytes]) -> [str, int, int]:
 
     """
     Snippet to convert from Apollo-style region to a tuple of chrom, start, end
@@ -237,101 +227,56 @@ def to_region(string):
     :return:
     """
 
-    fields = string.split(":")
-    if len(fields) != 2:
-        raise ValueError("Invalid string!")
-    chrom, rest = fields
-    if ".." in rest:
-        separator = ".."
-    elif "-" in rest:
-        separator = "-"
-    else:
-        raise ValueError("Invalid string!")
-
-    start, end = [int(_) for _ in rest.split(separator)]
+    if not isinstance(string, (str, bytes)):
+        raise ValueError("Invalid region: {} (type {})".format(string, type(string)))
+    elif isinstance(string, bytes):
+        string = string.decode()
+    string = string.strip()
+    try:
+        chrom, start, end = _reg_pat.search(string).groups()
+        start, end = int(start), int(end)
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError("Invalid string specified: {}".format(string))
     if end < start:
         raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
-
     return chrom, start, end
-
-
-class NumpyEncoder(json.JSONEncoder):
-    """Necessary to avoid crashes with numpy integers"""
-    def default(self, obj):
-        if isinstance(obj, numpy.integer):
-            return int(obj)
-        elif isinstance(obj, numpy.floating):
-            return float(obj)
-        elif isinstance(obj, numpy.ndarray):
-            return obj.tolist()
-        else:
-            return super(NumpyEncoder, self).default(obj)
-
-
-def parse_list_file(json_conf: dict, list_file):
-    json_conf["prepare"]["files"]["gff"] = []
-    json_conf["prepare"]["files"]["labels"] = []
-    json_conf["prepare"]["files"]["strand_specific_assemblies"] = []
-    json_conf["prepare"]["files"]["source_score"] = dict()
-    json_conf["prepare"]["files"]["reference"] = []
-    json_conf["prepare"]["files"]["exclude_redundant"] = []
-    json_conf["prepare"]["files"]["strip_cds"] = []
-    json_conf["pick"]["chimera_split"]["skip"] = []
-    files_counter = Counter()
-
-    if isinstance(list_file, str):
-        list_file = open(list_file)
-
-    for line in list_file:
-        fields = line.rstrip().split("\t")
-        gff_name, label, stranded = fields[:3]
-        if not os.path.exists(gff_name):
-            raise ValueError("Invalid file name: {}".format(gff_name))
-        if label in json_conf["prepare"]["files"]["labels"]:
-            raise ValueError("Non-unique label specified: {}".format(label))
-        if stranded.lower() not in ("true", "false"):
-            raise ValueError("Malformed line for the list: {}".format(line))
-        if gff_name in json_conf["prepare"]["files"]["gff"]:
-            raise ValueError("Repeated prediction file: {}".format(line))
-        elif label != '' and label in json_conf["prepare"]["files"]["labels"]:
-            raise ValueError("Repeated label: {}".format(line))
-        json_conf["prepare"]["files"]["gff"].append(gff_name)
-        json_conf["prepare"]["files"]["labels"].append(label)
-        if stranded.capitalize() == "True":
-            json_conf["prepare"]["files"]["strand_specific_assemblies"].append(gff_name)
-        if len(fields) >= 4:
-            try:
-                score = float(fields[3])
-            except ValueError:
-                score = 0
-            json_conf["prepare"]["files"]["source_score"][label] = score
-        for arr, pos, default in [("reference", 4, False), ("exclude_redundant", 5, False),
-                                  ("strip_cds", 6, False), ("skip_split", 7, False)]:
-            try:
-                val = fields[pos]
-                if val.lower() in ("false", "true"):
-                    val = eval(val.capitalize())
-                else:
-                    raise ValueError("Malformed line. The last two fields should be either True or False.")
-            except IndexError:
-                val = default
-            if arr == "skip_split":
-                json_conf["pick"]["chimera_split"]["skip"].append(val)
-            else:
-                json_conf["prepare"]["files"][arr].append(val)
-
-    files_counter.update(json_conf["prepare"]["files"]["gff"])
-    if files_counter.most_common()[0][1] > 1:
-        raise InvalidJson(
-            "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
-
-    assert "exclude_redundant" in json_conf["prepare"]["files"]
-    return json_conf
 
 
 def percentage(value):
     value = float(value)
-    while 1 < value < 100:
+    if value < 0:
+        raise ValueError("Negative numbers are not allowed")
+    elif value > 100:
+        raise ValueError("Only numbers between 0 and 100 are allowed")
+    while 1 < value <= 100:
         value /= 100
     return value
+
+
+def default_for_serialisation(obj):
+    if isinstance(obj, set):
+        return tuple(obj)
+    elif obj == float("inf"):
+        return sys.maxsize
+
+
+def to_bool(param: Union[str, bool, int, float]):
+    """Function to convert a items to booleans."""
+
+    if isinstance(param, bool):
+        return param
+    elif isinstance(param, (int, float)):
+        if param == 1:
+            return True
+        elif param == 0:
+            return False
+    elif isinstance(param, (str, bytes)):
+        if isinstance(param, bytes):
+            param = param.decode()
+        lparam = param.lower()
+        if lparam == 'true' or lparam == "1":
+            return True
+        elif lparam == 'false' or lparam == "0":
+            return False
+
+    raise ValueError(f"Invalid boolean parameter: {param}")

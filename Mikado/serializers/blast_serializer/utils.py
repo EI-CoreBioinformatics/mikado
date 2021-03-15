@@ -1,4 +1,5 @@
-from . import Hsp, Hit
+from .hit import Hit
+from .hsp import Hsp
 import sqlalchemy.exc
 
 

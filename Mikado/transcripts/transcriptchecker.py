@@ -4,9 +4,10 @@
 This module defines a child of the Transcript class, which is used
 to verify that e.g. the assigned strand is correct.
 """
+import functools
 
 from .transcript import Transcript
-from ..exceptions import IncorrectStrandError, InvalidTranscript
+from ..exceptions import IncorrectStrandError, InvalidTranscript, InvalidCDS
 from collections import Counter
 from itertools import zip_longest
 from ..parsers.bed12 import BED12
@@ -35,7 +36,7 @@ class TranscriptChecker(Transcript):
                  strand_specific=False, lenient=False,
                  is_reference=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
-                 force_keep_cds=False,
+                 strip_faulty_cds=False,
                  logger=None):
 
         """
@@ -74,18 +75,9 @@ class TranscriptChecker(Transcript):
         self.canonical_splices = []
         self.__is_reference = False
         self.is_reference = is_reference
-        if force_keep_cds is True or self.is_reference is True:
-            self.__force_keep_cds = True
-        else:
-            self.__force_keep_cds = False
-        if lenient is True or self.is_reference is True:
-            self.lenient = True
-        else:
-            self.lenient = False
-        if self.is_reference is True or strand_specific is True:
-            self.strand_specific = True
-        else:
-            self.strand_specific = False
+        self.strip_faulty_cds = strip_faulty_cds
+        self.lenient = (self.is_reference or lenient)
+        self.strand_specific = (self.is_reference or strand_specific)
         if not isinstance(canonical_splices, (tuple, list)):
             raise ValueError("Canonical splices should be provided as lists or tuples")
 
@@ -126,16 +118,6 @@ class TranscriptChecker(Transcript):
         """
 
         return Seq.reverse_complement(string)
-
-    @property
-    def is_reference(self):
-        return self.__is_reference
-
-    @is_reference.setter
-    def is_reference(self, value):
-        if value is not None and not isinstance(value, bool):
-            raise TypeError("This property only accepts boolean values")
-        self.__is_reference = value
 
     @property
     def strand_specific(self):
@@ -190,15 +172,10 @@ class TranscriptChecker(Transcript):
 
         The finalize method is called preliminarly before any operation.
         """
+
         self.finalize()
 
-        if self.exons[0][0] - self.start != 0:
-            error = "First exon start and transcript start disagree in {}: {} vs {}".format(self.id,
-                                                                                            self.exons[0][0],
-                                                                                            self.start)
-            self.logger.error(error)
-            raise InvalidTranscript(error)
-        if self.exons[-1][1] - self.start + 1 != len(self.fasta_seq):
+        if self.end - self.start + 1 != len(self.fasta_seq):
             error = """For {}, the expected length derived from last exon vs transcript start ({} vs {}) is different
             from the length of the FASTA sequence: {} vs {}""".format(self.id,
                                                                       self.exons[-1][1],
@@ -211,7 +188,7 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        if self.strand_specific is False and self.monoexonic is True and self.__force_keep_cds is False:
+        if self.strand_specific is False and self.monoexonic is True and self.is_coding is False:
             self.strand = None
 
         elif self.monoexonic is False:
@@ -285,7 +262,9 @@ we will not reverse it")
         return
 
     def reverse_strand(self):
-        if self.is_coding is True and self.__force_keep_cds is True:
+        if self.is_reference is True:
+            raise InvalidTranscript("I cannot reverse the strand of a reference transcript.")
+        elif self.is_coding is True and self.strip_faulty_cds is False:
             raise InvalidTranscript("I cannot reverse the strand of a coding transcript.")
         super().reverse_strand()
 
@@ -329,39 +308,52 @@ we will not reverse it")
 
     def check_orf(self):
 
+        """
+        Method to check that the transcript ORF makes sense (no internal stop codons and the like).
+        If it fails, the transcript will have its ORF removed.
+        """
+
         self.has_start_codon = False
         self.has_stop_codon = False
 
+        try:
+            self.finalize()
+        except InvalidCDS:
+            if self.strip_faulty_cds is True:
+                self.strip_cds(strand_specific=True)
+                self.finalize()
+            else:
+                self.logger.warning("Transcript %s has an invalid CDS and must therefore be discarded.", self.id)
+
         if self.is_coding is False:
             return
-        else:
-            try:
-                orfs = list(self.get_internal_orf_beds())
-            except AssertionError as exc:  # Invalid ORFs found
+
+        try:
+            orfs = list(self.get_internal_orf_beds())
+            assert len(orfs) >= 1
+        except AssertionError as exc:  # Invalid ORFs found
+            if self.strip_faulty_cds is False:
+                raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
+            else:
                 self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
                                     self.id, exc)
                 self.strip_cds()
-                return
+            return
 
-            if len(orfs) > 1:
-                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
-            elif len(orfs) == 0:
-                raise IndexError("No ORFs retrieved!")
+        orfs = self.find_overlapping_cds(orfs)
+        assert len(orfs) >= 1
 
-            orfs = self.find_overlapping_cds(orfs)
-
-            if len(orfs) > 1:
-                self.logger.warning("Multiple ORFs found for %s. Only considering the primary.", self.id)
-            elif len(orfs) == 0:
-                raise IndexError("No ORFs retrieved!")
-
-            orf = orfs[0]
+        for orf_counter, orf in enumerate(orfs, start=1):
             assert isinstance(orf, BED12)
-
-            if orf.invalid:
-                self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
-                self.strip_cds(self.strand_specific)
-            else:
+            if orf.invalid and orf_counter == len(orfs):
+                if self.strip_faulty_cds is False:
+                    raise InvalidTranscript("Invalid ORF(s) for %s. Discarding it. Reason: %s", self.id,
+                                            orf.invalid_reason)
+                else:
+                    self.logger.warning("Invalid ORF for %s (reason: %s)", self.id, orf.invalid_reason)
+                    self.strip_cds(self.strand_specific)
+                return
+            elif not orf.invalid:
                 self.logger.debug("%s %s a valid start codon, %s a valid stop codon",
                                   self.id, "has" if orf.has_start_codon else "does not have",
                                   "has" if orf.has_stop_codon else "does not have")
@@ -369,42 +361,36 @@ we will not reverse it")
                 self.has_stop_codon = orf.has_stop_codon
                 self.attributes["has_start_codon"] = orf.has_start_codon
                 self.attributes["has_stop_codon"] = orf.has_stop_codon
-
-            return
+                return
 
     @property
     def cdna(self) -> str:
 
         """This property calculates the cDNA sequence of the transcript."""
 
-        sequence = ''
+        return self.calculate_cdna(str(self.fasta_seq.seq), tuple(self.exons), self.cdna_length, self.strand,
+                                   self.start)
 
-        for exon in self.exons:
-            start = exon[0] - self.start
-            end = exon[1] + 1 - self.start
-            _ = str(self.fasta_seq[start:end].seq)
+    @staticmethod
+    @functools.lru_cache(maxsize=10, typed=True)
+    def calculate_cdna(fasta_seq, exons, cdna_length, strand, tstart):
+        sequence = ""
+        for exon in exons:
+            start = exon[0] - tstart
+            end = exon[1] + 1 - tstart
+            _ = fasta_seq[start:end]
+            assert len(_) == end - start, (len(_), end - start)
             sequence += _
 
-        # pylint: disable=no-member
-        if not isinstance(sequence, str):
-            if hasattr(sequence, "seq"):
-                sequence = str(sequence.seq)
-            else:
-                raise TypeError("Invalid object for sequence: {0} ({1})".format(
-                    type(sequence),
-                    repr(sequence)
-                ))
-        # pylint: enable=no-member
-
-        assert len(sequence) == self.cdna_length
-        if self.strand == "-":
-            sequence = self.rev_complement(sequence)
+        assert len(sequence) == cdna_length, (len(sequence), cdna_length)
+        if strand == "-":
+            sequence = TranscriptChecker.rev_complement(sequence)
         return sequence
 
     @property
     def fasta(self):
         """
-        This property calculates and returns the FASTA sequence associated with
+        This property calculates and returns the FASTA sequence (with header) associated with
         the transcript instance.
         The FASTA sequence itself will be formatted to be in lines with 60 characters
         (the standard).

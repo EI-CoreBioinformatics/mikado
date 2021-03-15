@@ -10,237 +10,184 @@ import os
 import argparse
 import logging
 import logging.handlers
-from ..utilities import path_join, parse_list_file
-from ..utilities.log_utils import formatter
-from ..exceptions import InvalidJson
-import random
+from ._utils import check_log_settings_and_create_logger
+from ..configuration import MikadoConfiguration, DaijinConfiguration, parse_list_file
+from ..configuration.configurator import load_and_validate_config
+from ..exceptions import InvalidConfiguration
 from collections import Counter
+from typing import Union
+from ..preparation.prepare import prepare
 
 
 __author__ = 'Luca Venturini'
 
 
-def parse_prepare_options(args, config):
-    
-    if getattr(args, "minimum_cdna_length", None) not in (None, False):
-        config["prepare"]["minimum_cdna_length"] = args.minimum_cdna_length
+def parse_gff_args(mikado_config, args):
+    __gff_counter = Counter()
+    __gff_counter.update(args.gff)
+    if __gff_counter.most_common()[0][1] > 1:
+        raise InvalidConfiguration(
+            "Repeated elements among the input GFFs! Duplicated files: {}".format(
+                ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
+            ))
+    mikado_config.prepare.files.gff = args.gff
+    num_files = len(mikado_config.prepare.files.gff)
+    if args.strand_specific:
+        mikado_config.prepare.strand_specific = True
+    elif args.strand_specific_assemblies:
+        strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+        if len(strand_specific_assemblies) > num_files:
+            raise InvalidConfiguration("Incorrect number of strand-specific assemblies specified!")
+        for member in strand_specific_assemblies:
+            if member not in mikado_config.prepare.files.gff:
+                raise InvalidConfiguration("Incorrect assembly file specified as strand-specific")
+        mikado_config.prepare.files.strand_specific_assemblies = strand_specific_assemblies
+    if args.labels:
+        labels = args.labels.split(",")
+        # Checks labels are unique
+        if len(set(labels)) < len(labels):
+            raise InvalidConfiguration("Duplicated labels detected!")
+        elif any([True for _ in labels if _.strip() == '']):
+            raise InvalidConfiguration("Empty labels provided!")
+        elif len(labels) != num_files:
+            raise InvalidConfiguration("Incorrect number of labels specified")
+        mikado_config.prepare.files.labels = labels
+    else:
+        if not mikado_config.prepare.files.labels:
+            labels = [str(_) for _ in list(range(1, 1 + num_files))]
+            mikado_config.prepare.files.labels = labels
+    mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
+    mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
+    return mikado_config
 
-    if getattr(args, "max_intron_length", None) not in (None, False):
-        config["prepare"]["max_intron_length"] = args.max_intron_length
 
-    if getattr(args, "reference", None) not in (None, False):
-        config["reference"]["genome"] = args.reference
+def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, MikadoConfiguration]:
 
-    if getattr(args, "exclude_redundant", None) is not None:
-        config["prepare"]["exclude_redundant"] = args.exclude_redundant
+    if args.reference is not None:
+        if hasattr(args.reference, "close") and hasattr(args.reference, "name"):
+            args.reference.close()
+            mikado_config.reference.genome = args.reference.name
+        elif hasattr(args.reference, "close") and hasattr(args.reference, "filename"):
+            # Pysam FastaFile. The filename is bytes, not str
+            args.reference.close()
+            mikado_config.reference.genome = args.reference.filename.decode()
+        elif isinstance(args.reference, bytes):
+            mikado_config.reference.genome = args.reference.decode()
+        elif isinstance(args.reference, str):
+            mikado_config.reference.genome = args.reference
+        else:
+            raise InvalidConfiguration(f"Invalid value type for the reference: {args.reference} (type "
+                                       f"{type(args.reference)}")
 
-    if getattr(args, "lenient", None) is not None:
-        config["prepare"]["lenient"] = True
-
-    if getattr(args, "strip_cds", False) is True:
-        config["prepare"]["strip_cds"] = True
-
-    for key in ["exclude_redundant", "strip_cds", "labels", "reference"]:
-        if key not in config["prepare"]["files"]:
-            config["prepare"]["files"][key] = []
+    if not os.path.exists(mikado_config.reference.genome):
+        raise InvalidConfiguration("Reference genome file {} is not available. Please double check.".format(
+            mikado_config.reference.genome))
 
     if args.list:
-        config = parse_list_file(config, args.list)
+        mikado_config = parse_list_file(mikado_config, args.list)
     elif args.gff and args.gff != [""] and args.gff != []:
-        config["prepare"]["files"]["gff"] = args.gff
-        __gff_counter = Counter()
-        __gff_counter.update(args.gff)
-        if __gff_counter.most_common()[0][1] > 1:
-            raise InvalidJson(
-                "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                    ", ".join(_[0] for _ in __gff_counter.most_common() if _[1] > 1)
-                ))
-        if args.strand_specific is True:
-            config["prepare"]["strand_specific"] = True
-        elif args.strand_specific_assemblies is not None:
-            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if len(args.strand_specific_assemblies) > len(config["prepare"]["files"]["gff"]):
-                raise ValueError("Incorrect number of strand-specific assemblies specified!")
-            for member in args.strand_specific_assemblies:
-                if member not in config["prepare"]["files"]["gff"]:
-                    raise ValueError("Incorrect assembly file specified as strand-specific")
-            config["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
-        if args.labels:
-            args.labels = args.labels.split(",")
-            # Checks labels are unique
-            assert len(set(args.labels)) == len(args.labels)
-            assert not any([True for _ in args.labels if _.strip() == ''])
-            if len(args.labels) != len(config["prepare"]["files"]["gff"]):
-                raise ValueError("Incorrect number of labels specified")
-            config["prepare"]["files"]["labels"] = args.labels
-        else:
-            if not config["prepare"]["files"]["labels"]:
-                args.labels = [""] * len(config["prepare"]["files"]["gff"])
-                config["prepare"]["files"]["labels"] = args.labels
-        if config["prepare"]["files"]["exclude_redundant"]:
-            assert len(config["prepare"]["files"]["exclude_redundant"]) == len(
-                config["prepare"]["files"]["gff"])
-        else:
-            config["prepare"]["files"]["exclude_redundant"] = [True] * len(
-                config["prepare"]["files"]["gff"])
+        mikado_config = parse_gff_args(mikado_config, args)
 
-    assert "exclude_redundant" in config["prepare"]["files"], config["prepare"]["files"]
+    if getattr(args, "exclude_redundant", None) in (True, False):
+        mikado_config.prepare.exclude_redundant = args.exclude_redundant
+        mikado_config.prepare.files.exclude_redundant = [args.exclude_redundant] * len(mikado_config.prepare.files.gff)
+    elif not mikado_config.prepare.files.exclude_redundant:
+        mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
+    elif len(mikado_config.prepare.files.exclude_redundant) != len(mikado_config.prepare.files.gff):
+        raise InvalidConfiguration("Mismatch between exclude_redundant and gff files")
 
-    if not config["prepare"]["files"]["exclude_redundant"]:
-        config["prepare"]["files"]["exclude_redundant"] = [False] * len(config["prepare"]["files"]["gff"])
-    elif len(config["prepare"]["files"]["exclude_redundant"]) != len(config["prepare"]["files"]["gff"]):
-        raise ValueError("Mismatch between exclude_redundant and gff files")
-    if not config["prepare"]["files"]["reference"]:
-        config["prepare"]["files"]["reference"] = [False] * len(config["prepare"]["files"]["gff"])
-    elif len(config["prepare"]["files"]["reference"]) != len(config["prepare"]["files"]["gff"]):
-        raise ValueError("Mismatch between is_reference and gff files")
+    if not mikado_config.prepare.files.reference:
+        mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
+    elif len(mikado_config.prepare.files.reference) != len(mikado_config.prepare.files.gff):
+        raise InvalidConfiguration("Mismatch between is_reference and gff files")
 
-    for option in ["minimum_cdna_length", "procs", "single", "max_intron_length"]:
-        if getattr(args, option, None) in (None, False):
-            continue
-        else:
-            config["prepare"][option] = getattr(args, option)
-    
-    return config
+    # Set values from fields
+    mikado_config.prepare.minimum_cdna_length = getattr(args, "minimum_cdna_length", None) if \
+        getattr(args, "minimum_cdna_length", None) else mikado_config.prepare.minimum_cdna_length
+    mikado_config.prepare.max_intron_length = getattr(args, "max_intron_length", None) if \
+        getattr(args, "max_intron_length", None) else mikado_config.prepare.max_intron_length
+    mikado_config.prepare.single = getattr(args, "single", None) if getattr(args, "single", None) else \
+        mikado_config.prepare.single
+    mikado_config.multiprocessing_method = getattr(args, "start_method", None) if \
+        getattr(args, "start_method", None) else mikado_config.multiprocessing_method
+    mikado_config.prepare.files.output_dir = getattr(args, "output_dir", None) if \
+        getattr(args, "output_dir", None) else mikado_config.prepare.files.output_dir
+    mikado_config.prepare.lenient = True if getattr(args, "lenient", None) is not None else \
+        mikado_config.prepare.lenient
+    mikado_config.prepare.strip_faulty_cds = True if getattr(args, "strip_faulty_cds", None) else \
+        mikado_config.prepare.strip_faulty_cds
+    mikado_config.prepare.strip_cds = True if getattr(args, "strip_cds", None) else mikado_config.prepare.strip_cds
+    mikado_config.serialise.codon_table = str(args.codon_table) if (
+            getattr(args, "codon_table", None) not in (None, False, True)) else mikado_config.serialise.codon_table
+
+    if args.random_seed is True:
+        mikado_config.seed = None
+    elif args.seed is not None:
+        mikado_config.seed = args.seed
+    else:
+        pass
+
+    mikado_config.check()
+    assert isinstance(mikado_config.reference.genome, str)
+    return mikado_config
 
 
-def setup(args):
+def setup(args, logger=None) -> (argparse.Namespace, Union[MikadoConfiguration, DaijinConfiguration],
+                                 logging.Logger):
     """Method to set up the analysis using the JSON configuration
     and the command line options.
 
     :param args: the ArgumentParser-derived namespace.
     """
 
-    logger = logging.getLogger("prepare")
-    logger.setLevel(logging.INFO)
+    if logger is None or not isinstance(logger, logging.Logger):
+        logger = logging.getLogger("prepare")
+        logger.setLevel(logging.INFO)
 
-    from ..configuration.configurator import to_json
-    args.json_conf = to_json(args.json_conf)
+    logger.debug("Starting to get prepare arguments")
+    mikado_config = load_and_validate_config(args.configuration, logger=logger)
+    parse_prepare_options(args, mikado_config)
 
-    if args.start_method:
-        args.json_conf["multiprocessing_method"] = args.start_method
+    try:
+        os.makedirs(mikado_config.prepare.files.output_dir, exist_ok=True)
+    except (OSError, PermissionError, FileExistsError) as exc:
+        logger.error("Failed to create the output directory!")
+        logger.exception(exc)
+        raise exc
 
-    if args.output_dir is not None:
-        args.json_conf["prepare"]["files"]["output_dir"] = getattr(args, "output_dir")
-
-    if not os.path.exists(args.json_conf["prepare"]["files"]["output_dir"]):
-        try:
-            os.makedirs(args.json_conf["prepare"]["files"]["output_dir"])
-        except (OSError, PermissionError) as exc:
-            logger.error("Failed to create the output directory!")
-            logger.exception(exc)
-            raise
-    elif not os.path.isdir(args.json_conf["prepare"]["files"]["output_dir"]):
-        logger.error(
-            "The specified output directory %s exists and is not a folder; aborting",
-            args.json_conf["prepare"]["output_dir"])
-        raise OSError("The specified output directory %s exists and is not a folder; aborting" %
-                      args.json_conf["prepare"]["output_dir"])
-
-    if args.codon_table is not None:
-        try:
-            args.codon_table = int(args.codon_table)
-        except ValueError:
-            pass
-        args.json_conf["serialise"]["codon_table"] = args.codon_table
-    else:
-        assert "codon_table" in args.json_conf["serialise"]
-
-    if args.log is not None:
-        args.log.close()
-        args.json_conf["prepare"]["files"]["log"] = args.log.name
-
-    if args.seed is not None:
-        args.json_conf["seed"] = args.seed
-        # numpy.random.seed(args.seed % (2 ** 32 - 1))
-        random.seed(args.seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
-
-    args.json_conf = parse_prepare_options(args, args.json_conf)
-
-    if not args.json_conf["prepare"]["files"]["gff"]:
+    if len(mikado_config.prepare.files.gff) == 0:
         parser = prepare_parser()
         logger.error("No input files found!")
         print(parser.format_help())
         sys.exit(0)
 
     if args.procs is not None and args.procs > 0:
-        args.json_conf["threads"] = args.procs
+        mikado_config.threads = args.procs
 
-    if args.json_conf["prepare"]["files"]["log"]:
-        try:
-            _ = open(path_join(
-                    args.json_conf["prepare"]["files"]["output_dir"],
-                    os.path.basename(args.json_conf["prepare"]["files"]["log"])),
-                "wt")
-        except TypeError:
-            raise TypeError((args.json_conf["prepare"]["files"]["output_dir"],
-                    args.json_conf["prepare"]["files"]["log"]))
-
-        handler = logging.FileHandler(
-            path_join(
-                args.json_conf["prepare"]["files"]["output_dir"],
-                os.path.basename(args.json_conf["prepare"]["files"]["log"])),
-            mode="wt")
-    else:
-        handler = logging.StreamHandler()
-
-    handler.setFormatter(formatter)
-    while logger.handlers:
-        logger.removeHandler(logger.handlers.pop())
-    logger.addHandler(handler)
-    assert logger.handlers == [handler]
-    logger.propagate = False
+    mikado_config, logger = check_log_settings_and_create_logger(mikado_config, args.log, args.log_level,
+                                                                 section="prepare")
     logger.info("Command line: %s",  " ".join(sys.argv))
-    logger.info("Random seed: %s", args.json_conf["seed"])
+    logger.info("Random seed: %s", mikado_config.seed)
 
-    if args.verbose is True:
-        args.json_conf["log_settings"]["log_level"] = "DEBUG"
-    elif args.quiet is True:
-        args.json_conf["log_settings"]["log_level"] = "WARN"
+    mikado_config.prepare.files.out = os.path.basename(mikado_config.prepare.files.out)
+    if getattr(args, "out") not in (None, False):
+        mikado_config.prepare.files.out = os.path.basename(args.out)
 
-    args.level = args.json_conf["log_settings"]["log_level"]
-    logger.setLevel(args.level)
+    mikado_config.prepare.files.out_fasta = os.path.basename(args.out_fasta) if args.out_fasta is not None else \
+        os.path.basename(mikado_config.prepare.files.out_fasta)
 
-    for option in ["out", "out_fasta"]:
-        if getattr(args, option) in (None, False):
-            args.json_conf["prepare"]["files"][option] = os.path.basename(
-                args.json_conf["prepare"]["files"][option]
-            )
-        else:
-            args.json_conf["prepare"]["files"][option] = os.path.basename(getattr(args, option))
+    mikado_config.reference.genome = mikado_config.reference.genome.decode() if \
+        isinstance(mikado_config.reference.genome, bytes) else mikado_config.reference.genome
 
-    if getattr(args, "fasta"):
-        args.fasta.close()
-        name = args.fasta.name
-        if isinstance(name, bytes):
-            name = name.decode()
-        args.json_conf["reference"]["genome"] = name
-
-    if isinstance(args.json_conf["reference"]["genome"], bytes):
-        args.json_conf["reference"]["genome"] = args.json_conf["reference"]["genome"].decode()
-
-    from ..configuration.configurator import to_json, check_json
-    try:
-        args.json_conf = check_json(to_json(args.json_conf))
-    except InvalidJson as exc:
-        logger.exception(exc)
-        raise exc
-
-    return args, logger
+    return args, mikado_config, logger
 
 
 def prepare_launcher(args):
 
-    from ..preparation.prepare import prepare
-    args, logger = setup(args)
-    try:
-        prepare(args, logger)
-        sys.exit(0)
-    except Exception:
-        raise
+    args, mikado_config, logger = setup(args)
+    assert isinstance(mikado_config, (MikadoConfiguration, DaijinConfiguration))
+    prepare(mikado_config, logger)
+    sys.exit(0)
 
 
 def prepare_parser():
@@ -256,11 +203,7 @@ def prepare_parser():
         :param string: cpu requested
         :rtype: int
         """
-        try:
-            string = int(string)
-        except:
-            raise
-        return max(1, string)
+        return max(1, int(string))
 
     def positive(string):
         """
@@ -276,11 +219,14 @@ def prepare_parser():
     1- add the "transcript" feature
     2- sort by coordinates
     3- check the strand""")
-    parser.add_argument("--fasta", type=argparse.FileType(),
-                        help="Genome FASTA file. Required.")
+    parser.add_argument("--fasta", "--reference", dest="reference",
+                        type=argparse.FileType(), help="Genome FASTA file. Required.")
     verbosity = parser.add_mutually_exclusive_group()
-    verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
-    verbosity.add_argument("-q", "--quiet", action="store_true", default=False)
+    verbosity.add_argument("--verbose", default=None, dest="log_level", action="store_const", const="DEBUG")
+    verbosity.add_argument("--quiet", default=None, dest="log_level", action="store_const", const="WARNING")
+    verbosity.add_argument("-lv", "--log-level", default=None,
+                         choices=["DEBUG", "INFO", "WARN", "ERROR"],
+                         help="Log level. Default: derived from the configuration; if absent, INFO")
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
@@ -301,8 +247,7 @@ def prepare_parser():
     "strandedness", "is_reference", "exclude_redundant", "strip_cds" and "skip_split" must be boolean values (True, False)
     "score" must be a valid floating number."""
                         )
-    parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
-                        help="Log file. Optional.")
+    parser.add_argument("-l", "--log", default=None, help="Log file. Optional.")
     parser.add_argument("--lenient", action="store_true", default=None,
                         help="""Flag. If set, transcripts with only non-canonical
                         splices will be output as well.""")
@@ -330,15 +275,21 @@ def prepare_parser():
                         help="Output file. Default: mikado_prepared.gtf.")
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
-    parser.add_argument("--json-conf", dest="json_conf",
+    parser.add_argument("--configuration", "--json-conf", dest="configuration",
                         type=str, default="",
                         help="Configuration file.")
     parser.add_argument("-er", "--exclude-redundant", default=None,
                         dest="exclude_redundant", action="store_true",
                         help="Boolean flag. If invoked, Mikado prepare will exclude redundant models,\
 ignoring the per-sample instructions.")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed number.")
+    cds_stripping = parser.add_mutually_exclusive_group()
+    cds_stripping.add_argument("--strip-faulty-cds", default=None, action="store_true",
+                        help="Flag. If set, transcripts with an incorrect CDS will be retained but \
+with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=None, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare_launcher)
     return parser

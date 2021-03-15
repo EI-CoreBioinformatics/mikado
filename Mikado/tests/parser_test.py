@@ -1,11 +1,19 @@
 import unittest
+
+from Mikado.exceptions import InvalidParsingFormat
+from Mikado.parsers import parser_factory
+from Mikado.parsers.GTF import GTF
+from Mikado.parsers.bam_parser import BamParser
 from .. import parsers
+from ..parsers.GFF import GFF3
+from ..parsers.bed12 import Bed12Parser
+from ..utilities import default_for_serialisation
 import tempfile
+from functools import partial
 import os
 import rapidjson as json
-from pkg_resources import resource_filename
-import gzip
-
+json.dumps = partial(json.dumps, number_mode=json.NM_NATIVE, default=default_for_serialisation)
+from pkg_resources import resource_filename, resource_stream
 
 __author__ = 'Luca Venturini'
 
@@ -22,24 +30,19 @@ class TestParser(unittest.TestCase):
 
     def test_with_construct(self):
 
-        gff_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;"
         gtf_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
+        with tempfile.NamedTemporaryFile("wt", suffix=".gtf", delete=True) as gtf_temp:
+            print(gtf_line, file=gtf_temp)
+            gtf_temp.flush()
+            gtf_temp_reader = open(gtf_temp.name, "rt")
+            gtf_temp_reader.close()
+            with self.assertRaises(InvalidParsingFormat):
+                with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
+                    _ = next(gtf_reader)
 
-        gtf_temp = tempfile.NamedTemporaryFile("wt", suffix=".gtf", delete=False)
-        print(gtf_line, file=gtf_temp)
-        gtf_temp.flush()
-
-        gtf_temp_reader = open(gtf_temp.name, "rt")
-        gtf_temp_reader.close()
-        with self.assertRaises(ValueError):
-            with parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
-                _ = next(gtf_reader)
-
-        with self.assertRaises(ValueError):
-            with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
-                _ = next(gtf_reader)
-
-        os.remove(gtf_temp.name)
+            with self.assertRaises(InvalidParsingFormat):
+                with parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
+                    _ = next(gtf_reader)
 
     def test_serialisation(self):
 
@@ -49,41 +52,41 @@ class TestParser(unittest.TestCase):
 
         for line in [gff_line, gtf_line]:
             with self.subTest(line=line):
-                seri = json.dumps(line.__dict__, number_mode=json.NM_NATIVE)
+                seri = json.dumps(line.__dict__)
                 self.assertIsInstance(seri, str)
-                unseri = json.loads(seri, number_mode=json.NM_NATIVE)
+                unseri = json.loads(seri)
                 self.assertIsInstance(unseri, dict)
 
     def test_name(self):
         gff_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tID=foo.1.1; Parent=foo.1;"
         gtf_line = "Chr1\tmikado\ttranscript\t1000\t2000\t.\t+\t.\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
 
-        gtf_temp = tempfile.NamedTemporaryFile("wt", suffix=".gtf")
-        gff_temp = tempfile.NamedTemporaryFile("wt", suffix=".gff3")
+        with tempfile.NamedTemporaryFile("wt", suffix=".gtf") as gtf_temp, \
+                tempfile.NamedTemporaryFile("wt", suffix=".gff3") as gff_temp:
 
-        print(gff_line, file=gff_temp)
-        print(gtf_line, file=gtf_temp)
+            print(gff_line, file=gff_temp)
+            print(gtf_line, file=gtf_temp)
 
-        gff_temp.flush()
-        gtf_temp.flush()
+            gff_temp.flush()
+            gtf_temp.flush()
 
-        with parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
-            self.assertEqual(gtf_temp.name, gtf_reader.name)
-            self.assertEqual(next(gtf_reader)._line, gtf_line)
-        self.assertTrue(gtf_reader.closed)
+            with parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
+                self.assertEqual(gtf_temp.name, gtf_reader.name)
+                self.assertEqual(next(gtf_reader)._line, gtf_line)
+            self.assertTrue(gtf_reader.closed)
 
-        with parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
-            self.assertEqual(gff_temp.name, gff_reader.name)
-            self.assertEqual(next(gff_reader)._line, gff_line)
-        self.assertTrue(gff_reader.closed)
-        gtf_temp.close()
-        gff_temp.close()
+            with parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
+                self.assertEqual(gff_temp.name, gff_reader.name)
+                self.assertEqual(next(gff_reader)._line, gff_line)
+            self.assertTrue(gff_reader.closed)
+            gtf_temp.close()
+            gff_temp.close()
 
-        with self.assertRaises(TypeError):
-            gtf_reader.closed = "foo"  # not a boolean
+            with self.assertRaises(TypeError):
+                gtf_reader.closed = "foo"  # not a boolean
 
-        with self.assertRaises(TypeError):
-            gff_reader.closed = "foo"  # not a boolean
+            with self.assertRaises(TypeError):
+                gff_reader.closed = "foo"  # not a boolean
 
     def test_phase_frame(self):
         gtf_line = "Chr1\tmikado\texon\t1000\t2000\t.\t+\t0\tgene_id \"foo.1\"; transcript_id \"foo.1.1\";"
@@ -119,7 +122,7 @@ class TestParser(unittest.TestCase):
 
         gff_line = "Chr1\tmikado\tgene\t1000\t2000\t.\t+\t0\tID=\"transcript:foo.1\";"
         gff_line = parsers.GFF.GffLine(gff_line)
-        self.assertFalse(gff_line.is_gene)
+        self.assertTrue(gff_line.is_gene)
         gff_line.id = "gene:foo.1"
         self.assertTrue(gff_line.is_gene)
         gff_line.feature = "gene_ens"
@@ -364,6 +367,37 @@ ENST00000524761
 ENST00000529606
 ENST00000532408
 """.split("\n"))
+
+    def test_incorrect_input_format(self):
+        """Test that to_gff is capable of correctly inferring the format."""
+
+        tests = {
+            "bam": {"fname": ("Mikado.tests", "test_mRNA.bam"), "answer": BamParser},
+            "gtf": {"fname": ("Mikado.tests", "cds_test_1.gtf"), "answer": GTF},
+            "gff3": {"fname": ("Mikado.tests", "trinity.gff3"), "answer": GFF3},
+            "bed12": {"fname": ("Mikado.tests", "trinity.bed12"), "answer": Bed12Parser}
+        }
+
+        def _get_first_line(parser):
+            if isinstance(parser, BamParser):
+                return next(parser)
+            for line in parser:
+                if line.header is True:
+                    continue
+                return line._line
+
+        for key in tests:
+            with self.subTest(format=key):
+                for fname in tests.keys():
+                    temp = tempfile.NamedTemporaryFile(suffix=".{}".format(fname), delete=False)
+                    temp.write(resource_stream(*tests[key]["fname"]).read())
+                    temp.flush()
+                    parser = parser_factory(temp.name)
+                    n = None
+                    while n is None or n.header is True:
+                        n = next(parser)
+                    self.assertIsInstance(parser, tests[key]["answer"], (key, fname, _get_first_line(parser)))
+                    os.remove(temp.name)
 
 
 if __name__ == '__main__':

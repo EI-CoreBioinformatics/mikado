@@ -3,60 +3,42 @@
 """
 Module that defines the blueprint for all loci classes.
 """
-
+import dataclasses
 import abc
+import functools
 import itertools
-import numpy as np
 import logging
 from sys import maxsize
+import marshmallow
 import networkx
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-import numpy
-from ..transcripts.clique_methods import find_communities, define_graph
-from ..transcripts.transcript import Transcript
-from ..configuration.configurator import to_json, check_json
-from ..exceptions import NotInLocusError
-from ..utilities import overlap, merge_ranges, rhasattr, rgetattr
+from ..utilities import to_bool
+from .._transcripts.clique_methods import find_communities, define_graph
+from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
+    RangeFilter, MinMaxScore, TargetScore
+from ..transcripts import Transcript
+from ..exceptions import NotInLocusError, InvalidConfiguration
+from ..utilities import overlap, merge_ranges, default_for_serialisation
 import operator
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import Interval, IntervalTree
 from ..utilities.log_utils import create_null_logger
-from sys import version_info
-from ..scales.contrast import compare as c_compare
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
+from ..scales import c_compare
 import random
+from functools import partial, lru_cache
 import rapidjson as json
-from typing import Union
+dumper = partial(json.dumps, default=default_for_serialisation)
+from typing import Union, Dict
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
+from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
+
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
-json_conf = to_json(None)
-
-
-def to_bool(param: Union[str,bool,int,float]):
-    if isinstance(param, bool):
-        return param
-    elif isinstance(param, (int, float)):
-        if param == 1:
-            return True
-        elif param == 0:
-            return False
-    else:
-        lparam = param.lower()
-        if lparam == 'true':
-            return True
-        elif lparam == 'false':
-            return False
-
-    raise ValueError
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
-    It also defines methods/properties that are needed throughout the program,
-    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.
+    It also defines methods/properties that are needed throughout the program.
     """
 
     __name__ = "Abstractlocus"
@@ -66,8 +48,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     available_metrics = Transcript.get_available_metrics()
 
     # ##### Special methods #########
-
-    __json_conf = json_conf.copy()
 
     # This dictionary contains the correspondence between transcript attributes
     # and the relevant containers in Locus classes.
@@ -86,9 +66,31 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  logger=None,
                  source="",
                  verified_introns=None,
-                 json_conf=None,
+                 configuration=None,
                  use_transcript_scores=False,
                  flank=None):
+        """
+        Generic initialisation method for all locus classes.
+        :param transcript_instance: either None or a valid Transcript instance.
+        :type transcript_instance: (None|Transcript)
+        :param logger: logging instance to use. A default mock one will be created, if absent
+        :type logger: (None|logging.Logger)
+        :param source: the source field to use in GFF/GTF output.
+        :type source: str
+        :param verified_introns: either None or a container of introns verified as reliable by an external program,
+        e.g. Portcullis
+        :type verified_introns: (None|set|list|tuple)
+        :param configuration: either None or a valid configuration object.
+        :type configuration: (None|DaijinConfiguration|MikadoConfiguration)
+        :param use_transcript_scores: boolean. If true, the class will use the score already attached to the transcript
+        (e.g. coming from the GFF file) rather than calculating them.
+        :type use_transcript_scores: bool
+        :param flank: None or integer. This parameter is used by the class to determine whether a transcript not
+        directly overlapping any of the transcripts of the locus should nonetheless be considered as part of it. If no
+        value is provided, the class will use the value coming from the configuration.
+        :type flank: (None|int)
+        """
+
 
         # Mock values
         self.__source = source
@@ -112,16 +114,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if verified_introns is not None:
             self.locus_verified_introns = verified_introns
 
+        self.__configuration = None
+
         self.scores_calculated = False
         self.scores = dict()
         self.__segmenttree = IntervalTree()
-        self.__regressor = None
         self.session = None
         self.metrics_calculated = False
         self._metrics = dict()
         self.__scores = dict()
         self.__internal_graph = networkx.DiGraph()
-        self.json_conf = json_conf
+        self.configuration = configuration
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
         self.__use_transcript_scores = use_transcript_scores
@@ -129,13 +132,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if flank is not None:
             self.flank = flank
         else:
-            self.flank = self.json_conf["pick"]["clustering"]["flank"]
+            self.flank = self.configuration.pick.clustering.flank
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
         """Printing method for the locus class. Each child class must have its own defined method."""
 
     def __repr__(self):
+        """Simplified representation for all locus classes. This will print out:
+        type of the class (locus, Superlocus, etc), chromosome, start, end, strand, list of the names of transcripts."""
 
         if len(self.transcripts) > 0:
             transcript_list = ",".join(list(self.transcripts.keys()))
@@ -150,6 +155,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           transcript_list])
 
     def __eq__(self, other):
+
+        """Two loci are equal if they have the same start, end, chromosome, strand, introns, splices and exons.
+         They also must be either both stranded or both not yet stranded."""
+
         if not isinstance(self, type(other)):
             return False
 
@@ -183,22 +192,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return (self == other) or (self > other)
 
     def __getstate__(self):
-        """Method to allow serialisation - we remove the byte-compiled eval expression."""
+        """Method to allow serialisation of loci objects. To do so, we need to:
+        - remove the logger
+        - removed the compiled "eval" expressions from the configuration
+        - remove the database connections, if present
+        - dump the C structures like the internal nodes.
+        """
 
         logger = self.logger
         del self.logger
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_conf"):
-            # This removes unpicklable compiled attributes, eg in "requirements" or "as_requirements"
-            if "json_conf" not in state:
-                state["json_conf"] = self.json_conf.copy()
-            for key in self.json_conf:
-                if (isinstance(self.json_conf[key], dict) and
-                        self.json_conf[key].get("compiled", None) is not None):
-                    assert key in state["json_conf"]
-                    del state["json_conf"][key]["compiled"]
+        state["json_conf"] = self.configuration.copy()
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -208,10 +214,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["session"] = None
 
         if self.__internal_graph.nodes():
-            try:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0], number_mode=json.NM_NATIVE)
-            except ValueError:
-                nodes = json.dumps(list(self.__internal_graph.nodes())[0])
+            nodes = dumper(list(self.__internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
@@ -219,14 +222,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = [edge for edge in self.__internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
-        try:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges, number_mode=json.NM_NATIVE)
-        except ValueError:
-            state["_Abstractlocus__internal_edges"] = json.dumps(edges)
+        state["_Abstractlocus__internal_edges"] = dumper(edges)
         if hasattr(self, "engine"):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
+        del state["_Abstractlocus__internal_graph"]
+        assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
     def __setstate__(self, state):
@@ -234,42 +236,61 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
         self.__internal_graph = networkx.DiGraph()
-        try:
-            nodes = json.loads(state["_Abstractlocus__internal_nodes"])
-        except json.decoder.JSONDecodeError:
-            raise json.decoder.JSONDecodeError(state["_Abstractlocus__internal_nodes"])
+        assert state["json_conf"] is not None
+        self.configuration = state["json_conf"]
+        assert self.configuration is not None
+        nodes = json.loads(state["_Abstractlocus__internal_nodes"])
         edges = []
         for edge in json.loads(state["_Abstractlocus__internal_edges"]):
             edges.append((tuple(edge[0]), tuple(edge[1])))
-        try:
-            self.__internal_graph.add_nodes_from(nodes)
-        except TypeError:
-            raise TypeError(nodes)
-        try:
-            self.__internal_graph.add_edges_from(edges)
-        except TypeError:
-            raise TypeError(edges)
+        self.__internal_graph.add_nodes_from(nodes)
+        self.__internal_graph.add_edges_from(edges)
 
-        if hasattr(self, "json_conf"):
-            if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
-                self.json_conf["requirements"]["compiled"] = compile(
-                    self.json_conf["requirements"]["expression"],
-                    "<json>", "eval")
-        # Set the logger to NullHandler
+        # Recalculate the segment tree
         _ = self.__segmenttree
         self.logger = None
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
+        """Method to convert the locus instance to a dictionary, allowing it to be dumped as JSON or through
+        msgpack."""
         self.get_metrics()
         state = self.__getstate__()
         state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
         assert "metrics_calculated" in state
+        state["json_conf"] = dataclasses.asdict(state["json_conf"])
+        assert state["json_conf"]["seed"] is not None
         return state
 
-    def load_dict(self, state, load_transcripts=True):
-        assert isinstance(state, dict)
-        self.__setstate__(state)
+    def load_dict(self, state: dict, load_transcripts=True, load_configuration=True):
+        """Method to recreate a locus object from a dumped dictionary, created through as_dict.
+        :param state: the dictionary to load values from
+        :param load_transcripts: boolean. If False, transcripts will be left in their dump state rather than be
+        converted back to Transcript objects.
+        :param load_configuration: boolean. If False, the locus class will presume that the existing configuration
+        is the correct one.
+        """
 
+        assert isinstance(state, dict)
+        if load_configuration is True:
+            if isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration)):
+                self.configuration = state["json_conf"]
+            else:
+                try:
+                    self.configuration = MikadoConfiguration.Schema().load(state["json_conf"])
+                except marshmallow.exceptions.MarshmallowError as exc1:
+                    try:
+                        self.configuration = DaijinConfiguration.Schema().load(state["json_conf"])
+                    except marshmallow.exceptions.MarshmallowError as exc2:
+                        error = "Invalid input for the DaijinConfiguration schema!\nType: {}\n\n{}\n\n" \
+                                "Error when loading as MikadoConfiguration : {}" \
+                                "\n\nError when loading as DaijinConfiguration: {}".format(
+                            type(state["json_conf"]), DaijinConfiguration.Schema().validate(state["json_conf"]),
+                            exc1, exc2
+                        )
+                        raise marshmallow.exceptions.MarshmallowError(error)
+
+        state["json_conf"] = self.configuration
+        self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:
             self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
@@ -283,6 +304,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return iter(self.transcripts.keys())
 
     def __getitem__(self, item):
+        """Locus objects will function as dictionaries of transcripts, indexed on the basis of the transcript ID."""
 
         return self.transcripts[item]
 
@@ -294,7 +316,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 flank=0,
                 positive=False) -> int:
 
-        """:param first_interval: a tuple of integers
+        """
+        This static method returns the overlap between two intervals.
+
+        Values<=0 indicate no overlap.
+
+        The optional "flank" argument (default 0) allows to expand a locus upstream and downstream.
+        As a static method, it can be used also outside of any instance - "abstractlocus.overlap()" will function.
+        Input: two 2-tuples of integers.
+
+        :param first_interval: a tuple of integers
         :type first_interval: [int,int]
 
         :param second_interval: a tuple of integers
@@ -305,69 +336,58 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         :param positive: if True, negative overlaps will return 0. Otherwise, the negative overlap is returned.
         :type positive: bool
-
-        This static method returns the overlap between two intervals.
-
-        Values<=0 indicate no overlap.
-
-        The optional "flank" argument (default 0) allows to expand a locus
-        upstream and downstream.
-        As a static method, it can be used also outside of any instance -
-        "abstractlocus.overlap()" will function.
-        Input: two 2-tuples of integers.
         """
 
         return overlap(first_interval, second_interval, flank, positive=positive)
 
     @staticmethod
-    def evaluate(param: str, conf: dict) -> bool:
+    def evaluate(param: Union[str, int, bool, float],
+                 conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]) -> bool:
 
         """
+        This static method will evaluate whether a certain parameter respects the conditions laid out in the
+        requirements dictionary (usually retrieved from the MikadoConfiguration configuration object).
+        See the documentation for details of available operators.
+
         :param param: string to be checked according to the expression in the configuration
         :type param: str
 
         :param conf: a dictionary containing the expressions to evaluate
         :type conf: dict
-
-        This static method evaluates a single parameter using the requested
-        operation from the JSON dict file.
         """
 
-        if conf["operator"] == "eq":
-            comparison = (float(param) == float(conf["value"]))
-        elif conf["operator"] == "ne":
-            comparison = (float(param) != float(conf["value"]))
-        elif conf["operator"] == "gt":
-            comparison = (float(param) > float(conf["value"]))
-        elif conf["operator"] == "lt":
-            comparison = (float(param) < float(conf["value"]))
-        elif conf["operator"] == "ge":
-            comparison = (float(param) >= float(conf["value"]))
-        elif conf["operator"] == "le":
-            comparison = (float(param) <= float(conf["value"]))
-        elif conf["operator"] == "in":
-            comparison = (param in conf["value"])
-        elif conf["operator"] == "not in":
-            comparison = (param not in conf["value"])
-        elif conf["operator"] == "within":
-            comparison = (param in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
-        elif conf["operator"] == "not within":
-            comparison = (param not in range(*sorted([conf["value"][0], conf["value"][1] + 1])))
+        comparison_operator = conf.operator
+        if comparison_operator == "eq":
+            comparison = (float(param) == float(conf.value))
+        elif comparison_operator == "ne":
+            comparison = (float(param) != float(conf.value))
+        elif comparison_operator == "gt":
+            comparison = (float(param) > float(conf.value))
+        elif comparison_operator == "lt":
+            comparison = (float(param) < float(conf.value))
+        elif comparison_operator == "ge":
+            comparison = (float(param) >= float(conf.value))
+        elif comparison_operator == "le":
+            comparison = (float(param) <= float(conf.value))
+        elif comparison_operator == "in":
+            comparison = (param in conf.value)
+        elif comparison_operator == "not in":
+            comparison = (param not in conf.value)
+        elif comparison_operator == "within":
+            start, end = sorted([conf.value[0], conf.value[1]])
+            comparison = (start <= float(param) <= end)
+        elif comparison_operator == "not within":
+            start, end = sorted([conf.value[0], conf.value[1]])
+            comparison = (param < start or param > end)
         else:
-            raise ValueError("Unknown operator: {0}".format(conf["operator"]))
+            raise ValueError("Unknown operator: {0}".format(comparison_operator))
         return comparison
 
     # #### Class methods ########
 
     @classmethod
-    def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
+    def in_locus(cls, locus_instance, transcript: Transcript, flank=0) -> bool:
         """
-        :param locus_instance: an inheritor of this class
-        :param transcript: a transcript instance
-
-        :param flank: an optional extending parameter to check for neighbours
-        :type flank: int
-
         Function to determine whether a transcript should be added or not to the locus_instance.
         This is a class method, i.e. it can be used also unbound from any
         specific instance of the class.
@@ -375,7 +395,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Arguments:
         - a "locus_instance" object
         - a "transcript" object (it must possess the "finalize" method)
-        - flank - optional keyword"""
+        - flank - optional keyword
+
+        :param locus_instance: an inheritor of this class
+        :param transcript: a transcript instance
+        :type transcript: Transcript
+
+        :param flank: an optional extending parameter to check for neighbours
+        :type flank: int
+        """
 
         if not isinstance(transcript, Transcript):
             raise TypeError("I can only perform this operation on transcript classes, not {}".format(
@@ -387,9 +415,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError("I cannot perform this operation on non-locus classes, this is a {}".format(
                 type(locus_instance)))
 
-        if not hasattr(locus_instance, "chrom"):
-            return False
-
         if locus_instance.chrom == transcript.chrom:
             if locus_instance.stranded is False or locus_instance.strand == transcript.strand:
                 lbound = (locus_instance.start, locus_instance.end)
@@ -400,15 +425,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def define_graph(self, objects: dict, inters=None, **kwargs) -> networkx.Graph:
         """
-        :param objects: a dictionary of objects to be grouped into a graph
-        :type objects: dict
-
-        :param inters: the intersecting function to be used to define the graph
-        :type inters: callable
-
-        :param kwargs: optional arguments to be passed to the inters function
-        :type kwargs: dict
-
         This function will compute the graph which will later be used by find_communities.
         The method takes as mandatory inputs the following:
             - "objects" a dictionary of objects that form the graph
@@ -416,51 +432,51 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         It will then return a graph.
         The method accepts also kwargs that can be passed to the inters function.
-        WARNING: the kwargs option is really stupid and does not check
-        for correctness of the arguments!
+        WARNING: the kwargs option is does not check for correctness of the arguments!
+
+        :param objects: a dictionary of objects to be grouped into a graph
+        :type objects: dict
+
+        :param inters: the intersecting function to be used to define the graph. If None is specified, this method
+        will use the default "is_intersecting" function defined for each of the children of AbstractLocus.
+        :type inters: (None|callable)
+
+        :param kwargs: optional arguments to be passed to the inters function
+        :type kwargs: dict
         """
 
-        if inters is None:
-            inters = self.is_intersecting
-
+        inters = self.is_intersecting if inters is None else inters
         return define_graph(objects, inters, **kwargs)
 
-    def find_communities(self, graph: networkx.Graph) -> list:
+    def find_communities(self, graph: networkx.Graph) -> set:
         """
+        This function is a wrapper around the networkX methods to find communities inside a graph.
+        The method takes as input a precomputed graph and returns a set of the available communities
 
         :param graph: a Graph instance from networkx
         :type graph: networkx.Graph
-
-        This function is a wrapper around the networkX methods to find
-        cliques and communities inside a graph.
-        The method takes as input a precomputed graph and returns
-        two lists:
-            - cliques
-            - communities
         """
 
         return find_communities(graph, self.logger)
 
     def choose_best(self, transcripts: dict) -> str:
         """
-        :param transcripts: the dictionary of transcripts of the instance
-        :type transcripts: dict
-
         Given a transcript dictionary, this function will choose the one with the highest score.
         If multiple transcripts have exactly the same score, one will be chosen randomly.
 
+        :param transcripts: the dictionary of transcripts of the instance
+        :type transcripts: dict
         """
 
         # Choose one transcript randomly between those that have the maximum score
         if len(transcripts) == 1:
             return list(transcripts.keys())[0]
-        # np.random.seed(self.json_conf["seed"])
-        random.seed(self.json_conf["seed"])
+        random.seed(self.configuration.seed)
         if self.reference_update is True:
             # We need to select only amongst the reference transcripts
             reference_sources = {source for source, is_reference in
-                                 zip(self.json_conf["prepare"]["files"]["labels"],
-                                     self.json_conf["prepare"]["files"]["reference"]) if is_reference is True}
+                                 zip(self.configuration.prepare.files.labels,
+                                     self.configuration.prepare.files.reference) if is_reference is True}
             reference_tids = set()
             for tid, transcript in transcripts.items():
                 is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
@@ -479,36 +495,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def add_transcript_to_locus(self, transcript, check_in_locus=True, **kwargs):
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):
         """
-        :param transcript
-        :type transcript: Mikado.loci_objects.transcript.Transcript
-
-        :param check_in_locus: flag to indicate whether the function
-        should check the transcript before adding it
-        or instead whether to trust the assignment to be correct
-        :type check_in_locus: bool
-
-        This method checks that a transcript is contained within the superlocus
-        (using the "in_superlocus" class method)
-        and upon a successful check extends the superlocus with the new transcript.
+        This method checks that a transcript is contained within the locus
+        (using the "in_locus" class method) and upon a successful check extends the locus with the new transcript.
         More precisely, it updates the boundaries (start and end) it adds the transcript
         to the internal "transcripts" store, and finally it extends
         the splices and introns with those found inside the transcript.
+
+        :param transcript
+        :type transcript: Transcript
+
+        :param check_in_locus: flag to indicate whether the function should check the transcript before adding it
+        or instead whether to trust the assignment to be correct.
+        :type check_in_locus: bool
         """
 
         transcript.finalize()
         self.monoexonic = self.monoexonic and self._is_transcript_monoexonic(transcript)
 
-        if "flank" in kwargs:
-            pass
-        else:
-            kwargs["flank"] = self.flank
-
         if self.initialized is True:
             if check_in_locus is False:
                 pass
-            elif not self.in_locus(self, transcript, **kwargs):
+            elif not self.in_locus(self, transcript, flank=self.flank, **kwargs):
                 raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
@@ -534,9 +543,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             getattr(self, locattr).update(set(getattr(transcript, tranattr)))
 
-        if transcript.monoexonic is False:
-            assert len(self.introns) > 0
-
+        assert transcript.monoexonic or len(self.introns) > 0
         self.add_path_to_graph(transcript, self._internal_graph)
         assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
         assert len(self.locus_verified_introns) >= transcript.verified_introns_num
@@ -558,8 +565,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This method is needed to exchange transcripts that might have been modified by padding."""
         if original_transcript.tid != transcript.tid:
             raise KeyError("I cannot hot swap two transcripts with two different IDs!")
-        # if hash(original_transcript) == hash(transcript):  # Expensive operation, let us try to avoid it if possible
-        #     return
         if original_transcript == transcript:
             return
 
@@ -577,12 +582,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def remove_transcript_from_locus(self, tid: str):
         """
+        This method will remove a transcript from an Abstractlocus-like instance and reset appropriately
+        all derived attributes (e.g. introns, start, end, etc.).
+        If the transcript ID is not present in the locus, the function will return silently after emitting a DEBUG
+        message.
+
         :param tid: name of the transcript to remove
         :type tid: str
-
-         This method will remove a transcript from an Abstractlocus-like
-         instance and reset appropriately all derived attributes
-         (e.g. introns, start, end, etc.).
         """
 
         if tid not in self.transcripts:
@@ -605,8 +611,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
             # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-            import sys
-            self.start, self.end, self.strand = sys.maxsize, -sys.maxsize, None
+
+            self.start, self.end, self.strand = maxsize, -maxsize, None
             self.stranded = False
             self.initialized = False
 
@@ -624,11 +630,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.warning("Removing all transcripts from %s", self.id)
         self.__internal_graph = networkx.DiGraph()
         self.transcripts = dict()
+        self.chrom = None
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded = False
         self.initialized = False
         self.metrics_calculated = False
         self.scores_calculated = False
+        self._calculate_graph([])
 
     @staticmethod
     def _exon_to_be_considered(exon,
@@ -720,7 +728,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           internal_splices: set,
                           cds_introns: set,
                           coding=True,
-                          logger=create_null_logger()):
+                          logger=create_null_logger()) -> (bool, bool):
 
         """Private static method to verify whether a given exon is a retained intron in the current locus.
         The method is as follows:
@@ -736,17 +744,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         :param exon: the exon to be considered.
         :type exon: (tuple|Interval)
-
-        :param frags: a list of intervals that are non-coding within the exon.
+        :param strand: strand of the locus. Necessary to determine whether the CDS has been disrupted.
+        :type strand: (None|str)
+        :param segmenttree: the interval-tree structure of the *introns* present in the locus.
+        :type segmenttree: IntervalTree
+        :param digraph: a directed graph joining exons to introns.
+        :type digraph: networkx.DiGraph
+        :param frags: a list of intervals that are non-coding within the exon. E.g. if an exon of a monoexonic
+        coding transcript is at coordinates (101, 1000) and its CDS is (301, 600), this list should be
+        [(101, 300), (601, 1000)], ie the UTR.
         :type frags: list[(tuple|Interval)]
-
+        :param introns: set of introns of the locus
+        :type introns: set
         :param internal_splices: which of the two boundaries of the exon are actually internal (if any).
         :type internal_splices: set
+        :cds_introns: set of introns in the locus that are between coding exons.
+        :type cds_introns: set
 
-        :param terminal: whether the exon is at the 3' end.
-        :type terminal: bool
-
-        :rtype: bool
+        :rtype: (bool, bool)
         """
 
         is_retained = False
@@ -756,10 +771,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
-        logger.debug("Analysing exon %s with frags %s", exon, frags)
+        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
+        # As sets are not hashable!
+        ancestors, descendants = _get_intron_ancestors_descendants(tuple(introns), digraph)
 
         if not found_introns:
-            logger.debug("No intron found for %s, returning False.", exon)
             return is_retained, cds_broken
 
         # logger.debug("Found introns for %s: %s", exon, found_introns)
@@ -774,18 +790,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif coding is False:
                     break
 
-            before = {_ for _ in networkx.ancestors(digraph, intron) if
-                      _ not in introns and overlap(_, exon) > 0}
-
-            after = {_ for _ in networkx.descendants(digraph, intron) if
-                     _ not in introns and overlap(_, exon) > 0}
+            before = {_ for _ in ancestors[intron] if overlap(_, exon) > 0}
+            after = {_ for _ in descendants[intron] if overlap(_, exon) > 0}
 
             # Now we have to check whether the matched introns contain both coding and non-coding parts
             # Let us exclude any intron which is outside of the exonic span of interest.
             # logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
             if len(before) == 0 and len(after) == 0:
                 # A retained intron must be overlapping some other exons!
-                logger.debug("No before/after exonic overlap found for exon %s vs intron %s. Skipping", exon, intron)
                 continue
             else:
                 if len(internal_splices) == 0:
@@ -805,29 +817,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 else:
                     start_found = (exon[0] in set([e[0] for e in before - introns]))
                     end_found = (exon[1] in set([e[1] for e in after - introns]))
-                    logger.debug("Exon %s vs intron %s: strand %s, start found %s, end found %s (I.S. %s)",
-                                 exon, intron, strand, start_found, end_found, internal_splices)
                     if len(internal_splices) == 1:
                         if exon[0] in internal_splices:  # This means that the end is dangling
                             end_found = True
                         elif exon[1] in internal_splices:  # This means that the start is dangling
                             start_found = True
 
-                logger.debug(
-                    "Exon %s vs intron %s: strand %s, retained %s, start found %s, end found %s (I.S. %s); frags: %s",
-                    exon, intron, strand, start_found and end_found, start_found, end_found, internal_splices, frags)
                 if start_found and end_found:
-                    logger.debug("Exon %s is retained (for intron %s)", exon, intron)
                     # Now we have to check whether the CDS breaks within the intron
                     if intron in cds_introns:
                         for frag, intron in itertools.product(frags, [intron]):
                             cds_broken = cds_broken or (overlap(frag, intron, positive=True) > 0)
                             if cds_broken is True:
-                                logger.debug("Frag %s intersecting intron %s: CDS interrupted", frag, intron)
                                 break
-                            else:
-                                logger.debug("Frag %s of exon %s does not intersect intron %s.",
-                                             frag, exon, intron)
 
                 is_retained = is_retained or (start_found and end_found)
 
@@ -853,30 +855,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def find_retained_introns(self, transcript: Transcript):
 
-        """This method checks the number of exons that are possibly retained
-        introns for a given transcript.
-        A retained intron is defined as an exon which:
-        - spans completely an intron of another model *between coding exons*
-        - is not completely coding itself
-        - has at least part of its non-coding sections *within the intron*
-
-        If the "pick/run_options/consider_truncated_for_retained" flag in the configuration is set to true,
-         an exon will be considered as a retained intron event also if:
-         - it is the last exon of the transcript
-         - it ends *within* an intron of another model *between coding exons*
-         - is not completely coding itself
-         - if the model is coding, the exon has *part* of the non-coding section lying inside the intron
-         (ie the non-coding section must not be starting in the exonic part).
-
-        The results are stored inside the transcript instance, in the "retained_introns" tuple.
-
-        If the transcript is non-coding, then all intron retentions are considered as valid: even those spanning introns
-        across non-coding exons of a coding model.
+        """This method checks the number of exons that are possibly retained introns for a given transcript.
+        An exon is considered to be a retained intron if either it completely spans another intron or is terminal
+        at the 3' end and ends within the intron of another transcript.
+        Additionally, this method will check whether the CDS of the transcript has been disrupted by the retained intron
+        event by verifying whether at least one exon has the CDS ending within a coding intron of another transcript.
 
         :param transcript: a Transcript instance
         :type transcript: Transcript
-        :returns : None
-        :rtype : None"""
+        """
 
         # self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
         if self.stranded is False:
@@ -899,7 +886,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # - OR is the last exon of the transcript and it ends within the intron of another transcript
 
         retained_introns = []
-        # consider_truncated = self.json_conf["pick"]["run_options"]["consider_truncated_for_retained"]
 
         cds_broken = False
 
@@ -912,11 +898,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 continue
 
             result = self._is_exon_retained(
-                exon,
-                self.strand,
-                self.segmenttree,
-                self._internal_graph,
-                frags,
+                exon=exon,
+                strand=self.strand,
+                segmenttree=self.segmenttree,
+                digraph=self._internal_graph,
+                frags=frags,
                 internal_splices=internal_splices,
                 introns=self.introns,
                 cds_introns=self.combined_cds_introns,
@@ -963,15 +949,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
          :param other:
          :type other: Transcript
 
-        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as intersecting,
-         even when all other conditions fail.
+        :param min_cdna_overlap: float. This is the minimum cDNA overlap for two transcripts to be considered as
+        intersecting, even when all other conditions fail.
         :type min_cdna_overlap: float
 
-        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as intersecting,
-         even when all other conditions fail.
+        :param min_cds_overlap: float. This is the minimum CDS overlap for two transcripts to be considered as
+        intersecting, even when all other conditions fail.
         :type min_cds_overlap: float
 
         :param comparison: default None. If one is provided, it should be a pre-calculated output of Mikado compare.
+        :param check_references: boolean. If set to False and both transcripts are marked as reference, the comparison
+        will yield True. This is to ensure that we gather up reference transcripts as AS events during the locus stage.
 
         :param fixed_perspective: boolean. If True, the method will consider the second transcript as the "reference" and
         therefore the cDNA and CDS overlap percentages will be calculated using its ratio. Otherwise, the method will
@@ -980,6 +968,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         and the **latter** during the monosublocus stage.
         :type fixed_perspective: bool
         """
+
+        if other.chrom != transcript.chrom:
+            intersecting = False
+            reason = f"{other.id} and {transcript.id} are not on the same chromosome. Discarding {other.id}"
+            return intersecting, reason
+        elif overlap((other.start, other.end), (transcript.start, transcript.end)) <= 0:
+            reason = f"{other.id} does not share a single basepair with {transcript.id}. Discarding it."
+            intersecting = False
+            return intersecting, reason
+        elif check_references is False and other.is_reference is True and transcript.is_reference is True:
+            intersecting = True
+            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
+            return intersecting, reason
 
         if comparison is None:
             comparison, _ = c_compare(other, transcript)
@@ -1021,12 +1022,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
             assert cds_overlap <= 1
 
-        if other.is_reference is True and check_references is False and transcript.is_reference is True:
-            intersecting = True
-            reason = "{} is a reference transcript being added to a reference locus. Keeping it.".format(other.id)
-        elif transcript.is_coding and other.is_coding:
+        if transcript.is_coding and other.is_coding:
             intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
-
             reason = "{} and {} {}share enough cDNA ({}%, min. {}%) and CDS ({}%, min. {}%), {}intersecting".format(
                 transcript.id, other.id,
                 "do not " if not intersecting else "",
@@ -1043,67 +1040,66 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return intersecting, reason
 
+    def _create_metrics_row(self, tid: str, metrics: dict, transcript: Transcript) -> dict:
+        """Private method to create the metrics row to print out.
+        :param tid: the transcript ID to print
+        :param metrics: the dictionary of pre-calculated metrics
+        :param transcript: the transcript instance to check
+        """
+
+        try:
+            self.filter_and_calculate_scores()
+        except NotImplementedError:
+            pass
+        row = dict()
+        for num, key in enumerate(self.available_metrics):
+
+            if num == 0:  # transcript id
+                value = tid
+            elif num == 2:  # Parent
+                value = self.id
+            elif key == "score":
+                value = self.scores.get(tid, dict()).get("score", None)
+            else:
+                value = metrics.get(key, "NA")
+
+            if isinstance(value, float):
+                value = round(value, 2)
+            elif value is None or value == "":
+                value = "NA"
+            row[key] = value
+
+        for source in transcript.external_scores:
+            # Each score from external files also contains a multiplier.
+            key = "external.{}".format(source)
+            value = transcript.external_scores.get(source)[0]
+            if isinstance(value, float):
+                value = round(value, 2)
+            elif value is None or value == "":
+                value = "NA"
+            row[key] = value
+
+        return row
+
     def print_metrics(self):
 
         """This method yields dictionary "rows" that will be given to a csv.DictWriter class."""
 
-        # Check that rower is an instance of the csv.DictWriter class
-
-        # The rower is an instance of the DictWriter class from the standard CSV module
-
         self.get_metrics()
 
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
-            row = {}
+            assert tid in self._metrics or transcript.alias in self._metrics, (tid, transcript.alias,
+                                                                               self._metrics.keys())
             if tid not in self._metrics and transcript.alias in self._metrics:
                 metrics = self._metrics[transcript.alias]
             else:
                 metrics = self._metrics[tid]
-
-            for num, key in enumerate(self.available_metrics):
-
-                if num == 0:  # transcript id
-                    value = tid
-                elif num == 2:  # Parent
-                    value = self.id
-                else:
-                    value = metrics.get(key, "NA")
-                    # value = getattr(transcript, key, "NA")
-                if isinstance(value, float):
-                    value = round(value, 2)
-                elif value is None or value == "":
-                    if key == "score":
-                        value = self.scores.get(tid, dict()).get("score", None)
-                        self.transcripts[tid].score = value
-                        if isinstance(value, float):
-                            value = round(value, 2)
-                        elif value is None:
-                            value = "NA"
-                    else:
-                        value = "NA"
-                row[key] = value
-
-            for source in transcript.external_scores:
-                # Each score from external files also contains a multiplier.
-                key = "external.{}".format(source)
-                value = transcript.external_scores.get(source)[0]
-                if isinstance(value, float):
-                    value = round(value, 2)
-                elif value is None or value == "":
-                    value = "NA"
-                row[key] = value
-
-            # assert row != {}
-            yield row
-
+            yield self._create_metrics_row(tid, metrics, transcript)
         return
 
     def get_metrics(self):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
-
-        # if self.metrics_calculated is True:
-        #     return
 
         if self.metrics_calculated is True:
             return
@@ -1139,25 +1135,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     def calculate_metrics(self, tid: str):
         """
-        :param tid: the name of the transcript to be analysed
-        :type tid: str
-
         This function will calculate the metrics for a transcript which are relative in nature
         i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
         of introns or exons in the sublocus, or the number/fraction of retained introns.
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
         """
 
         if self.metrics_calculated is True:
             return
 
         self.logger.debug("Calculating metrics for %s", tid)
-        # The transcript must be finalized before we can calculate the score.
-        # self.transcripts[tid].finalize()
-
-        if len(self.locus_verified_introns) == 0 and self.transcripts[tid].verified_introns_num > 0:
-            raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(
-                self.id, tid, len(self.transcripts[tid].verified_introns)))
-
+        self.transcripts[tid].finalize()
+        assert (self.transcripts[tid].verified_introns_num <= len(self.locus_verified_introns))
         if len(self.locus_verified_introns) > 0:
             verified = len(
                 set.intersection(self.transcripts[tid].verified_introns,
@@ -1168,23 +1158,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.transcripts[tid].proportion_verified_introns_inlocus = 1
 
-        assert (not (len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0) or
-                (self.transcripts[tid].proportion_verified_introns_inlocus > 0))
-
-        # if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
-        #     assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
-
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 
-        try:
-            self.transcripts[tid].exon_fraction = fraction
-        except ValueError:
-            raise ValueError("Invalid fraction. Exons:\n{}\n{}".format(
-                self.transcripts[tid].exons,
-                self.exons
-            ))
-
+        self.transcripts[tid].exon_fraction = fraction
         self.logger.debug("Calculated exon fraction for %s", tid)
 
         if len(self.introns) > 0:
@@ -1217,15 +1194,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.debug("Starting to calculate retained introns for %s", tid)
         if len(self.transcripts) > 1 and any(len(self[_].introns) > 0 for _ in self if _ != tid):
             self.find_retained_introns(self.transcripts[tid])
-        assert isinstance(self.transcripts[tid], Transcript)
+        assert isinstance(self.transcripts[tid], Transcript), \
+            "Key {tid} does not point to a transcript but to an object of type {tobj}".format(
+                tid=tid, tobj=type(self.transcripts[tid]))
 
         retained_bases = sum(e[1] - e[0] + 1
                              for e in self.transcripts[tid].retained_introns)
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
 
-        self._metrics[tid] = dict((metric, rgetattr(self.transcripts[tid], metric))
-                                   for metric in self.available_metrics)
+        self._metrics[tid] = dict()
+
+        for metric in self.available_metrics:
+            self._metrics[tid][metric] = operator.attrgetter(metric)(self.transcripts[tid])
 
         for metric, values in self._attribute_metrics.items():
             # 11 == len('attributes.') removes 'attributes.' to keep the metric name same as in the file attributes
@@ -1252,36 +1233,37 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
-    def _check_not_passing(self, previous_not_passing=set(), section="requirements"):
+    def _check_not_passing(self, previous_not_passing=(), section_name="requirements") -> set:
         """
         This private method will identify all transcripts which do not pass
         the minimum muster specified in the configuration. It will *not* delete them;
         how to deal with them is left to the specifics of the subclass.
+
+        :param previous_not_passing: transcripts already known not to pass the checks and which will be skipped.
+        :param section_name: section of the configuration to use. Either "requirements" or "cds_requirements".
         :return:
         """
 
         self.get_metrics()
 
-        if ("compiled" not in self.json_conf[section] or
-                self.json_conf[section]["compiled"] is None):
-            if "expression" not in self.json_conf[section]:
-                raise KeyError(self.json_conf[section])
+        if section_name == "cds_requirements":
+            section = self.configuration.scoring.cds_requirements
+        elif section_name == "requirements":
+            section = self.configuration.scoring.requirements
+        else:
+            raise KeyError("Invalid requirements section: {}".format(section_name))
 
-            self.json_conf[section]["compiled"] = compile(
-                self.json_conf[section]["expression"], "<json>",
-                "eval")
-
+        assert hasattr(section, "parameters"), section.__dict__
+        self.logger.debug("Epression: %s", section.expression)
         not_passing = set()
         reference_sources = {source for source, is_reference in
-                             zip(self.json_conf["prepare"]["files"]["labels"],
-                                 self.json_conf["prepare"]["files"]["reference"]) if is_reference}
+                             zip(self.configuration.prepare.files.labels,
+                                 self.configuration.prepare.files.reference) if is_reference}
 
+        # section = getattr(self.configuration, section_name)
         for tid in iter(tid for tid in self.transcripts if
                         tid not in previous_not_passing):
-            if self.transcripts[tid].json_conf is None:
-                self.transcripts[tid].json_conf = self.json_conf
-            elif self.transcripts[tid].json_conf["prepare"]["files"]["reference"] != self.json_conf["prepare"]["files"]["reference"]:
-                self.transcripts[tid].json_conf = self.json_conf
+            self.transcripts[tid].configuration = self.configuration
 
             is_reference = ((self.transcripts[tid].is_reference is True) or
                              self.transcripts[tid].original_source in reference_sources)
@@ -1289,28 +1271,30 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if is_reference is False:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
-                                  self.json_conf["prepare"]["files"]["reference"],
-                                  self.transcripts[tid].original_source in self.json_conf["prepare"]["files"][
-                                      "reference"])
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is False:
+                                  self.configuration.prepare.files.reference,
+                                  self.transcripts[tid].original_source in self.configuration.prepare.files.reference)
+            elif is_reference is True and self.configuration.pick.run_options.check_references is False:
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
                 continue
-            elif is_reference is True and self.json_conf["pick"]["run_options"]["check_references"] is True:
+            elif is_reference is True and self.configuration.pick.run_options.check_references is True:
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
             evaluated = dict()
-            for key in self.json_conf[section]["parameters"]:
-                value = rgetattr(self.transcripts[tid],
-                                 self.json_conf[section]["parameters"][key]["name"])
+            for key in section.parameters:
+                if section.parameters[key].name is not None:
+                    name = section.parameters[key].name
+                else:
+                    name = key
+                try:
+                    value = operator.attrgetter(name)(self.transcripts[tid])
+                except AttributeError:
+                    raise AttributeError((section_name, key, section.parameters[key]))
                 if "external" in key:
                     value = value[0]
 
-                evaluated[key] = self.evaluate(
-                    value,
-                    self.json_conf[section]["parameters"][key])
+                evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used
-            if eval(self.json_conf[section]["compiled"]) is False:
-
+            if eval(section.compiled) is False:
                 not_passing.add(tid)
         self.logger.debug("The following transcripts in %s did not pass the minimum check for requirements: %s",
                           self.id, ", ".join(list(not_passing)))
@@ -1320,37 +1304,43 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def filter_and_calculate_scores(self, check_requirements=True):
         """
         Function to calculate a score for each transcript, given the metrics derived
-        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        with the calculate_metrics method and the scoring scheme provided in the configuration.
         If any requirements have been specified, all transcripts which do not pass them
         will be either purged according to the configuration file ('pick.clustering.purge')
         or assigned a score of 0 and subsequently ignored.
         Scores are rounded to the nearest integer.
+
+        :param check_requirements: boolean, default True. If False, transcripts will not be checked for the minimum
+        requirements.
+        :type check_requirements: bool
         """
 
         if self.scores_calculated is True:
-            # assert self.transcripts[list(self.transcript.keys())[0]].score is not None
             test = set.difference(set(self.transcripts.keys()),
                                   set(self._excluded_transcripts.keys()))
             if test and self.transcripts[test.pop()].score is None:
                 for tid in self.transcripts:
                     if tid in self._excluded_transcripts:
-                        self.transcripts[tid] = 0
+                        self.transcripts[tid].score = 0
                     else:
-                        self.transcripts[tid] = self.scores[tid]["score"]
+                        assert isinstance(self.scores, dict)
+                        assert isinstance(self.scores[tid], dict)
+                        self.transcripts[tid].score = self.scores[tid]["score"]
                 return
             else:
                 self.logger.debug("Scores calculation already effectuated for %s", self.id)
                 return
 
+        assert self.scores_calculated is False
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
-        if "requirements" in self.json_conf and check_requirements:
+        if self.configuration.scoring.requirements and check_requirements:
             self._check_requirements()
 
         if len(self.transcripts) == 0:
             self.logger.warning("No transcripts pass the muster for %s (requirements:\n%s)",
                                 self.id,
-                                self.json_conf["requirements"])
+                                self.configuration.scoring.requirements)
             self.scores_calculated = True
             return
         self.scores = dict()
@@ -1358,67 +1348,36 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for tid in self.transcripts:
             self.scores[tid] = dict()
             # Add the score for the transcript source
-            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
-        if self.regressor is None:
-            for param in self.json_conf["scoring"]:
-                self._calculate_score(param)
+        for param in self.configuration.scoring.scoring:
+            self._calculate_score(param)
 
-            for tid in self.scores:
-                self.transcripts[tid].scores = self.scores[tid].copy()
+        for tid in self.scores:
+            self.transcripts[tid].scores = self.scores[tid].copy()
 
-            for tid in self.transcripts:
-                if tid in self._not_passing:
-                    self.logger.debug("Excluding %s as it does not pass minimum requirements",
-                                      tid)
-                    self.transcripts[tid].score = 0
-                else:
-                    self.transcripts[tid].score = sum(self.scores[tid].values())
-                    if self.transcripts[tid].score <= 0:
-                        self.logger.debug("Excluding %s as it has a score <= 0", tid)
-                        self.transcripts[tid].score = 0
-                        self._not_passing.add(tid)
-                assert self.transcripts[tid].score is not None
-
-                if tid in self._not_passing:
-                    pass
-                else:
-                    assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
-                        tid, self.transcripts[tid].score, sum(self.scores[tid].values())
-                    )
-                self.scores[tid]["score"] = self.transcripts[tid].score
-
-        else:
-            valid_metrics = self.regressor.metrics
-            metric_rows = SortedDict()
-            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
-                for param in valid_metrics:
-                    self.scores[tid][param] = "NA"
-                row = []
-                for attr in valid_metrics:
-                    val = getattr(transcript, attr)
-                    if isinstance(val, bool):
-                        if val:
-                            val = 1
-                        else:
-                            val = 0
-                    row.append(val)
-                # Necessary for sklearn ..
-                row = numpy.array(row)
-                # row = row.reshape(1, -1)
-                metric_rows[tid] = row
-            # scores = SortedDict.fromkeys(metric_rows.keys())
-            if isinstance(self.regressor, RandomForestClassifier):
-                # We have to pick the second probability (correct)
-                for tid in metric_rows:
-                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
-                    self.scores[tid]["score"] = score
-                    self.transcripts[tid].score = score
+        for tid in self.transcripts:
+            if tid in self._not_passing:
+                self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                  tid)
+                self.transcripts[tid].score = 0
             else:
-                pred_scores = self.regressor.predict(list(metric_rows.values()))
-                for pos, score in enumerate(pred_scores):
-                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
-                    self.transcripts[list(metric_rows.keys())[pos]].score = score
+                self.transcripts[tid].score = sum(self.scores[tid].values())
+
+                if self.transcripts[tid].score <= 0:
+                    self.logger.debug("Excluding %s as it has a score <= 0", tid)
+                    self.transcripts[tid].score = 0
+                    self._not_passing.add(tid)
+            assert self.transcripts[tid].score is not None
+
+            if tid in self._not_passing:
+                pass
+            else:
+                assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                    tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                )
+            self.logger.debug(f"Assigning a score of {self.transcripts[tid].score} to {tid}")
+            self.scores[tid]["score"] = self.transcripts[tid].score
 
         self.scores_calculated = True
 
@@ -1434,9 +1393,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         previous_not_passing = set()
         beginning = len(self.transcripts)
         while True:
-            not_passing = self._check_not_passing(
-                previous_not_passing=previous_not_passing)
-
+            not_passing = self._check_not_passing(previous_not_passing=previous_not_passing)
             if len(not_passing) == 0:
                 self.metrics_calculated = True
                 return
@@ -1451,168 +1408,195 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
                     self._excluded_transcripts[tid] = self.transcripts[tid]
                     self.remove_transcript_from_locus(tid)
+                    assert self.metrics_calculated is False
 
-            if not self.purge:
-                assert len(self.transcripts) == beginning
+            assert self.purge or (not self.purge and len(self.transcripts) == beginning)
 
             if len(self.transcripts) == 0 or self.metrics_calculated is True:
                 return
             elif self.purge and len(not_passing) > 0:
                 assert self._not_passing
+            self.get_metrics()
+
+    @staticmethod
+    def _get_metric_for_tid(metrics, tid, transcript, param):
+        if not isinstance(param, str):
+            raise TypeError(f"Invalid type of parameter: {param}, type {type(param)}")
+        if tid not in metrics and transcript.alias in metrics:
+            key = transcript.alias
+        else:
+            key = tid
+
+        # "attributes.{key}" values are present in the metrics dictionary *already*, we put them there during the
+        # "get_metrics" phase.
+        if key in metrics and param in metrics[key]:
+            metric = metrics[key][param]
+        else:
+            if param.startswith("attributes."):
+                metric = transcript.attributes[param.lstrip("attributes.")]
             else:
-                # Recalculate the metrics
-                self.get_metrics()
+                metric = operator.attrgetter(param)(transcript)
+            metrics[key] = metrics.get(key, dict())
+            metrics[key][param] = metric
+        if isinstance(metric, (tuple, list)):
+            metric = metric[0]
+        return metric, metrics
+
+    @staticmethod
+    def _check_usable_raw(transcript: Transcript, param: str, use_raw: bool,
+                          rescaling, logger=create_null_logger()):
+        if not isinstance(param, str):
+            raise TypeError(f"Invalid type of parameter: {param}, type {type(param)}")
+        elif not isinstance(transcript, Transcript):
+            raise TypeError(f"Invalid transcript type: {type(Transcript)}")
+
+        if param.startswith('attributes'):
+            usable_raw = use_raw
+        elif param.startswith("external"):
+            usable_raw = operator.attrgetter(param)(transcript)[1]
+        else:
+            # We have to check the property *definition*, so we are getting it *from the class*, not from the instance
+            # The instance property is just a value. The *class* property is a property object that we can query.
+            usable_raw = operator.attrgetter(param)(Transcript).usable_raw
+
+        assert usable_raw in (False, True)
+        if use_raw is True and usable_raw is False:
+            logger.warning(f"The \"{param}\" metric cannot be used as a raw score. Switching to False")
+            use_raw = False
+        elif use_raw is True and rescaling == "target":
+            logger.warning(
+                f"I cannot use a raw score for {param} when looking for a target. Switching to False")
+            use_raw = False
+        return use_raw
+
+    @staticmethod
+    def _get_denominator(param: Union[MinMaxScore, TargetScore],
+                         use_raw: bool, metrics: dict) -> (Union[float,int], Union[float, int, bool]):
+
+        target = param.value if param.rescaling == "target" else None
+        if len(metrics) == 0:
+            return 1, target
+        if param.rescaling == "target":
+            denominator = max(abs(x - target) for x in metrics.values())
+        else:
+            if use_raw is True and param.rescaling == "max":
+                denominator = 1
+            elif use_raw is True and param.rescaling == "min":
+                denominator = -1
+            else:
+                denominator = (max(metrics.values()) - min(metrics.values()))
+        if denominator == 0:
+            denominator = 1
+        return denominator, target
+
+    @staticmethod
+    def _get_score_for_metric(tid_metric, use_raw, target, denominator, param, min_val, max_val):
+        score = 0
+        if use_raw is True:
+            if not (isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1):
+                error = ValueError(
+                    f"Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
+                raise error
+            elif param.rescaling == "target":
+                raise ValueError(f"I cannot produce raw scores for targets.")
+            score = tid_metric / denominator
+        elif param.rescaling == "target":
+            score = 1 - abs(tid_metric - target) / denominator
+        else:
+            if min_val == max_val:
+                score = 1
+            elif param.rescaling == "max":
+                score = abs((tid_metric - min_val) / denominator)
+            elif param.rescaling == "min":
+                score = abs(1 - (tid_metric - min_val) / denominator)
+
+        score *= param.multiplier
+        return round(score, 2)
+
+    @classmethod
+    def _get_param_metrics(cls, transcripts: dict, all_metrics: dict, param: str,
+                           param_conf: Union[MinMaxScore, TargetScore]) -> (dict, dict):
+        """Private class method to retrieve all the values for a particular metric ("param")
+        for all transcripts in a locus.
+        It returns a dictionary (indexed by tid) of metric values ('metrics') as well as
+        a potentially updated dictionary of all metrics.
+        If a transcript metric does *not* pass the muster, it will be absent from the first
+        dictionary."""
+        param_metrics = dict()
+        filter_metric = param_conf.filter.metric if param_conf.filter is not None else None
+        same_metric = (filter_metric is None or filter_metric == param)
+        for tid, transcript in transcripts.items():
+            param_metrics[tid], all_metrics = cls._get_metric_for_tid(all_metrics, tid, transcript, param)
+            if param_conf.filter is not None:
+                if not same_metric:
+                    metric_to_evaluate, all_metrics = cls._get_metric_for_tid(all_metrics, tid, transcript,
+                                                                              filter_metric)
+                else:
+                    metric_to_evaluate = param_metrics[tid]
+                if not cls.evaluate(metric_to_evaluate, param_conf.filter):
+                    del param_metrics[tid]
+        return param_metrics, all_metrics
 
     def _calculate_score(self, param):
         """
         Private method that calculates a score for each transcript,
         given a target parameter.
-        :param param:
+        :param param: the metric to calculate the score for.
         :return:
         """
 
-        rescaling = self.json_conf["scoring"][param]["rescaling"]
-        use_raw = self.json_conf["scoring"][param]["use_raw"]
-        multiplier = self.json_conf["scoring"][param]["multiplier"]
+        if len(self.transcripts) == 0:
+            self.logger.debug(f"No transcripts in {self.id}. Returning.")
+            self.scores = dict()
+            return
 
-        metrics = dict()
-        for tid, transcript in self.transcripts.items():
-            try:
-                # metric = rgetattr(self.transcripts[tid], param)
-                if tid not in self._metrics and transcript.alias in self._metrics:
-                    if param in self._metrics[transcript.alias]:
-                        metric = self._metrics[transcript.alias][param]
-                    else:
-                        metric = rgetattr(self.transcripts[tid], param)
-                        self._metrics[transcript.alias][param] = metric
-                else:
-                    if tid not in self._metrics:
-                        self._metrics[tid] = dict()
-                    if param in self._metrics[tid]:
-                        metric = self._metrics[tid][param]
-                    else:
-                        metric = rgetattr(self.transcripts[tid], param)
-                        self._metrics[tid][param] = metric
-                if isinstance(metric, (tuple, list)):
-                    metric = metric[0]
-                metrics[tid] = metric
-            except TypeError:
-                raise TypeError(param)
-            except KeyError:
-                metric = rgetattr(self.transcripts[tid], param)
-                raise KeyError((tid, param, metric))
-            except AttributeError:
-                raise AttributeError(param)
+        self.logger.debug(f"Calculating the score for {param}")
+        rescaling = self.configuration.scoring.scoring[param].rescaling
+        param_conf = self.configuration.scoring.scoring[param]
+        use_raw = self._check_usable_raw(next(iter(self.transcripts.values())),
+                                         param, self.configuration.scoring.scoring[param].use_raw,
+                                         rescaling, self.logger)
 
-        for tid in self.transcripts.keys():
-            tid_metric = metrics[tid]
+        # Assign a score of 0 to all transcripts.
+        for tid in self.transcripts:
+            self.scores[tid] = self.scores.get(tid, dict())
+            self.scores[tid][param] = 0
 
-            if ("filter" in self.json_conf["scoring"][param] and
-                    self.json_conf["scoring"][param]["filter"] != {}):
-                if "metric" not in self.json_conf["scoring"][param]["filter"]:
-                    metric_to_evaluate = tid_metric
-                else:
-                    metric_key = self.json_conf["scoring"][param]["filter"]["metric"]
-                    if not rhasattr(self.transcripts[tid], metric_key):
-                        raise KeyError("Asked for an invalid metric in filter: {}".format(metric_key))
-                    if tid not in self._metrics and self.transcripts[tid].alias in self._metrics:
-                        metric_to_evaluate = self._metrics[self.transcripts[tid].alias][metric_key]
-                    else:
-                        metric_to_evaluate = self._metrics[tid][metric_key]
-                    # metric_to_evaluate = rgetattr(self.transcripts[tid], metric_key)
-                    if "external" in metric_key:
-                        metric_to_evaluate = metric_to_evaluate[0]
+        # Create a dictionary of this particular metric, per transcript. Update the general
+        # self._metrics dictionary as well. Contextually, evaluate the metric for filters.
+        param_metrics, self._metrics = self._get_param_metrics(
+            transcripts=self.transcripts,
+            all_metrics=self._metrics,
+            param=param, param_conf=param_conf)
 
-                check = self.evaluate(metric_to_evaluate, self.json_conf["scoring"][param]["filter"])
-                if not check:
-                    del metrics[tid]
-            else:
-                continue
+        self.logger.debug(f"Param_metrics for {self.id}, param {param}: {param_metrics}")
+        denominator, target = self._get_denominator(self.configuration.scoring.scoring[param], use_raw, param_metrics)
 
-        if len(metrics) == 0:
-            for tid in self.transcripts:
-                self.scores[tid][param] = 0
-        else:
-            if param.startswith("external"):
-                # Take any transcript and verify
-                try:
-                    transcript = self.transcripts[list(self.transcripts.keys())[0]]
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError("No transcripts left!")
-                try:
-                    metric = rgetattr(transcript, param)
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError("{param} not found in transcripts of {self.id}".format(**locals()))
-                try:
-                    usable_raw = metric[1]
-                    if usable_raw not in (True, False):
-                        raise TypeError
-                except (IndexError, TypeError, KeyError):
-                    raise TypeError(
-                        "Value of {param} is {metric}. It should be a tuple with a boolean second element".format(
-                            **locals()))
-            elif param.startswith('attributes'):
-                usable_raw = use_raw
+        if len(param_metrics) > 0:
+            min_val, max_val = min(param_metrics.values()), max(param_metrics.values())
+            for tid, tid_metric in param_metrics.items():
+                self.scores[tid][param] = self._get_score_for_metric(tid_metric, use_raw, target, denominator,
+                                                                     param_conf, min_val, max_val)
 
-            else:
-                usable_raw = getattr(Transcript, param).usable_raw
-
-            assert usable_raw in (False, True)
-            if use_raw is True and usable_raw is False:
-                self.logger.warning("The \"%s\" metric cannot be used as a raw score for %s, switching to False",
-                                    param, self.id)
-                use_raw = False
-            if use_raw is True and rescaling == "target":
-                self.logger.warning("I cannot use a raw score for %s in %s when looking for a target. Switching to False",
-                                    param, self.id)
-                use_raw = False
-
+        debug = self.configuration.log_settings.log_level == "DEBUG"
+        max_score = max([self.scores[tid][param] for tid in self.scores])
+        _scores = dict((tid, self.scores[tid][param]) for tid in self.scores)
+        self.logger.debug(f"Scores for {self.id}, param {param}: {_scores}")
+        if debug and self.configuration.scoring.scoring[param].filter is None and max_score == 0:
+            current_scores = dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys())
+            param_conf = self.configuration.scoring.scoring[param]
+            message = f"""All transcripts have a score of 0 for {param} in {self.id}. This is an error!
+Metrics: {param_metrics.items()}
+Scores: {current_scores}
+Scoring configuration: {param_conf}
+"""
             if rescaling == "target":
-                target = self.json_conf["scoring"][param]["value"]
-                denominator = max(abs(x - target) for x in metrics.values())
-            else:
-                target = None
-                if use_raw is True and rescaling == "max":
-                    denominator = 1
-                elif use_raw is True and rescaling == "min":
-                    denominator = -1
-                else:
-                    try:
-                        denominator = (max(metrics.values()) - min(metrics.values()))
-                    except TypeError:
-                        raise TypeError([param, metrics])
-            if denominator == 0:
-                denominator = 1
-
-            for tid in self.transcripts.keys():
-                score = 0
-                if tid in metrics:
-                    tid_metric = metrics[tid]
-                    if use_raw is True:
-                        if not isinstance(tid_metric, (float, int)) and 0 <= tid_metric <= 1:
-                            error = ValueError(
-                                "Only scores with values between 0 and 1 can be used raw. Please recheck your values.")
-                            self.logger.exception(error)
-                            raise error
-                        score = tid_metric / denominator
-                    elif rescaling == "target":
-                        score = 1 - abs(tid_metric - target) / denominator
-                    else:
-                        if min(metrics.values()) == max(metrics.values()):
-                            score = 1
-                        elif rescaling == "max":
-                            score = abs((tid_metric - min(metrics.values())) / denominator)
-                        elif rescaling == "min":
-                            score = abs(1 - (tid_metric - min(metrics.values())) / denominator)
-
-                score *= multiplier
-                self.scores[tid][param] = round(score, 2)
-
-        # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param] and max(
-                [self.scores[tid][param] for tid in self.transcripts.keys()]) == 0:
-            self.logger.warning("All transcripts have a score of 0 for %s in %s",
-                                param, self.id)
+                target = self.configuration.scoring.scoring[param].value
+                message += f"Denominator: {denominator}\n"
+                message += f"Formula for denominator: max(abs(x - {target}) for x in {param_metrics.values()})\n"
+                for tid, tid_metric in param_metrics.items():
+                    message += f"Formula for {tid}:\t1 - abs({tid_metric} - {target}) / {denominator}\n"
+            self.logger.debug(message)
 
     @classmethod
     def _calculate_graph(cls, transcripts):
@@ -1626,15 +1610,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return graph
 
     @staticmethod
-    def add_path_to_graph(transcript, graph):
+    def add_path_to_graph(transcript: Transcript, graph: networkx.DiGraph):
+        """Static method to add the exon-intron path to the weighted graph of the locus.
+        The weight corresponds to how many transcripts contain a specific exon-intron junction.
+        """
+
         weights = networkx.get_node_attributes(graph, "weight")
 
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         # Add path FAILS if the transcript is monoexonic!
         graph.add_nodes_from(segments)
         networkx.add_path(graph, segments)
-
-        # assert len(graph.nodes()) >= len(segments), (len(graph.nodes()), len(graph.edges()), len(segments))
 
         for segment in segments:
             weights[segment] = weights.get(segment, 0) + 1
@@ -1644,19 +1630,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @staticmethod
     def remove_path_from_graph(transcript: Transcript, graph: networkx.DiGraph):
+        """Static method to remove from the locus graph the exon-intron graph of a transcript.
+        Exon-intron junctions whose weight will be reduced to 0 in the graph (because no other transcript contains
+        that particular junction) will be removed from the graph.
+        """
 
         weights = networkx.get_node_attributes(graph, "weight")
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         for segment in segments:
-            if segment in weights:
-                weights[segment] -= 1
-            else:
-                weights[segment] = 0
+            weights[segment] = weights.get(segment, 1) - 1
 
         nodes_to_remove = [interval for interval, weight in weights if weight == 0]
         graph.remove_nodes_from(nodes_to_remove)
-        for node in nodes_to_remove:
-            assert node not in graph.nodes()
+        assert all([node not in graph.nodes() for node in nodes_to_remove])
 
         networkx.set_node_attributes(graph,
                                      name="weight",
@@ -1667,47 +1653,56 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
         """
-
-        :param args: positional arguments
-        :param kwargs: keyword arguments
-
         This class method defines how two transcript objects will be considered as overlapping.
-        It is used by the BronKerbosch method, and must be implemented
-        at the class level for each child object.
+        It must be implemented at the class level for each child object.
         """
-        raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
     # ##### Properties #######
 
     @property
-    def json_conf(self):
-        return self.__json_conf
+    def configuration(self) -> Union[MikadoConfiguration, DaijinConfiguration]:
+        if self.__configuration is None:
+            self.__configuration = MikadoConfiguration()
+        return self.__configuration
 
-    @json_conf.setter
-    def json_conf(self, conf):
-        if conf is None:
-            conf = json_conf.copy()
-        elif isinstance(conf, str):
-            conf = to_json(conf)
-        elif not isinstance(conf, dict):
-            raise TypeError("Invalid configuration!")
-        self.__json_conf = conf
+    @configuration.setter
+    def configuration(self, conf):
+        if conf is None or conf == "":
+            conf = MikadoConfiguration()
+        elif isinstance(conf, str) and conf != "":
+            conf = load_and_validate_config(conf)
+        elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
+            raise InvalidConfiguration(
+                "Invalid configuration, type {}, expected MikadoConfiguration or DaijinConfiguration!".format(
+                    type(conf)))
+        if conf.scoring is None or not hasattr(conf.scoring.requirements, "parameters"):
+            self.logger.warning("Reloading conf")
+            check_and_load_scoring(conf)
+        self.__configuration = conf
         # Get the value for each attribute defined metric
-        self._attribute_metrics = dict((param,
-                                  {
-                                      'default': self.json_conf["scoring"][param]["default"],
-                                      'rtype': self.json_conf['scoring'][param]['rtype'],
-                                      'use_raw': self.json_conf['scoring'][param]['use_raw'],
-                                      'percentage': self.json_conf['scoring'][param]['percentage']
+        self._attribute_metrics = dict()
+        assert self.__configuration.scoring is not None, (self.__configuration.scoring,
+                                                          self.__configuration.requirements)
+        found_attributes = False
+        self.logger.debug("Scoring parameters: %s", ",".join(list(self.__configuration.scoring.scoring.keys())))
+        for param in self.__configuration.scoring.scoring:
+            if not param.startswith("attributes."):
+                continue
+            found_attributes = True
+            self.logger.debug("Adding parameter %s", param)
+            self._attribute_metrics[param] = {
+                                      'default': self.configuration.scoring.scoring[param].default,
+                                      'rtype': self.configuration.scoring.scoring[param].rtype,
+                                      'use_raw': self.configuration.scoring.scoring[param].use_raw,
+                                      'percentage': self.configuration.scoring.scoring[param].percentage
                                   }
-                                  )
-                                 for param in self.__json_conf["scoring"] if param.startswith("attributes."))
+        self.logger.debug("Found attributes: %s", found_attributes)
 
     def check_configuration(self):
         """Method to be invoked to verify that the configuration is correct.
         Quite expensive to run, especially if done multiple times."""
 
-        self.json_conf = check_json(self.json_conf)
+        self.configuration = check_and_load_scoring(self.configuration)
 
     @property
     def stranded(self):
@@ -1730,6 +1725,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def flank(self):
+        """The flank parameter, ie how far transcripts from the locus to be considered as potential inclusions."""
+
         return self.__flank
 
     @flank.setter
@@ -1768,6 +1765,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Logger instance for the class.
         :rtype : logging.Logger
         """
+        if self.__logger is None:
+            self.__logger = create_null_logger()
+            self.__logger.propagate = False
         return self.__logger
 
     @logger.setter
@@ -1777,21 +1777,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type logger: logging.Logger | Nonell
         """
 
-        # if self.__logger is not None:
-        #     self.__logger.disabled = True
-
         if logger is None:
             self.__logger = create_null_logger()
             self.__logger.propagate = False
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         else:
-            # while len(logger.handlers) > 1:
-            #     logger.handlers.pop()
-            # logger.propagate = False
             self.__logger = logger
-
-        # self.__logger.setLevel("DEBUG")
 
     @logger.deleter
     def logger(self):
@@ -1810,6 +1802,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def _internal_graph(self):
+        """The exon-intron directed graph representation for the locus."""
         return self.__internal_graph
 
     @source.setter
@@ -1820,61 +1813,43 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type value: str
 
         """
-        if not value:
+        if value is None:
             value = "Mikado"
         assert isinstance(value, str)
         self.__source = value
 
     @property
-    def score(self):
-
+    def score(self) -> Union[None, float]:
+        """Either None (if no transcript is present) or the top score for the transcripts in the locus."""
         if len(self.transcripts):
-            return max(_.score for _ in self.transcripts.values())
+            return max(_.score  if _.score is not None else 0 for _ in self.transcripts.values())
         else:
             return None
 
     @property
     def _cds_only(self):
-        return self.json_conf["pick"]["clustering"]["cds_only"]
-
-    @_cds_only.setter
-    def _cds_only(self, value):
-        if value not in (True, False):
-            raise ValueError(value)
-        self.json_conf["pick"]["clustering"]["cds_only"] = value
+        return self.configuration.pick.clustering.cds_only
 
     @property
     def segmenttree(self):
+        """The interval tree structure derived from the exons and introns of the locus."""
+
         if len(self.__segmenttree) != len(self.exons) + len(self.introns):
             self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
         return self.__segmenttree
 
     @staticmethod
-    def _calculate_segment_tree(exons, introns):
-
+    def _calculate_segment_tree(exons: Union[list, tuple, set], introns: Union[list, tuple, set]):
+        """Private method to calculate the exon-intron interval tree from the transcripts. It gets automatically called
+        after a transcript is added to the locus."""
         return IntervalTree.from_intervals(
                 [Interval(*_, value="exon") for _ in exons] + [Interval(*_, value="intron") for _ in introns]
             )
 
     @property
-    def regressor(self):
-        return self.__regressor
-
-    @regressor.setter
-    def regressor(self, regr):
-
-        if isinstance(regr, dict) and isinstance(regr["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr["scoring"]
-        elif regr is None or isinstance(regr, (RandomForestRegressor, RandomForestClassifier)):
-            self.__regressor = regr
-        else:
-            raise TypeError("Invalid regressor provided, type: %s", type(regr))
-
-        self.logger.debug("Set regressor")
-
-    @property
     def locus_verified_introns(self):
+        """The introns marked as reliable by other programs, e.g. Portcullis"""
         return self.__locus_verified_introns
 
     @locus_verified_introns.setter
@@ -1888,9 +1863,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def purge(self):
-        """This property relates to pick/clustering/purge."""
+        """Alias for self.configuration.pick.clustering.purge."""
 
-        return self.json_conf.get("pick", dict()).get("clustering", {}).get("purge", True)
+        return self.configuration.pick.clustering.purge
 
     @property
     def _use_transcript_scores(self):
@@ -1905,18 +1880,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def perform_padding(self):
-        return self.json_conf["pick"]["alternative_splicing"]["pad"]
-
-    def _set_padding(self, value):
-        if value not in (False, True):
-            raise ValueError
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = value
+        """Alias for self.configuration.pick.alternative_splicing.pad"""
+        return self.configuration.pick.alternative_splicing.pad
 
     @property
     def only_reference_update(self):
-        return self.json_conf.get("pick", dict()).get("run_options", dict()).get("only_reference_update", False)
+        """Alias for self.configuration.pick.run_options.only_reference_update"""
+        return self.configuration.pick.run_options.only_reference_update
 
     @property
     def reference_update(self):
-        ref_update = self.json_conf.get("pick", dict()).get("run_options", dict()).get("reference_update", False)
+        """Alias for self.configuration.pick.run_options.reference_update.
+        If only_reference_update is True, it will override this value."""
+        ref_update = self.configuration.pick.run_options.reference_update
         return ref_update or self.only_reference_update
+
+
+@lru_cache(maxsize=1000, typed=True)
+def _get_intron_ancestors_descendants(introns, internal_graph) -> [Dict[(tuple, set)], Dict[(tuple, set)]]:
+    ancestors, descendants = dict(), dict()
+    introns = set(introns)
+    for intron in introns:
+        ancestors[intron] = {_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns}
+        descendants[intron] = {_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns}
+    return ancestors, descendants

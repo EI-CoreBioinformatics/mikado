@@ -9,6 +9,8 @@ before loading.
 
 import io
 import os
+from collections import namedtuple
+
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -24,6 +26,9 @@ from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12
 from ..utilities.log_utils import check_logger, create_default_logger
 import pyfaidx
+from copy import deepcopy as copy
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 
 
 # pylint: disable=too-few-public-methods
@@ -72,7 +77,7 @@ class Junction(DBBASE):
     chrom_object = relationship(Chrom, uselist=False)
     chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id))
 
-    def __init__(self, bed12_object, chrom_id):
+    def __init__(self, junction_start, junction_end, name, strand, score, chrom_id):
         """
         Serialization initializer.
         :param bed12_object: a BED12-like class instance.
@@ -82,22 +87,31 @@ class Junction(DBBASE):
         :type chrom_id: int
         """
 
-        if not isinstance(bed12_object, bed12.BED12):
-            raise TypeError("Invalid data type!")
+        # if not isinstance(bed12_object, bed12.BED12):
+        #     raise TypeError("Invalid data type!")
         self.chrom_id = chrom_id
-        self.start = bed12_object.start
-        self.end = bed12_object.end
-        self.junction_start = bed12_object.thick_start
-        self.junction_end = bed12_object.thick_end
-        self.name = bed12_object.name
-        self.strand = bed12_object.strand
-        self.score = bed12_object.score
+        self.start = junction_start
+        self.end = junction_end
+        self.junction_start = junction_start
+        self.junction_end = junction_end
+        self.name = name
+        self.strand = strand
+        self.score = score
 
     def __str__(self):
-        return "{chrom}\t{start}\t{end}".format(
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
             chrom=self.chrom,
             start=self.start,
-            end=self.end
+            end=self.end,
+            strand=self.strand
+        )
+
+    def __repr__(self):
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
+            chrom=self.chrom,
+            start=self.start,
+            end=self.end,
+            strand=self.strand
         )
 
     @hybrid_method
@@ -131,15 +145,15 @@ class JunctionSerializer:
     """
 
     def __init__(self, handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None):
 
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase | io.TextIOWrapper
 
-        :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :param configuration: Optional configuration dictionary with db connection parameters.
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
         """
 
         self.bed12_parser = None
@@ -157,7 +171,8 @@ class JunctionSerializer:
             return
 
         self.bed12_parser = bed12.Bed12Parser(handle)
-        self.engine = connect(json_conf, logger=logger)
+        self.engine = connect(configuration, logger=logger)
+        self.db_settings = copy(configuration.db_settings)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -165,25 +180,27 @@ class JunctionSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
+        if configuration is not None:
+            self.maxobjects = configuration.serialise.max_objects
         else:
             self.maxobjects = 10000
 
-        if "genome_fai" not in json_conf["reference"] or not json_conf["reference"]["genome_fai"]:
-            _ = pyfaidx.Fasta(json_conf["reference"]["genome"])
+        if not configuration.reference.genome_fai:
+            _ = pyfaidx.Fasta(configuration.reference.genome)
             self.fai = _.faidx.indexname
             _.close()
         else:
-            self.fai = json_conf["reference"]["genome_fai"]
+            self.fai = configuration.reference.genome_fai
 
         if isinstance(self.fai, str):
-            assert os.path.exists(self.fai), self.fai
-            # noinspection PyTypeChecker
+            assert os.path.exists(self.fai), "File {fai} does not exist!".format(fai=self.fai)
             self.fai = open(self.fai)
         else:
             if self.fai is not None:
-                assert isinstance(self.fai, io.TextIOWrapper)
+                if not isinstance(self.fai, io.TextIOWrapper):
+                    msg = "The FAI index is not a valid file handle. Type: {}".format(type(self.fai))
+                    logger.critical(msg)
+                    raise TypeError(msg)
 
     def serialize(self):
         """
@@ -195,6 +212,7 @@ class JunctionSerializer:
             self.logger.warning("No input file specified. Exiting.")
             return
 
+        self.logger.debug("Starting to serialise junctions.")
         if self.fai is not None:
             self.session.begin(subtransactions=True)
             for line in self.fai:
@@ -212,9 +230,10 @@ class JunctionSerializer:
                 sequences[query.name] = query.chrom_id
             self.fai.close()
 
+        self.logger.debug("Serialised sequences.")
         objects = []
 
-        for row in self.bed12_parser:
+        for counter, row in enumerate(self.bed12_parser, 1):
             if row.header is True:
                 continue
             if row.chrom in sequences:
@@ -227,8 +246,8 @@ class JunctionSerializer:
                 sequences[current_chrom.name] = current_chrom.chrom_id
                 current_chrom = current_chrom.chrom_id
 
-            current_junction = Junction(row, current_chrom)
-            objects.append(current_junction)
+            self.generate_introns(current_chrom, objects, row)
+
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))
                 self.session.begin(subtransactions=True)
@@ -237,8 +256,20 @@ class JunctionSerializer:
                 objects = []
 
         self.session.bulk_save_objects(objects)
+        self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()
+
+    @staticmethod
+    def generate_introns(current_chrom, objects, row):
+        # Now generate as many junctions as block start/size are present in this bed row
+        # These are the exons
+        Exon = namedtuple('Exon', 'start end')
+        exons = [Exon(int(block[0]), int(block[1])) for block in row.blocks]
+        introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
+        for intron in introns:
+            current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
+            objects.append(current_junction)
 
     def __call__(self):
         """

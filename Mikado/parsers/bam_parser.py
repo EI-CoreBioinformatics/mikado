@@ -1,5 +1,7 @@
-from . import Parser
+from .parser import Parser
 import pysam
+
+from ..exceptions import InvalidParsingFormat
 
 
 class BamParser(Parser):
@@ -8,7 +10,12 @@ class BamParser(Parser):
 
     def __init__(self, handle):
         self.__closed = False
-        self._handle = pysam.AlignmentFile(handle, "rb", check_sq=False)
+        try:
+            self._handle = pysam.AlignmentFile(handle, "rb", check_sq=False)
+        except KeyboardInterrupt:
+            raise
+        except (ValueError, TypeError):
+            raise InvalidParsingFormat("This is not a valid BAM file: {}.".format(handle))
 
     def __iter__(self):
         return self

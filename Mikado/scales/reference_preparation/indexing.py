@@ -31,13 +31,6 @@ def load_index(args, queue_logger):
     :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
     """
 
-    # genes, positions = None, None
-
-    # New: now we are going to use SQLite for a faster experience
-    if filetype("{0}.midx".format(args.reference.name)) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
     try:
         conn = sqlite3.connect("{0}.midx".format(args.reference.name))
         cursor = conn.cursor()
@@ -74,7 +67,7 @@ def load_index(args, queue_logger):
                 genes[gid] = gene
             else:
                 queue_logger.warning("No transcripts for %s", gid)
-        except (EOFError, json.decoder.JSONDecodeError) as exc:
+        except (EOFError, json.JSONDecodeError) as exc:
             queue_logger.exception(exc)
             raise CorruptIndex("Invalid index file")
         except (TypeError, ValueError) as exc:
@@ -90,10 +83,6 @@ def check_index(reference, queue_logger):
         reference = reference
     else:
         reference = "{}.midx".format(reference)
-
-    if filetype(reference) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
 
     try:
         conn = sqlite3.connect(reference)
@@ -126,45 +115,50 @@ def create_index(reference, queue_logger, index_name, ref_gff=False,
 
     """Method to create the simple indexed database for features."""
 
-    temp_db = tempfile.mktemp(suffix=".db")
-    queue_logger.info("Starting to create an index for %s", reference.name)
-    if os.path.exists("{0}.midx".format(reference.name)):
-        queue_logger.warning("Removing the old index")
+    with tempfile.NamedTemporaryFile(suffix=".db") as temp_db:
+        queue_logger.info("Starting to create an index for %s", reference.name)
+        if os.path.exists("{0}.midx".format(reference.name)):
+            queue_logger.warning("Removing the old index")
+            try:
+                os.remove("{0}.midx".format(reference.name))
+            except (OSError, PermissionError) as exc:
+                queue_logger.critical(exc)
+                queue_logger.critical(
+                    "I cannot delete the old index, due to permission errors. Please investigate and relaunch.")
+                sys.exit(1)
+
+        conn = sqlite3.connect(temp_db.name)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
         try:
-            os.remove("{0}.midx".format(reference.name))
-        except (OSError, PermissionError) as exc:
+            genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
+                                                 exclude_utr=exclude_utr, protein_coding=protein_coding)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
             queue_logger.critical(exc)
-            queue_logger.critical(
-                "I cannot delete the old index, due to permission errors. Please investigate and relaunch.")
-            sys.exit(1)
+            raise
 
-    conn = sqlite3.connect(temp_db)
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE positions (chrom text, start integer, end integer, gid text)")
-    genes, positions = prepare_reference(reference, queue_logger, ref_gff=ref_gff,
-                                         exclude_utr=exclude_utr, protein_coding=protein_coding)
+        gid_vals = []
+        for chrom in positions:
+            for key in positions[chrom]:
+                start, end = key
+                for gid in positions[chrom][key]:
+                    gid_vals.append((chrom, start, end, gid))
+        cursor.executemany("INSERT INTO positions VALUES (?, ?, ?, ?)",
+                           gid_vals)
+        cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
+        cursor.execute("CREATE TABLE genes (gid text, json blob)")
 
-    gid_vals = []
-    for chrom in positions:
-        for key in positions[chrom]:
-            start, end = key
-            for gid in positions[chrom][key]:
-                gid_vals.append((chrom, start, end, gid))
-    cursor.executemany("INSERT INTO positions VALUES (?, ?, ?, ?)",
-                       gid_vals)
-    cursor.execute("CREATE INDEX pos_idx ON positions (chrom, start, end)")
-    cursor.execute("CREATE TABLE genes (gid text, json blob)")
+        gobjs = []
+        for gid, gobj in genes.items():
+            gobjs.append((gid, msgpack.dumps(gobj.as_dict())))
+        cursor.executemany("INSERT INTO genes VALUES (?, ?)", gobjs)
+        cursor.execute("CREATE INDEX gid_idx on genes(gid)")
+        cursor.close()
+        conn.commit()
+        conn.close()
 
-    gobjs = []
-    for gid, gobj in genes.items():
-        gobjs.append((gid, msgpack.dumps(gobj.as_dict())))
-    cursor.executemany("INSERT INTO genes VALUES (?, ?)", gobjs)
-    cursor.execute("CREATE INDEX gid_idx on genes(gid)")
-    cursor.close()
-    conn.commit()
-    conn.close()
-
-    shutil.copy(temp_db, index_name)
-    os.remove(temp_db)
-    queue_logger.info("Finished to create an index for %s in %s", reference.name, index_name)
+        shutil.copy(temp_db.name, index_name)
+        queue_logger.info("Finished to create an index for %s in %s", reference.name, index_name)
     return

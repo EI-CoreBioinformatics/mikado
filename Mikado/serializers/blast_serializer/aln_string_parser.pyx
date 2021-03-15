@@ -82,10 +82,8 @@ cpdef prepare_aln_strings(hsp, bint off_by_one=0, long qmultiplier=1):
     cdef np.ndarray[DTYPE_t, ndim=2] summer = np.array([[_] for _ in range(qmultiplier)])
     query_array, match = _analyze_string(qseq, sseq, mid, query_start, query_end, query_length, qmultiplier)
     cdef np.ndarray[DTYPE_t, ndim=1] _id_catcher = np.where(query_array >= 2)[0]
-    # assert hsp.ident_num == _id_catcher.shape[0], (hsp.ident_num, _id_catcher.shape[0], query_array, lett_array)
     identical_positions = ((_id_catcher * qmultiplier) + summer).flatten()
     cdef np.ndarray[DTYPE_t, ndim=1] _pos_catcher = np.where(query_array >= 1)[0]
-    # assert hsp.pos_num == _pos_catcher.shape[0], (hsp.pos_num, _pos_catcher.shape[0])
     positives = ((_pos_catcher * qmultiplier) + summer).flatten()
     if hsp.query_frame > 0:
         identical_positions = identical_positions + hsp.query_start

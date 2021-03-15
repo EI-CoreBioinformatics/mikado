@@ -17,21 +17,20 @@ from scipy._build_utils import numpy_nodepr_api
 
 here = path.abspath(path.dirname("__file__"))
 
+
 with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
     long_description = description.read()
 
-version = {}
-with open(path.join(here, "Mikado", "version.py")) as fp:
-    exec(fp.read(), version)
-version = version["__version__"]
-
-if version is None:
-    print("No version found, exiting", file=sys.stderr)
-    sys.exit(1)
 
 if sys.version_info.major != 3:
     raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
+
+
+requirements = [line.rstrip() for line in open("requirements.txt", "rt")]
+if sys.version_info.minor < 7:
+    requirements.append(["dataclasses"])
+
 
 extensions = [Extension("Mikado.utilities.overlap",
                         sources=[path.join("Mikado", "utilities", "overlap.pyx")],
@@ -59,7 +58,8 @@ extensions = [Extension("Mikado.utilities.overlap",
 
 setup(
     name="Mikado",
-    version=version,
+    python_requires=">=3.6",
+    version="2.2.0",
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
     url="https://github.com/EI-CoreBioinformatics/mikado",
@@ -74,9 +74,10 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Framework :: Pytest",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
-        'Programming Language :: Python :: 3.7'
+        'Programming Language :: Python :: 3.7',
+        "Programming Language :: Python :: 3.8",
+        'Programming Language :: Python :: 3.9'
     ],
     ext_modules=cythonize(extensions, compiler_directives = {"language_level": "3"}),
     zip_safe=False,
@@ -84,15 +85,14 @@ setup(
     packages=find_packages(),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado.__main__:main",
-                                      "daijin = Mikado.daijin:main",
+                                      "daijin = Mikado.daijin.__main__:main",
                                       ]},
-    install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
+    install_requires=requirements,
     extras_require={
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
         "bam": ["pysam>=0.8"]
     },
-    # test_suite="nose2.collector.collector",
     package_data={
         "Mikado.configuration":
             glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"),

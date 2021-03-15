@@ -2,7 +2,7 @@ from ...transcripts.reference_gene import Gene
 from ...exceptions import CorruptIndex
 from ...utilities.log_utils import create_null_logger
 import sqlite3
-import json
+import rapidjson as json
 from time import sleep
 import msgpack
 import logging
@@ -11,13 +11,6 @@ from .indexing import check_index
 
 # Hack to give the rapidjson library this exception class
 # This becomes necessary when we happen to have a corrupted index
-if not hasattr(json, "decoder"):
-
-    class Decoder:
-        class JSONDecodeError(TypeError):
-            pass
-    json.decoder = Decoder
-
 
 class GeneDict:
 
@@ -54,11 +47,6 @@ class GeneDict:
     def positions(self):
         return iter(self.__cursor.execute("SELECT chrom, start, end, gid FROM positions"))
 
-    def get_position(self, chrom, start, end):
-        for row in self.__cursor.execute(
-                "SELECT gid FROM positions WHERE chrom=? AND start=? AND end=?", (chrom, start, end)):
-            yield row[0]
-
     def __getitem__(self, item):
 
         if item in self.__cache:
@@ -88,21 +76,10 @@ class GeneDict:
     def __load_gene(self, jdict):
         gene = Gene(None, logger=self.logger)
         if not isinstance(jdict, dict):
-            try:
-                jdict = msgpack.loads(jdict, raw=False)
-            except TypeError:
-                jdict = json.loads(jdict)
-
+            jdict = msgpack.loads(jdict, raw=False)
         gene.load_dict(jdict, exclude_utr=self.__exclude_utr, protein_coding=self.__protein_coding)
         gene.finalize()
         return gene
-
-    def load_all(self):
-
-        for row in self.__cursor.execute("SELECT gid, json from genes"):
-            gid, gene = row[0], self.__load_gene(row[1])
-            self.__cache[gid] = gene
-            # yield (gid, gene)
 
     def __iter__(self):
         self.__db.row_factory = lambda cursor, row: row[0]

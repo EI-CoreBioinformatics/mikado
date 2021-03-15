@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import random
 import logging
+import zlib
 from logging import handlers as logging_handlers
 import functools
 import multiprocessing
@@ -31,25 +32,22 @@ from ..serializers.junction import Chrom
 from ..serializers.external import ExternalSource
 from ..transcripts import Transcript
 from ..loci.superlocus import Superlocus
-from ..configuration.configurator import to_json, check_json  # Necessary for nosetests
+from ..configuration.configurator import load_and_validate_config
 from ..utilities import dbutils
-from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
+from ..exceptions import UnsortedInput, InvalidConfiguration, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 from ._locus_single_printer import print_locus
 import multiprocessing.managers
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-import pickle
 import warnings
 import pyfaidx
-import sqlite3
 import msgpack
 from numpy import percentile
+import dataclasses
+from ..configuration.configuration import MikadoConfiguration
+from ..configuration.daijin_configuration import DaijinConfiguration
 logging.captureWarnings(True)
 warnings.simplefilter("always")
-try:
-    import rapidjson as json
-except ImportError:
-    import json
+import rapidjson as json
 
 
 # pylint: disable=too-many-instance-attributes
@@ -62,12 +60,13 @@ class Picker:
     """
 
     # @profile
-    def __init__(self, json_conf, commandline="", regions=None):
+    def __init__(self, configuration, commandline="", regions=None):
 
         """Constructor. It takes a single argument as input - the JSON/YAML configuration,
         prepared by the json_utils functions.
 
-        :param json_conf: Either a configuration dictionary or the configuration file.
+        :param configuration: Either a configuration dictionary or the configuration file.
+        :type configuration: (MikadoConfiguration|DaijinConfiguration)
 
         :param commandline: optional, the commandline used to start the program
         :type commandline: str
@@ -78,19 +77,15 @@ class Picker:
         self.log_level = "WARN"
 
         # # Things that have to be deleted upon serialisation
-        # self.not_pickable = ["queue_logger", "manager", "printer_process",
-        #                      "log_process", "pool", "main_logger",
-        #                      "log_handler", "log_writer", "logger", "engine"]
-        #
         # Now we start the real work
         self.commandline = commandline
-        self.json_conf = json_conf
+        self.configuration = configuration
 
         self.__load_configuration()
+        self.shm_db = None
+        self.setup_shm_db()
         self.__regions = regions
-        self.regressor = None
-
-        self.procs = self.json_conf["threads"]
+        self.procs = self.configuration.threads
 
         # Check the input file
         with self.define_input() as _:
@@ -98,42 +93,34 @@ class Picker:
 
         self.__create_output_handles()
         # pylint: disable=no-member
-        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+        multiprocessing.set_start_method(self.configuration.multiprocessing_method,
                                          force=True)
 
         # self.setup_logger()
-        self.logger.info("Random seed: %s", self.json_conf["seed"])
-        if self.json_conf["seed"] is not None:
-            # numpy.random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
-            random.seed((self.json_conf["seed"]) % (2 ** 32 - 1))
-        else:
-            # numpy.random.seed(None)
-            random.seed(None)
-        self.logger.debug("Multiprocessing method: %s", self.json_conf["multiprocessing_method"])
-
+        self.logger.info("Starting to analyse input file %s", self.input_file)
+        self.logger.info("Random seed: %s", self.configuration.seed)
+        random.seed((self.configuration.seed) % (2 ** 32 - 1))
+        self.logger.debug("Multiprocessing method: %s", self.configuration.multiprocessing_method)
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-
         self.db_connection = functools.partial(
             dbutils.create_connector,
-            self.json_conf,
+            self.configuration,
             self.logger)
 
         # Update the database if necessary
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]), creator=self.db_connection)
+        engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype), creator=self.db_connection)
         dbutils.DBBASE.metadata.create_all(engine)
         engine.dispose()
 
-        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
+        if self.configuration.pick.run_options.single_thread is True:
             # Reset threads to 1
-            if self.json_conf["threads"] > 1:
+            if self.configuration.threads > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
                 self.procs = 1
-        # elif self.json_conf["threads"] == 1:
-        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
 
         # self.printer_process = Process(target=self.printer)
@@ -152,7 +139,7 @@ class Picker:
             parser = Bed12Parser
             fformat = "bed12"
         else:
-            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise InvalidConfiguration("Invalid input file: {0}".format(self.input_file))
 
         verified = False
         with parser(self.input_file) as testing:
@@ -161,7 +148,7 @@ class Picker:
                     verified = True
                     break
         if verified is False:
-            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise InvalidConfiguration("Invalid input file: {0}".format(self.input_file))
 
         if multithreading:
             parser = Parser(self.input_file)
@@ -174,53 +161,24 @@ class Picker:
 
         """Private method to load the configuration"""
 
-        if isinstance(self.json_conf, str):
-            assert os.path.exists(self.json_conf)
-            self.json_conf = to_json(self.json_conf, logger=self.logger)
+        if isinstance(self.configuration, str):
+            assert os.path.exists(self.configuration)
+            self.configuration = load_and_validate_config(self.configuration, logger=self.logger)
+            assert isinstance(self.configuration, (MikadoConfiguration, DaijinConfiguration))
             # pylint: disable=no-member
-            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
-                                             force=True)
-            self.input_file = self.json_conf["pick"]["files"]["input"]
-            self.setup_logger()
-        elif isinstance(self.json_conf, dict):
-            # pylint: disable=no-member
-            self.input_file = self.json_conf["pick"]["files"]["input"]
-            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
-                                             force=True)
-            self.setup_logger()
-            self.logger.debug("Checking the configuration dictionary")
-            try:
-                self.json_conf = check_json(self.json_conf, logger=self.logger)
-                self.logger.debug("Configuration dictionary passes checks")
-            except Exception as exc:
-                self.logger.critical("Something went wrong with the configuration, critical error, aborting.")
-                self.logger.critical(exc)
-                sys.exit(1)
-        else:
-            raise TypeError(type(self.json_conf))
-        assert isinstance(self.json_conf, dict)
+        elif not isinstance(self.configuration, (MikadoConfiguration,DaijinConfiguration)):
+            raise TypeError(type(self.configuration))
 
-        for key in ("remove_overlapping_fragments", "flank", "purge"):
-            if key in self.json_conf["pick"]["run_options"]:
-                # Put warnings in place for the deprecation of some options.
+        multiprocessing.set_start_method(self.configuration.multiprocessing_method,
+                                         force=True)
+        self.input_file = self.configuration.pick.files.input
+        self.setup_logger()
 
-                if key == "remove_overlapping_fragments":
-                    self.json_conf["pick"]["fragments"]["remove"] = self.json_conf["pick"]["run_options"].pop(key)
-                    new_home = "fragments/remove"
-                else:
-                    self.json_conf["pick"]["clustering"][key] = self.json_conf["pick"]["run_options"].pop(key)
-                    new_home = "clustering/{}".format(key)
-                warns = PendingDeprecationWarning(
-                    """The \"{}\" property has now been moved to pick/{}. \
-Please update your configuration files in the future.""".format(
-                        key, new_home))
-                self.logger.warning(warns)
-
-        if self.json_conf.get("pick", {}).get("alternative_splicing", {}).get("pad", False) is True:
+        if self.configuration.pick.alternative_splicing.pad is True:
             # Check that, when asks for padding, the reference genome is present
             self.logger.debug("Checking for the presence of the reference genome")
             try:
-                _ = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
+                _ = pyfaidx.Fasta(self.configuration.reference.genome)
             except (pyfaidx.FastaIndexingError, FileNotFoundError, pyfaidx.FastaNotFoundError):
                 self.logger.error("Transcript padding cannot be executed without a valid genome file.\
                  Please, either disable the padding or provide a valid genome sequence.")
@@ -230,39 +188,29 @@ Please update your configuration files in the future.""".format(
             pass
 
         self.context = multiprocessing.get_context()
-        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
-            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
-                self.regressor = pickle.load(forest)
-            if not isinstance(self.regressor["scoring"], (RandomForestRegressor, RandomForestClassifier)):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
-                self.logger.critical(exc)
-                return
-        else:
-            self.regressor = None
-
         self.logger.debug("Configuration loaded successfully")
 
     def __create_output_handles(self):
 
         """Create all the output-related variables."""
 
-        if self.json_conf["pick"]["files"]["subloci_out"]:
+        if self.configuration.pick.files.subloci_out:
             self.sub_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
-                self.json_conf["pick"]["files"]["subloci_out"]
+                self.configuration.pick.files.output_dir,
+                self.configuration.pick.files.subloci_out
             )
         else:
             self.sub_out = ""
-        if self.json_conf["pick"]["files"]["monoloci_out"]:
+        if self.configuration.pick.files.monoloci_out:
             self.monolocus_out = path_join(
-                self.json_conf["pick"]["files"]["output_dir"],
-                self.json_conf["pick"]["files"]["monoloci_out"]
+                self.configuration.pick.files.output_dir,
+                self.configuration.pick.files.monoloci_out
             )
         else:
             self.monolocus_out = ""
         self.locus_out = path_join(
-            self.json_conf["pick"]["files"]["output_dir"],
-            self.json_conf["pick"]["files"]["loci_out"])
+            self.configuration.pick.files.output_dir,
+            self.configuration.pick.files.loci_out)
 
         assert self.locus_out != ''
         assert self.locus_out != self.sub_out and self.locus_out != self.monolocus_out
@@ -273,26 +221,27 @@ Please update your configuration files in the future.""".format(
         This method will copy the SQLite input DB into memory.
         """
 
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
+        if self.configuration.pick.run_options.shm is True:
+            shm_available = os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
+            if shm_available is False:
+                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either \
+not available or not writable for this user. Leaving the DB where it is.")
+                return
             self.main_logger.info("Copying Mikado database into a SHM db")
-            assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
+            assert self.configuration.db_settings.dbtype == "sqlite"
             # Create temporary file
-            temp = tempfile.mktemp(suffix=".db",
-                                   prefix="/dev/shm/")
-            if os.path.exists(temp):
-                os.remove(temp)
+            self.shm_db = tempfile.NamedTemporaryFile(suffix=".db", prefix="/dev/shm/")
             self.main_logger.debug("Copying {0} into {1}".format(
-                self.json_conf["db_settings"]["db"],
-                temp))
+                self.configuration.db_settings.db,
+                self.shm_db.name))
             try:
-                shutil.copy2(self.json_conf["db_settings"]["db"],
-                             temp)
-                self.json_conf["db_settings"]["db"] = temp
+                shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
+                self.configuration.db_settings.db = self.shm_db.name
             except PermissionError:
                 self.main_logger.warning(
                     """Permission to write on /dev/shm denied.
                     Back to using the DB on disk.""")
-                self.json_conf["pick"]["run_options"]["shm"] = False
+                self.configuration.pick.run_options.shm = False
             self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
@@ -306,46 +255,46 @@ Please update your configuration files in the future.""".format(
         self.printer_queue = multiprocessing.Queue(-1)
         self.formatter = formatter
         self.main_logger = logging.getLogger("main_logger")
-        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
+        if not os.path.exists(self.configuration.pick.files.output_dir):
             try:
-                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
+                os.makedirs(self.configuration.pick.files.output_dir)
             except (OSError, PermissionError) as exc:
                 self.logger.error("Failed to create the output directory!")
                 self.logger.exception(exc)
                 raise
-        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
+        elif not os.path.isdir(self.configuration.pick.files.output_dir):
             self.logger.error(
                 "The specified output directory %s exists and is not a file; aborting",
-                self.json_conf["pick"]["files"]["output_dir"])
+                self.configuration.pick.files.output_dir)
             raise OSError("The specified output directory %s exists and is not a file; aborting" %
-                          self.json_conf["pick"]["files"]["output_dir"])
+                          self.configuration.pick.files.output_dir)
 
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
-        if (self.json_conf["pick"]["files"]["log"] is None or
-                self.json_conf["pick"]["files"]["log"] in ("stream", "")):
+        if (self.configuration.pick.files.log is None or
+                self.configuration.pick.files.log in ("stream", "")):
             self.log_handler = logging.StreamHandler()
         else:
-            if os.path.basename(self.json_conf["pick"]["files"]["log"]) == self.json_conf["pick"]["files"]["log"]:
-                fname = path_join(self.json_conf["pick"]["files"]["output_dir"],
-                                  self.json_conf["pick"]["files"]["log"])
+            if os.path.basename(self.configuration.pick.files.log) == self.configuration.pick.files.log:
+                fname = path_join(self.configuration.pick.files.output_dir,
+                                  self.configuration.pick.files.log)
             else:
-                fname = self.json_conf["pick"]["files"]["log"]
+                fname = self.configuration.pick.files.log
 
             self.log_handler = logging.FileHandler(filename=fname, mode='w')
             assert os.path.exists(fname)
 
         # For the main logger I want to keep it at the "INFO" level
-        self.log_level = self.json_conf["log_settings"]["log_level"]
+        self.log_level = self.configuration.log_settings.log_level
         self.log_handler.setFormatter(self.formatter)
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        if self.log_level == "DEBUG" and self.json_conf["threads"] > 1:
+        if self.log_level == "DEBUG" and self.configuration.threads > 1:
             self.main_logger.setLevel(logging.DEBUG)
             self.main_logger.warning(
                     "Due to a Python design bug, we have to force Mikado to go in single-threaded mode when debugging.")
-            self.procs = self.json_conf["threads"] = 1
+            self.procs = self.configuration.threads = 1
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
@@ -358,29 +307,26 @@ Please update your configuration files in the future.""".format(
                 "Analysis launched directly, without using the launch script.")
 
         # Create the shared DB if necessary
-        self.setup_shm_db()
-
-        self.log_writer = logging_handlers.QueueListener(
-            self.logging_queue, self.logger)
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
 
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
 
-        self.queue_logger.setLevel(logging.getLevelName(self.json_conf["log_settings"]["log_level"]))
+        self.queue_logger.setLevel(logging.getLevelName(self.configuration.log_settings.log_level))
         self.logger.warning("Current level for queue: %s", logging.getLevelName(self.queue_logger.level))
 
         self.queue_logger.propagate = False
 
         # Configure SQL logging
         sqllogger = logging.getLogger("sqlalchemy.engine")
-        sqllogger.setLevel(self.json_conf["log_settings"]["sql_level"])
+        sqllogger.setLevel(self.configuration.log_settings.sql_level)
         sqllogger.addHandler(self.logger_queue_handler)
 
         return
 
-    def __print_gff_headers(self, locus_out, score_keys):
+    def __print_gff_headers(self, locus_out, score_keys, metrics):
         """Private method to print the GFF headers of the output files.
         Moreover, it will determine whether to start output files for
         subloci and/or monoloci.
@@ -389,7 +335,7 @@ Please update your configuration files in the future.""".format(
         """
 
         print('##gff-version 3', file=locus_out)
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+        engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
         try:
@@ -399,16 +345,13 @@ Please update your configuration files in the future.""".format(
                 locus_out.flush()
         except sqlalchemy.exc.OperationalError as _:
             self.logger.error("Empty database! Creating a mock one")
-            self.json_conf["db_settings"]["dbtype"] = "sqlite"
-            self.json_conf["db_settings"]["db"] = tempfile.mktemp()
-            engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+            self.configuration.db_settings.dbtype = "sqlite"
+            self.__db = tempfile.NamedTemporaryFile(suffix=".db", mode="wb")
+            self.configuration.db_settings.db = self.__db.name
+            engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype),
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
             dbutils.DBBASE.metadata.create_all(engine)
-
-        metrics = Superlocus.available_metrics[5:]
-        metrics.extend(["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()])
-        metrics = Superlocus.available_metrics[:5] + sorted(metrics)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
@@ -501,31 +444,40 @@ Please update your configuration files in the future.""".format(
                 all of these are file handles
         """
 
-        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+        engine = create_engine("{0}://".format(self.configuration.db_settings.dbtype),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        external_metrics = ["external.{}".format(_.source) for _ in session.query(ExternalSource.source).all()]
-
         score_keys = ["source_score"]
-        if self.regressor is None:
-            __scores = sorted(list(self.json_conf["scoring"].keys()))
-            # Check that the external scores are all present. If they are not, raise a warning.
-            __externals = set([_ for _ in __scores if _.startswith("external.")])
-            if __externals - set(external_metrics):
-                self.logger.error(
-                    ("The following external metrics, found in the scoring file, are not present in the database. " +
-                     "Please check their existence:\n" + "\n".join(
-                                ["    - {metric}".format(metric=metric) for metric in sorted(
-                                    __externals - set(external_metrics))]
-                                ))
-                )
-                sys.exit(1)
-                # __scores = sorted(set(__scores) - (__externals - set(external_metrics)))
+        __scores = set(self.configuration.scoring.scoring.keys())
 
-            score_keys += __scores
-        else:
-            score_keys += self.regressor["scoring"].metrics
+        available_external_metrics = ["external.{}".format(_.source)
+                                      for _ in session.query(ExternalSource.source).all()]
+
+        requested_external = set()
+        requested_external.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("external")})
+        requested_external.update({param for param in self.configuration.scoring.scoring.keys()
+                                   if param.startswith("external")})
+        
+        # Check that the external scores are all present. If they are not, raise a warning.
+        if requested_external - set(available_external_metrics):
+            self.logger.error(
+                ("The following external metrics, found in the scoring file, are not present in the database. " +
+                 "Please check their existence:\n" + "\n".join(
+                            ["    - {metric}".format(metric=metric) for metric in sorted(
+                                requested_external - set(available_external_metrics))]
+                            ))
+            )
+            sys.exit(1)
+
+        score_keys += __scores
 
         score_keys = ["tid", "alias", "parent", "score"] + sorted(score_keys)
         # Define mandatory output files
@@ -535,7 +487,11 @@ Please update your configuration files in the future.""".format(
             ".gff.?$", "", self.locus_out)), "w")
 
         metrics = Superlocus.available_metrics[5:]
-        metrics.extend(external_metrics)
+        # Only report *used* external metrics, for performance
+        if self.configuration.pick.output_format.report_all_external_metrics is True:
+            metrics.extend(available_external_metrics)
+        else:
+            metrics.extend(requested_external)
         metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()
@@ -559,7 +515,7 @@ Please update your configuration files in the future.""".format(
         locus_scores.name = locus_scores.handle.name
 
         locus_out = open(self.locus_out, 'w')
-        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys)
+        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys, metrics)
 
         return ((locus_metrics,
                  locus_scores,
@@ -570,7 +526,7 @@ Please update your configuration files in the future.""".format(
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
 
-    def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
+    def _submit_locus(self, slocus, counter, engine=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param slocus: the locus to analyse.
@@ -588,9 +544,8 @@ Please update your configuration files in the future.""".format(
         slocus.logger = self.logger
         return analyse_locus(slocus=slocus,
                              counter=counter,
-                             json_conf=self.json_conf,
+                             configuration=self.configuration,
                              logging_queue=self.logging_queue,
-                             data_dict=data_dict,
                              engine=engine)
 
     def __unsorted_interrupt(self, row, current_transcript):
@@ -697,33 +652,22 @@ Please update your configuration files in the future.""".format(
         :return:
         """
 
-        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
+        intron_range = self.configuration.pick.run_options.intron_range
         self.logger.debug("Intron range: %s", intron_range)
 
         locus_queue = self.manager.JoinableQueue(-1)
         status_queue = self.manager.JoinableQueue(-1)
 
         handles = list(self.__get_output_files())
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
-            basetempdir = "/dev/shm"
-        else:
-            basetempdir = self.json_conf["pick"]["files"]["output_dir"]
-
-        tempdirectory = tempfile.TemporaryDirectory(suffix="",
-                                                    prefix="mikado_pick_tmp",
-                                                    dir=basetempdir)
-        tempdir = tempdirectory.name
-        self.logger.info("Starting Mikado with multiple processes, temporary directory:\n\t%s",
-                         tempdir)
+        self.logger.info("Starting Mikado with multiple processes")
 
         self.logger.debug("Creating the worker processes")
 
-        working_processes = [LociProcesser(msgpack.dumps(self.json_conf),
+        working_processes = [LociProcesser(msgpack.dumps(dataclasses.asdict(self.configuration)),
                                            locus_queue,
                                            self.logging_queue,
                                            status_queue,
-                                           _,
-                                           tempdir)
+                                           _)
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
@@ -746,24 +690,30 @@ Please update your configuration files in the future.""".format(
         mapper["results"] = dict()
 
         while mapper["done"] != mapper["submit"]:
-            counter, chrom, num_genes, loci, subloci, monoloci = status_queue.get()
-            mapper["done"].add(counter)
-            if counter in mapper["results"]:
-                self.logger.fatal("%d double index found!", counter)
-                raise KeyError
+            results = status_queue.get()
+            if results[0] == "EXIT":
+                self.logger.error("We have not retrieved all loci!")
+                raise ValueError
+            results = msgpack.loads(zlib.decompress(results))
+            for result in results:
+                counter, chrom, num_genes, loci, subloci, monoloci = result
+                mapper["done"].add(counter)
+                if counter in mapper["results"]:
+                    self.logger.fatal("%d double index found!", counter)
+                    raise KeyError
 
-            mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
-            if len(mapper["done"]) > percs[curr_perc]:
-                curr_perc += 1
-                while len(mapper["done"]) > percs[curr_perc]:
+                mapper["results"][counter] = (chrom, num_genes, loci, subloci, monoloci)
+                if len(mapper["done"]) > percs[curr_perc]:
                     curr_perc += 1
-                real_perc = round(len(mapper["done"]) * 100 / total)
-                self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
-                                 len(mapper["done"]), total)
-            chrom = mapper[counter]
-            mapper[chrom]["done"].add(counter)
-            if mapper[chrom]["done"] == mapper[chrom]["submit"]:
-                self.logger.info("Finished with chromosome %s", chrom)
+                    while len(mapper["done"]) > percs[curr_perc]:
+                        curr_perc += 1
+                    real_perc = round(len(mapper["done"]) * 100 / total)
+                    self.logger.info("Done %s%% of loci (%s out of %s)", real_perc,
+                                     len(mapper["done"]), total)
+                chrom = mapper[counter]
+                mapper[chrom]["done"].add(counter)
+                if mapper[chrom]["done"] == mapper[chrom]["submit"]:
+                    self.logger.info("Finished with chromosome %s", chrom)
 
         [_.join() for _ in working_processes]
         self.logger.info("Joined children processes; starting to merge partial files")
@@ -771,25 +721,15 @@ Please update your configuration files in the future.""".format(
         # Merge loci
         merge_loci(mapper,
                    handles,
-                   total,
+                   total=total,
+                   configuration=self.configuration,
                    logger=self.logger,
-                   source=self.json_conf["pick"]["output_format"]["source"])
+                   source=self.configuration.pick.output_format.source)
 
         self.logger.info("Finished merging partial files")
-        try:
-            self.logger.debug("Cleaning up the temporary directory")
-            tempdirectory.cleanup()
-            self.logger.debug("Finished cleaning up")
-            pass
-        except (OSError, FileNotFoundError, FileExistsError) as exc:
-            self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
-                                tempdir, exc)
-        except KeyboardInterrupt:
-            raise
-        except Exception as exc:
-            self.logger.exception("Failed to clean up the temporary directory %s, error: %s", exc)
-        finally:
-            return
+        for group in handles:
+            [_.close() for _ in group if _]
+        return
 
     def __check_max_intron(self, current, invalids, row, max_intron):
         previous = None
@@ -850,7 +790,7 @@ Please update your configuration files in the future.""".format(
 
         tid = self.transcript_gtf_pattern.search(fields[-1])
         if tid is None:
-            raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
+            raise InvalidConfiguration("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
         if fields[7] in (None, ".", "?"):
             phase = None
@@ -864,12 +804,12 @@ Please update your configuration files in the future.""".format(
     def __parse_multithreaded(self, locus_queue):
         counter = 0
         invalids = set()
-        flank = self.json_conf["pick"]["clustering"]["flank"]
+        flank = self.configuration.pick.clustering.flank
         mapper = dict()
 
         with self.define_input(multithreading=True) as input_annotation:
             current = {"chrom": None, "start": None, "end": None, "transcripts": dict()}
-            max_intron = self.json_conf["prepare"]["max_intron_length"]
+            max_intron = self.configuration.prepare.max_intron_length
             for row in input_annotation:
                 row = self._parse_gtf_line(row)
                 if row is None:  # Header
@@ -969,10 +909,10 @@ Please update your configuration files in the future.""".format(
         logger = logging.getLogger("queue_listener")
         logger.propagate = False
         logger.addHandler(handler)
-        logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        logger.setLevel(self.configuration.log_settings.log_level)
         logger.debug("Begun single-threaded run")
 
-        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
+        intron_range = self.configuration.pick.run_options.intron_range
         logger.debug("Intron range: %s", intron_range)
 
         handles = self.__get_output_files()
@@ -980,20 +920,19 @@ Please update your configuration files in the future.""".format(
         locus_printer = functools.partial(print_locus,
                                           handles=handles,
                                           logger=logger,
-                                          json_conf=self.json_conf)
+                                          configuration=self.configuration)
 
         # last_printed = -1
         curr_chrom = None
         gene_counter = 0
 
-        self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
+        self.engine = dbutils.connect(configuration=self.configuration, logger=self.logger)
 
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": None,
-                                                                "engine": self.engine})
+        submit_locus = functools.partial(self._submit_locus, **{"engine": self.engine})
 
         counter = -1
         invalid = False
-        max_intron = self.json_conf["prepare"]["max_intron_length"]
+        max_intron = self.configuration.prepare.max_intron_length
         skip_transcript = False
         with self.define_input() as input_annotation:
             for row in input_annotation:
@@ -1058,7 +997,7 @@ Please update your configuration files in the future.""".format(
                     current_transcript.id, current_transcript.max_intron_length, max_intron)
             elif current_locus and Superlocus.in_locus(
                             current_locus, current_transcript,
-                            flank=self.json_conf["pick"]["clustering"]["flank"]) is True:
+                            flank=self.configuration.pick.clustering.flank) is True:
                     current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
             else:
                 counter += 1
@@ -1076,10 +1015,8 @@ Please update your configuration files in the future.""".format(
                         "Superlocus %s failed with exception: %s",
                         None if current_locus is None else current_locus.id, exc)
 
-                current_locus = Superlocus(current_transcript, stranded=False, json_conf=self.json_conf,
-                                           source=self.json_conf["pick"]["output_format"]["source"])
-                if self.regressor is not None:
-                    current_locus.regressor = self.regressor
+                current_locus = Superlocus(current_transcript, stranded=False, configuration=self.configuration,
+                                           source=self.configuration.pick.output_format.source)
 
         return current_locus, counter, gene_counter, curr_chrom
 
@@ -1091,8 +1028,8 @@ Please update your configuration files in the future.""".format(
         :return: jobs (the list of all jobs already submitted)
         """
 
-        single_thread = (self.json_conf["pick"]["run_options"]["single_thread"] or self.procs == 1
-                         or self.json_conf["log_settings"]["log_level"] == "DEBUG")
+        single_thread = (self.configuration.pick.run_options.single_thread or self.procs == 1
+                         or self.configuration.log_settings.log_level == "DEBUG")
         
         if single_thread is False:
             self.__submit_multi_threading()
@@ -1104,14 +1041,6 @@ Please update your configuration files in the future.""".format(
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()
-
-        # Clean up the DB copied to SHM
-        if self.json_conf["pick"]["run_options"]["shm"] is True:
-            assert os.path.dirname(self.json_conf["db_settings"]["db"]) == os.path.join("/dev", "shm"), (
-                self.json_conf["db_settings"]["db"], os.path.dirname(self.json_conf["db_settings"]["db"]),
-                os.path.join("/dev", "shm"))
-            self.main_logger.debug("Removing shared memory DB %s", self.json_conf["db_settings"]["db"])
-            os.remove(self.json_conf["db_settings"]["db"])
         self.manager.shutdown()
 
     def __call__(self):
@@ -1122,8 +1051,8 @@ Please update your configuration files in the future.""".format(
         # Otherwise it will raise all sorts of mistakes
 
         self.logger.debug("Source: %s",
-                          self.json_conf["pick"]["output_format"]["source"])
-        if self.json_conf["db_settings"]["dbtype"] == "sqlite":
+                          self.configuration.pick.output_format.source)
+        if self.configuration.db_settings.dbtype == "sqlite":
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,
                 pool_size=self.procs,

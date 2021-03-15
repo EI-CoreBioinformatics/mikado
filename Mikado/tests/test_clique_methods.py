@@ -2,8 +2,7 @@ import unittest
 
 import networkx
 
-from ..transcripts.clique_methods import find_cliques, find_communities
-from ..transcripts.clique_methods import reid_daid_hurley
+from Mikado._transcripts.clique_methods import find_cliques, find_communities
 
 
 class TestCliques(unittest.TestCase):
@@ -62,13 +61,6 @@ class TestCliques(unittest.TestCase):
                          self.correct_cliques,
                          cliques)
 
-    def test_reid(self):
-
-        comms = reid_daid_hurley(self.graph, 2)
-        self.assertEqual(comms,
-                         self.correct_communities,
-                         comms)
-
     def test_comms(self):
         self.maxDiff = None
         comms = find_communities(self.graph)
@@ -76,10 +68,6 @@ class TestCliques(unittest.TestCase):
                          self.correct_communities,
                          (comms, self.correct_communities))
 
-    def test_error_reid(self):
-
-        with self.assertRaises(networkx.NetworkXError):
-            _ = reid_daid_hurley(self.graph, 1)
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,19 +2,40 @@
 Module which contains all functions related to logging.
 """
 
-
 import logging
 import logging.handlers
+from dataclasses import field
+
+import argparse
+
+import os
+from marshmallow import validate
+from marshmallow_dataclass import dataclass, Optional
 
 __author__ = 'Luca Venturini'
 
 
-formatter = logging.Formatter(
-        "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
-- {processName} - {message}",
-        style="{"
-        )
+@dataclass
+class LoggingConfiguration:
+    log_level: str = field(default="INFO", metadata={
+                "metadata": {
+            "description": "Verbosity for SQL calls. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+            }, "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    })
+    sql_level: str = field(default="WARNING", metadata={
+                "metadata": {
+            "description": "General verbosity. Default: INFO. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+            }, "validate": validate.OneOf(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    })
+    log: Optional[str] = field(default=None, metadata={
+            })
 
+
+formatter = logging.Formatter(
+    "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
+- {processName} - {message}",
+    style="{"
+)
 
 null_logger = logging.getLogger("null")
 null_handler = logging.NullHandler()
@@ -113,16 +134,27 @@ def create_queue_logger(instance, prefix=""):
 
 
 def create_logger_from_conf(conf, name="mikado", mode="a"):
-
     logger = logging.getLogger(name)
-    handle = conf["log_settings"].get("log", None)
+    # Remove all previous handlers, if any is present. THIS IS NECESSARY TO PREVENT CLASHES IN THE UNIT-TESTS
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
+
+    if isinstance(conf, LoggingConfiguration):
+        log_settings = conf
+    else:
+        log_settings = conf.log_settings
+    assert isinstance(log_settings, LoggingConfiguration)
+    handle = log_settings.log
+
     if handle is None:
         handler = logging.StreamHandler()
     else:
-        handler = logging.FileHandler(conf["log_settings"]['log'], mode=mode)
+        os.makedirs(os.path.dirname(os.path.abspath(log_settings.log)), exist_ok=True)
+        handler = logging.FileHandler(log_settings.log, mode=mode)
 
     handler.setFormatter(formatter)
-    logger.setLevel(conf["log_settings"]['log_level'])
+    logger.setLevel(log_settings.log_level)
     logger.addHandler(handler)
     logger.propagate = False
     return logger

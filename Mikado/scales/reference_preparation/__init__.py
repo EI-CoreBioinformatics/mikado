@@ -12,7 +12,8 @@ def prepare_index(args, queue_logger):
         create_index(args.reference, queue_logger=queue_logger, index_name=index_name,
                      ref_gff=ref_gff,
                      exclude_utr=False, protein_coding=False)
-        assert os.path.exists(index_name)
+        assert os.path.exists(index_name), \
+            "Index {} should have been created but is now absent! File system problems?".format(index_name)
         return index_name
 
     if os.path.exists(index_name) and os.stat(args.reference.name).st_mtime >= os.stat(index_name).st_mtime:
@@ -52,7 +53,8 @@ def prepare_index(args, queue_logger):
             index_name = __index.name
         create_index(args.reference, queue_logger, index_name, ref_gff=ref_gff,
                      protein_coding=args.protein_coding, exclude_utr=args.exclude_utr)
-        assert os.path.exists(index_name)
+        assert os.path.exists(index_name), "Index file {} should have been created but is now absent!".format(
+            index_name)
 
     assert os.path.exists(index_name), (args.reference, index_name)
     return index_name

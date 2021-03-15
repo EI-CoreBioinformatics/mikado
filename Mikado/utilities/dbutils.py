@@ -1,21 +1,55 @@
 # coding: utf-8
 
 """This initializer contains the base declaration for all the DB classes of the module."""
+import functools
+import logging
+import sqlite3
+from dataclasses import field
 
+from marshmallow import validate
+from marshmallow_dataclass import dataclass, Optional
+from sqlalchemy import event
+from sqlalchemy.engine import create_engine, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine import create_engine, Engine
-from sqlalchemy import event
 from sqlalchemy_utils import database_exists, create_database
-import sqlite3
-import logging
-import functools
 
 Inspector = Inspector
 DBBASE = declarative_base()
 
 
-def create_connector(json_conf, logger=None):
+@dataclass
+class DBConfiguration:
+    db: str = field(default="mikado.db",
+                    metadata={"metadata": {"description": "the DB to connect to. Required. Default: mikado.db"},
+                              "required": True,
+                              "validate": validate.Length(min=1)}
+                    )
+    dbtype: str = field(default="sqlite",
+                        metadata={
+                            "metadata": {
+                                "description": "Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite."
+                            },
+                            "required": True,
+                            "validate": validate.OneOf(["sqlite", "mysql", "postgresql"])
+    })
+    dbhost: str = field(default="localhost", metadata={
+                "metadata": {"description": "Host of the database. Unused if dbtype is sqlite. Default: localhost"}
+    })
+    dbuser: Optional[str] = field(default=None, metadata={
+                "metadata": {"description": "DB user. Unused if dbtype is sqlite. Default: empty string"}
+    })
+    dbpasswd: Optional[str] = field(default=None, metadata={
+                "metadata": {"description": "DB password for the user. Unused if dbtype is sqlite. Default: null"}
+    })
+    dbport: Optional[int] = field(default=None, metadata={
+                "metadata": {
+                    "description": "Integer. It indicates the default port for the DB. Unused if dbtype is sqlite."
+                }
+    })
+
+
+def create_connector(configuration, logger=None):
     """Creator function for the database connection. It necessitates the following information from
     the json_conf dictionary:
 
@@ -31,8 +65,7 @@ def create_connector(json_conf, logger=None):
 
     These are controlled and added automatically by the json_utils functions.
 
-    :param json_conf: configuration dictionary
-    :type json_conf: dict
+    :param configuration: configuration dictionary
 
     :param logger: a logger instance
     :type logger: logging.Logger
@@ -46,60 +79,60 @@ def create_connector(json_conf, logger=None):
         logger = logging.Logger("null")
         logger.addHandler(logging.NullHandler())
 
-    db_settings = json_conf["db_settings"]
+    db_settings = configuration.db_settings
+    assert isinstance(db_settings, DBConfiguration)
 
     func = None
-    if db_settings["dbtype"] == "sqlite":
-        if not database_exists("sqlite:///{}".format(db_settings["db"])):
+    if db_settings.dbtype == "sqlite":
+        if not database_exists("sqlite:///{}".format(db_settings.db)):
             logger.debug("No database found, creating a mock one")
-            create_database("sqlite:///{}".format(db_settings["db"]))
-        logger.debug("Connecting to %s", db_settings["db"])
-        func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
-    elif db_settings["dbtype"] in ("mysql", "postgresql"):
-        if db_settings["dbpasswd"] != '':
-            passwd = ":{0}".format(db_settings["dbpasswd"])
+            create_database("sqlite:///{}".format(db_settings.db))
+        logger.debug("Connecting to %s", db_settings.db)
+        func = sqlite3.connect(database=db_settings.db, check_same_thread=False)
+    elif db_settings.dbtype in ("mysql", "postgresql"):
+        if db_settings.dbpasswd != '':
+            passwd = ":{0}".format(db_settings.dbpasswd)
         else:
             passwd = ''
         url = "{dialect}://{user}{passwd}@{host}:{port}/{db}".format(
-            dialect=db_settings["dbtype"],
-            host=db_settings["dbhost"],
-            user=db_settings["dbuser"],
+            dialect=db_settings.dbtype,
+            host=db_settings.dbhost,
+            user=db_settings.dbuser,
             passwd=passwd,
-            db=db_settings["db"],
-            port=db_settings["dbport"]
+            db=db_settings.db,
+            port=db_settings.dbport
         )
         if database_exists(url) is False:
             create_database(url)
 
-        if db_settings["dbtype"] == "mysql":
+        if db_settings.dbtype == "mysql":
             import MySQLdb
-            logger.debug("Connecting to MySQL %s", db_settings["db"])
-            func = MySQLdb.connect(host=db_settings["dbhost"],
-                                   user=db_settings["dbuser"],
-                                   passwd=db_settings["dbpasswd"],
-                                   db=db_settings["db"],
-                                   port=db_settings["dbport"])
-        elif db_settings["dbtype"] == "postgresql":
+            logger.debug("Connecting to MySQL %s", db_settings.db)
+            func = MySQLdb.connect(host=db_settings.dbhost,
+                                   user=db_settings.dbuser,
+                                   passwd=db_settings.dbpasswd,
+                                   db=db_settings.db,
+                                   port=db_settings.dbport)
+        elif db_settings.dbtype == "postgresql":
             import psycopg2
-            logger.debug("Connecting to PSQL %s", db_settings["db"])
+            logger.debug("Connecting to PSQL %s", db_settings.db)
             func = psycopg2.connect(
-                host=db_settings["dbhost"],
-                user=db_settings["dbuser"],
-                password=db_settings["dbpasswd"],
-                database=db_settings["db"],
-                port=db_settings["dbport"]
+                host=db_settings.dbhost,
+                user=db_settings.dbuser,
+                password=db_settings.dbpasswd,
+                database=db_settings.db,
+                port=db_settings.dbport
             )
     else:
-        raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
+        raise ValueError("DB type not supported! {0}".format(db_settings.dbtype))
     return func
 
 
-def connect(json_conf, logger=None, **kwargs):
-
+def connect(configuration, logger=None, **kwargs):
     """
     Function to create an engine to connect to a DB with, using the
     configuration inside the provided json_conf.
-    :param json_conf:
+    :param configuration:
     :param logger:
     :return: sqlalchemy.engine.base.Engine
     """
@@ -118,11 +151,11 @@ def connect(json_conf, logger=None, **kwargs):
         finally:
             cursor.close()
 
-    if json_conf is None:
+    if configuration is None:
         return create_engine("sqlite:///:memory:", **kwargs)
 
-    db_connection = functools.partial(create_connector, json_conf, logger=logger)
-    engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),
+    db_connection = functools.partial(create_connector, configuration, logger=logger)
+    engine = create_engine("{0}://".format(configuration.db_settings.dbtype),
                            creator=db_connection, **kwargs)
     DBBASE.metadata.create_all(engine, checkfirst=True)
 

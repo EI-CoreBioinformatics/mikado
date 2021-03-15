@@ -8,7 +8,8 @@ import os
 import subprocess
 import gzip
 import io
-from . import HeaderError
+from ..exceptions import InvalidParsingFormat
+from .parser import HeaderError
 from operator import itemgetter
 from Bio.SearchIO import parse as bio_parser
 import functools
@@ -57,20 +58,20 @@ class BlastOpener:
                         shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
                     self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
                 else:
-                    raise ValueError("Unrecognized file format for {}".format(self.__filename))
+                    raise InvalidParsingFormat("Unrecognized file format for {}".format(self.__filename))
             elif self.__filename.endswith(".xml"):
                 self.__handle = open(self.__filename)
-                assert self.__handle is not None
             elif self.__filename.endswith(".asn"):
                 blast_formatter = subprocess.Popen(
                     ['blast_formatter', '-outfmt', '5', '-archive', self.__filename],
                     shell=False, stdout=subprocess.PIPE)
                 self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
             else:
-                raise ValueError("Unrecognized file format: {}".format(self.__filename))
+                raise InvalidParsingFormat("Unrecognized file format: {}".format(self.__filename))
 
+        if self.__handle is None:
+            raise OSError("Failed to open file {}".format(self.__filename))
         self.__opened = True
-        assert self.__handle is not None, self.__filename
 
     def __enter__(self):
 
@@ -145,7 +146,6 @@ class BlastOpener:
         header = []
         exc = None
         valid = True
-        # assert handle is not None
         while True:
             try:
                 line = next(self.__handle)
@@ -223,7 +223,7 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
         raise ValueError("Invalid offset - only 0 and 1 allowed: {}".format(offset))
 
     try:
-        intervals = np.array(sorted([sorted(_) for _ in intervals], key=itemgetter(0)), dtype=np.int)
+        intervals = np.array(sorted([sorted(_) for _ in intervals], key=itemgetter(0)), dtype=int)
         if intervals.shape[1] != 2:
             raise ValueError("Invalid shape for intervals: {}".format(intervals.shape))
     except (TypeError, ValueError):
@@ -231,13 +231,13 @@ def merge(intervals: [(int, int)], query_length=None, offset=1):
     intervals.sort()
     starts = intervals[:, 0]
     ends = np.maximum.accumulate(intervals[:, 1])
-    valid = np.zeros(len(intervals) + 1, dtype=np.bool)
+    valid = np.zeros(len(intervals) + 1, dtype=bool)
     valid[0], valid[1:-1], valid[-1] = True, starts[1:] >= ends[:-1], True
     intervals = np.vstack((starts[:][valid[:-1]], ends[:][valid[1:]])).T
     total_length_covered = int(abs(intervals[:, 1] - intervals[:, 0] + offset).sum())
 
-    if query_length and total_length_covered > query_length:
-        raise AssertionError("Something went wrong, original length {}, total length {}".format(
-            query_length, total_length_covered))
+    assert not (query_length and total_length_covered > query_length), \
+        "Something went wrong, original length {}, total length {}".format(
+            query_length, total_length_covered)
 
     return [tuple([int(_[0]), int(_[1])]) for _ in intervals], total_length_covered

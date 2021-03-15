@@ -1,0 +1,77 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+name: Mikado
+on:
+  [ push, pull_request ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      matrix:
+        python-version: [ 3.8, 3.7, 3.6 ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache conda
+      id: cache-miniconda
+      uses: actions/cache@v1
+      env:
+        CACHE_NUMBER: 0
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ hashFiles('./environment.yml') }}
+    - name: Install system development tools
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt update
+        sudo apt install -y build-essential zlib1g-dev zlib1g
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        miniconda-version: "latest"
+        environment-file: ./environment.yml
+        mamba-version: "*"
+        use-mamba: true
+        channels: bioconda, conda-forge, defaults
+        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+        auto-update-conda: true
+        activate-environment: "test"
+        auto-activate-base: false
+    - name: Install dependencies
+      run: |
+        mamba install -y -c conda-forge -n test -- pytest-cov
+        gcc --help
+        mamba install -n test -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
+        pip install -r requirements.txt
+        pip install Cython
+        python setup.py develop
+    - name: Test light
+      run: |
+        pytest -m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs
+    - name: Test full
+      run: |
+        pytest --cov=Mikado --cov-report=xml --cov-config=.coveragerc -m '(slow or not slow) and not triage';
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+    - name: Test daijin
+      run: |
+        cd sample_data; snakemake --jobs 5 --cores 5
+    - name: Test fast
+      run: |
+        python -c "import Mikado; Mikado.test(label='fast')";
+    - name: Test seed
+      run: |
+        # Check that the seed is set properly
+        mikado serialise --junctions sample_data/junctions.bed --genome Mikado/tests/chr5.fas.gz --transcripts Mikado/tests/check_seed.fa --configuration Mikado/tests/check_seed.yaml
+        mikado pick --log $(pwd)/pick.20a.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
+        mikado pick --log $(pwd)/pick.20b.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf
+        mikado pick --log $(pwd)/pick.20c.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20c Mikado/tests/check_seed.gtf
+        mikado pick --log $(pwd)/pick.20d.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20d Mikado/tests/check_seed.gtf
+        mikado pick --log $(pwd)/pick.10.log --procs 2 --seed 1000 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 1000 Mikado/tests/check_seed.gtf
+        if [[ $(diff -q 20a 20b) || $(diff -q 20a 20c) || $(diff -q 20a 20d) ]]; then exit 1; fi
+        if [[ ! $(diff -q 20a 1000) ]]; then exit 1; fi

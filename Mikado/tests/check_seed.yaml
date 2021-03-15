@@ -2,7 +2,7 @@
 #  - short_reads: this section deals with RNA-Seq short read input data.
 #  - name: name of the species under analysis.
 #  - reference: reference data to use. A reference genome is required.
-align_methods: {}
+threads: 1
 blastx:
   chunks: 1
   evalue: 1.0e-07
@@ -17,33 +17,9 @@ db_settings:
   #  dbuser: DB user. Default: 
   #  dbpasswd: DB password for the user. Default: 
   #  dbport: Integer. It indicates the default port for the DB.
-  db: /tmp/mikado.db
+  db: mikado_check_seed.db
   dbtype: sqlite
-extra:
-  #  Options related to indexing.
-  star_index: ''
-long_read_align_methods: {}
-long_reads:
-  #  Parameters related to long reads to use for the assemblies.
-  files: []
-  samples: []
-  skip_split: true
-  strandedness: []
 mikado:
-  db_settings:
-    #  Settings related to DB connection. Parameters:
-    #  db: the DB to connect to. Required. Default: mikado.db
-    #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
-    #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
-    #  dbuser: DB user. Default: 
-    #  dbpasswd: DB password for the user. Default: 
-    #  dbport: Integer. It indicates the default port for the DB.
-    db: mikado.db
-    dbhost: localhost
-    dbpasswd: ''
-    dbport: 0
-    dbtype: sqlite
-    dbuser: ''
   modes:
   - permissive
   use_diamond: true
@@ -85,7 +61,7 @@ pick:
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: STRINGENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
-      {}
+      leniency: STRINGENT
     execute: true
   clustering:
     #  Parameters related to the clustering of transcripts into loci.
@@ -117,14 +93,9 @@ pick:
     #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
     #  for profiling and debugging.
     #  - flank: DEPRECATED. Now set in the clustering section.
-    procs: 1
     single_thread: false
     intron_range: [60, 900]
-  scoring_file: plant.yaml
-portcullis:
-  #  Options related to portcullis
-  canonical_juncs: C,S
-  do: true
+  scoring_file: HISTORIC/plant.yaml
 prepare:
   #  Options related to the input data preparation.
   #  - procs: Number of processes to use.
@@ -148,7 +119,10 @@ prepare:
     out_fasta: mikado_prepared.fasta
     output_dir: .
     reference:
-    - st
+      - false
+      - false
+      - true
+      - false
     source_score:
       cl: 0
       cuff: 0
@@ -158,7 +132,6 @@ prepare:
     - class.gtf
     - cufflinks.gtf
     - stringtie.gtf
-  procs: 1
   strand_specific: false
   minimum_cdna_length: 200
   max_intron_length: 1000000
@@ -190,30 +163,6 @@ serialise:
     output_dir: .
     transcripts: mikado_prepared.fasta
     xml: []
-  codon_table: 0
+  codon_table: "0"
   max_regression: 0.1
   substitution_matrix: blosum62
-  procs: 1
-short_reads:
-  #  Parameters related to the reads to use for the assemblies. Voices:
-  #  - r1: array of left read files.
-  #  - r2: array of right read files. It must be of the same length of r1; if one
-  #    one or more of the samples are single-end reads, add an empty string.
-  #  - samples: array of the sample names. It must be of the same length of r1.
-  #  - strandedness: array of strand-specificity of the samples. It must be of the
-  #    same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded.
-  r1: []
-  r2: []
-  samples: []
-  strandedness: []
-tgg:
-  #  Options related to genome-guided Trinity.
-  coverage: 0.7
-  identity: 0.95
-  max_mem: 6000
-  npaths: 0
-threads: 3
-transdecoder:
-  execute: true
-  min_protein_len: 30
-

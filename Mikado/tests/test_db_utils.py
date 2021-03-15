@@ -21,15 +21,9 @@ __author__ = 'Luca Venturini'
 class TestDbConnect(unittest.TestCase):
 
     def setUp(self):
-        self.json = configurator.to_json(
+        self.json = configurator.load_and_validate_config(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
-        self.json["db_settings"]["db"] = pkg_resources.resource_filename("Mikado.tests",
-                                                                         "mikado.db")
-        #
-        # self.assertEqual(self.json["db_settings"]["db"],
-        #                  os.path.join(
-        #                      os.path.dirname(__file__),
-        #                      self.json["db_settings"]["db"],))
+        self.json.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
 
     def test_connector(self):
         connector = dbutils.create_connector(self.json)
@@ -50,7 +44,7 @@ class TestDbConnect(unittest.TestCase):
         session = sessionmaker()
         # Simple tests based on the static content of the dictionary
         self.assertEqual(session.query(serializers.junction.Junction).count(), 372,
-                         self.json["db_settings"])
+                         self.json.db_settings)
         self.assertEqual(session.query(serializers.orf.Orf).count(), 169)
         self.assertEqual(session.query(serializers.blast_serializer.Target).count(), 38909)
         self.assertEqual(session.query(serializers.blast_serializer.Query).count(), 93)
@@ -70,7 +64,7 @@ class TestDbConnect(unittest.TestCase):
         self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
         self.assertIsInstance(astup.target_id, int)
         self.assertIsInstance(astup.target_length, int)
-        self.assertIsInstance(astup.target_name, str)        
+        self.assertIsInstance(astup.target_name, str)
 
     def test_query_init(self):
 
@@ -97,17 +91,17 @@ class TestDbConnect(unittest.TestCase):
             _ = serializers.blast_serializer.Target("foo", 1000.0)
 
     def test_wrong_db(self):
-        self.json["db_settings"]["dbtype"] = "sqlite_foo"
+        self.json.db_settings.dbtype = "sqlite_foo"
         with self.assertRaises(ValueError):
             _ = dbutils.create_connector(self.json)
 
     @unittest.skipUnless(os.path.exists("/dev/shm"),
                          "/dev/shm is not available on this system.")
     def test_connect_to_shm(self):
-        self.json["pick"]["run_options"]['shm'] = True
-        shutil.copy(self.json["db_settings"]["db"], "/dev/shm/")
-        self.json["db_settings"]["db"] = os.path.join("/dev/shm/",
-                                                      os.path.basename(self.json["db_settings"]["db"]))
+        self.json.pick.run_options.shm = True
+        shutil.copy(self.json.db_settings.db, "/dev/shm/")
+        self.json.db_settings.db = os.path.join("/dev/shm/",
+                                                      os.path.basename(self.json.db_settings.db))
         connector = dbutils.connect(self.json)
         self.assertEqual(str(connector.url), "sqlite://")
         engine = dbutils.connect(self.json)
@@ -116,11 +110,11 @@ class TestDbConnect(unittest.TestCase):
         first_target = session.query(serializers.blast_serializer.Target).limit(1).one()
         astup = first_target.as_tuple()
         self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
-        os.remove(os.path.join("/dev/shm/", os.path.basename(self.json["db_settings"]["db"])))
+        os.remove(os.path.join("/dev/shm/", os.path.basename(self.json.db_settings.db)))
 
     def test_to_memory(self):
-        connector = dbutils.connect(None)
-        self.assertEqual(str(connector.url), "sqlite:///:memory:")
+        engine = dbutils.connect(None)
+        self.assertEqual(str(engine.url), "sqlite:///:memory:")
 
 
 if __name__ == "__main__":

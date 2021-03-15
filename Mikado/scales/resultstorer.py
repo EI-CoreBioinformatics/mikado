@@ -73,7 +73,7 @@ class ResultStorer:
 
         """
         :param args: a list/tuple
-        :type args: list | tuple
+        :type args: list | tuple | str | int | float
 
         """
 

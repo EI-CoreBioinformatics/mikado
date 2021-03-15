@@ -6,6 +6,7 @@ Unit test for a transcript on the positive strand.
 
 import unittest
 import re
+import itertools
 import copy
 from .. import parsers, exceptions, loci
 from ..utilities.log_utils import create_null_logger, create_default_logger
@@ -90,6 +91,7 @@ class MonoBaseTester(unittest.TestCase):
 
     def test_split(self):
 
+        self.tr.configuration.pick.chimera_split.blast_check = False
         self.tr.load_orfs([self.bed3, self.bed1])
         splitted_transcripts = [l for l in self.tr.split_by_cds()]
         self.assertEqual(len(splitted_transcripts), 2)
@@ -150,7 +152,6 @@ Chr5\tStringTie\t3UTR\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\t3UTR\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";"""
 
-        import itertools
 
         for lines in itertools.zip_longest(self.tr.__str__(to_gtf=True).split("\n"),
                                            real_printed_gtf.split("\n")):
@@ -170,7 +171,7 @@ Chr5\tStringTie\t3UTR\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
         # self.bed3.thick_start = 3914
         # self.bed3.thick_end = 4393
         
-        real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf1;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=True
+        real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf1;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4.orf1;derives_from=StringTie_DN.70115.4;maximal=True
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tID=StringTie_DN.70115.4.orf1.CDS1;Parent=StringTie_DN.70115.4.orf1
@@ -179,7 +180,7 @@ Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tthree_prime_UTR\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.three_prime_UTR2;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon3;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tthree_prime_UTR\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.three_prime_UTR3;Parent=StringTie_DN.70115.4.orf1
-Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf2;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=False
+Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf2;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4.orf2;derives_from=StringTie_DN.70115.4;maximal=False
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tfive_prime_UTR\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon2;Parent=StringTie_DN.70115.4.orf2
@@ -596,8 +597,12 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
+        self.assertTrue(self.tr.end != 625880 or self.tr.start != 625878)
         self.tr.exons += [(625878, 625880)]
-        self.assertRaises(exceptions.InvalidTranscript, self.tr.finalize)
+        with self.assertLogs(self.tr.logger, "DEBUG") as cmo:
+            self.tr.finalize()
+        self.assertTrue(self.tr.end == 625880 or self.tr.start == 625878, cmo.output)
+        self.assertTrue(any([re.search(r"Modifying it", _) is not None for _ in cmo.output]))
 
     def test_complete(self):
 
@@ -626,6 +631,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         self.tr.strip_cds()
         self.tr.finalized = False
+        self.tr.configuration.pick.chimera_split.blast_check = False
 
         first_orf = parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
@@ -780,6 +786,7 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
     def test_split(self):
 
         self.tr.load_orfs([self.bed1, self.bed2])
+        self.tr.configuration.pick.chimera_split.blast_check = False
 
         self.assertEqual(self.tr.selected_cds_start, 15494127)
         self.assertEqual(self.tr.selected_cds_end, 15495994)

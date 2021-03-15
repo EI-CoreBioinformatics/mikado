@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 """Stub of pre-configurer for Mikado"""
-
-
 import yaml
 import os
 import re
@@ -10,15 +8,17 @@ from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
-from ..exceptions import InvalidJson
-from ..utilities import comma_split, percentage
+import dataclasses
+
+from ._utils import _set_pick_mode
+from ..configuration import DaijinConfiguration, MikadoConfiguration
+from ..exceptions import InvalidConfiguration
+from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
-import functools
-import rapidjson as json
+from ..configuration.configurator import load_and_validate_config
+from ..configuration import print_config
 import tempfile
 from ..utilities.log_utils import create_null_logger, create_default_logger
-import tomlkit
-import toml
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -28,92 +28,7 @@ from .prepare import parse_prepare_options
 __author__ = 'Luca Venturini'
 
 
-def get_key(new_dict, key, default):
-
-    """
-    Recursive method to get a nested key from inside the "default" dict
-    and transfer it, keeping the tree structure, inside the
-    new_dict
-    :param new_dict: dictionary to transfer the key to
-    :param key: composite key
-    :param default: dictionary to extract the key from
-    :return: new_dict (with updated structure)
-    """
-
-    if isinstance(default[key[0]], dict):
-        assert len(key) > 1
-        new_dict.setdefault(key[0], new_dict.get(key[0], dict()))
-        new_dict = get_key(new_dict[key[0]], key[1:], default[key[0]])
-    else:
-        assert len(key) == 1
-        new_dict[key[0]] = default[key[0]]
-    return new_dict
-
-
-def create_simple_config(seed=None):
-
-    """
-    Method to create a stripped down configuration dictionary
-    containing only SimpleComments and required fields.
-    :return:
-    """
-
-    from ..configuration.configurator import to_json, create_validator, merge_dictionaries
-    from ..configuration import check_has_requirements
-
-    default = to_json("", simple=True)
-    validator = create_validator(simple=True)
-
-    del default["scoring"]
-    del default["requirements"]
-    del default["not_fragmentary"]
-    del default["as_requirements"]
-    del default["cds_requirements"]
-
-    new_dict = dict()
-    composite_keys = [(ckey[1:]) for ckey in
-                      check_has_requirements(default,
-                                             validator.schema["properties"])] + [["seed"]]
-
-    # Sort the composite keys by depth
-    for ckey in sorted(composite_keys, key=len, reverse=True):
-        defa = default
-        # Get to the latest position
-        for key in ckey:
-            try:
-                defa = defa[key]
-            except KeyError:
-                raise KeyError(key, defa)
-        val = defa
-        for k in reversed(ckey):
-            val = {k: val}
-
-        new_dict = merge_dictionaries(new_dict, val)
-
-    if seed is not None:
-        new_dict["seed"] = seed
-
-    return new_dict
-
-
-def _remove_comments(d: dict) -> dict:
-
-    nudict = dict()
-
-    if not isinstance(d, dict):
-        return d
-
-    for key, item in d.items():
-        if key == "Comment" or "comment" in key.lower():
-            continue
-        elif isinstance(item, dict):
-            nudict[key] = _remove_comments(item)
-        else:
-            nudict[key] = item
-    return nudict
-
-
-def __add_daijin_specs(args):
+def __add_daijin_specs(args, config):
     from ..configuration.daijin_configurator import create_cluster_config, create_daijin_config
     namespace = Namespace(default=False)
     namespace.r1 = []
@@ -143,11 +58,12 @@ def __add_daijin_specs(args):
     namespace.scoring = args.scoring
     namespace.new_scoring = getattr(args, "new_scoring", None)
     namespace.full = args.full
-    config = create_daijin_config(namespace, level="ERROR", piped=True)
-    config["blastx"]["chunks"] = args.blast_chunks
-    config["mikado"]["use_diamond"] = (not args.use_blast)
-    config["mikado"]["use_prodigal"] = (not args.use_transdecoder)
-    config["scheduler"] = args.scheduler
+    namespace.no_files = args.no_files
+    config = create_daijin_config(namespace, config, level="ERROR", piped=True)
+    config.blastx.chunks = args.blast_chunks
+    config.mikado.use_diamond = (not args.use_blast)
+    config.mikado.use_prodigal = (not args.use_transdecoder)
+    config.scheduler = args.scheduler
     create_cluster_config(config, args, create_null_logger())
     return config
 
@@ -159,42 +75,25 @@ def create_config(args):
     :return:
     """
 
-    from ..configuration.configurator import to_json, merge_dictionaries
-    from ..configuration import print_config, print_toml_config
+    if isinstance(args.seed, bool) or args.seed is None:
+        raise OSError("Invalid seed: {}".format(args.seed))
+    elif not (isinstance(args.seed, int) and 0 <= args.seed <= 2 ** 32 - 1):
+        raise OSError("Invalid seed: {}".format(args.seed))
 
-    if len(args.mode) > 1:
-        args.daijin = True
-
-    if args.daijin is not False:
-        config = __add_daijin_specs(args)
-    else:
-        if args.full is True:
-            default = to_json(None)
-            del default["scoring"]
-            del default["requirements"]
-            del default["not_fragmentary"]
-            del default["as_requirements"]
-            config = default
-        else:
-            config = create_simple_config(seed=args.seed)
+    args.daijin = args.daijin or [isinstance(args.mode, list) and len(args.mode) > 1]
+    config = DaijinConfiguration() if args.daijin is True else MikadoConfiguration()
 
     if args.external is not None:
-        if args.external.endswith("json"):
-            loader = json.load
-        elif args.external.endswith("yaml"):
-            loader = functools.partial(yaml.load, Loader=yLoader)
-        else:
-            loader = toml.load
-        with open(args.external) as external:
-            external_conf = loader(external)
-        # Overwrite values specific to Mikado
-        if "mikado" in external_conf:
-            mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
-            config = merge_dictionaries(config, mikado_conf)
-        config = merge_dictionaries(config, external_conf)
+        other = dataclasses.asdict(load_and_validate_config(args.external, external=True))
+        config = dataclasses.asdict(config)
+        config = merge_dictionaries(config, other)
+        config = load_and_validate_config(config)
 
-    config["pick"]["files"]["subloci_out"] = args.subloci_out if args.subloci_out else ""
-    config["pick"]["files"]["monoloci_out"] = args.monoloci_out if args.monoloci_out else ""
+    if args.daijin is True:
+        config = __add_daijin_specs(args, config)
+
+    config.pick.files.subloci_out = args.subloci_out if args.subloci_out else ""
+    config.pick.files.monoloci_out = args.monoloci_out if args.monoloci_out else ""
 
     if isinstance(args.gff, str):
         args.gff = args.gff.split(",")
@@ -202,34 +101,35 @@ def create_config(args):
         args.gff = []
     config = parse_prepare_options(args, config)
 
-    if args.seed is not None:
-        config["seed"] = args.seed
+    if args.random_seed is True:
+        config.seed = None
+    else:
+        config.seed = args.seed
 
-    if args.junctions is not None:
-        config["serialise"]["files"]["junctions"] = args.junctions
+    config.serialise.files.junctions = args.junctions if args.junctions is not None else \
+        config.serialise.files.junctions
 
-    if args.blast_targets is not None:
-        config["serialise"]["files"]["blast_targets"] = args.blast_targets
-
-    if args.no_files is True:
-        for stage in ["pick", "prepare", "serialise"]:
-            if "files" in config[stage]:
-                del config[stage]["files"]
-        del config["reference"]
-        del config["db_settings"]
+    config.serialise.files.blast_targets = args.blast_targets if args.blast_targets is not None else \
+        config.serialise.files.blast_targets
 
     if args.only_reference_update is True or args.reference_update is True:
-        if len(config["prepare"]["files"]["reference"]) == 0:
+        if len(config.prepare.files.reference) == 0:
             logger = create_default_logger("configure")
             logger.error(
                 "No reference dataset provided! Please correct the issue or remove the \"--only-reference-update\" \
 switch.")
             sys.exit(1)
         else:
-            config["pick"]["run_options"]["only_reference_update"] = True
+            config.pick.run_options.only_reference_update = True
 
-    if args.check_references is True:
-        config["pick"]["run_options"]["check_references"] = True
+    config.pick.run_options.check_references = True if args.check_references is True else \
+        config.pick.run_options.check_references
+
+    config.pick.output_format.report_all_orfs = True if args.report_all_orfs is True else \
+        config.pick.output_format.report_all_orfs
+
+    config.pick.output_format.report_all_external_metrics = True if args.report_all_external_metrics else \
+        config.pick.output_format.report_all_external_metrics
 
     if args.scoring is not None:
         if args.copy_scoring is not False:
@@ -241,97 +141,68 @@ switch.")
                         print(line.decode().rstrip(), file=out)
             args.scoring = args.copy_scoring
 
-        config["pick"]["scoring_file"] = args.scoring
+        config.pick.scoring_file = args.scoring
 
-    if args.cds_only is True:
-        args.json_conf["pick"]["clustering"]["cds_only"] = True
-
-    if args.as_cds_only is True:
-        args.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+    config.pick.clustering.cds_only = True if args.cds_only is True else config.pick.clustering.cds_only
+    config.pick.alternative_splicing.cds_only = True if args.as_cds_only else config.pick.alternative_splicing.cds_only
 
     if args.daijin is False and args.mode is not None and len(args.mode) == 1:
-        args.mode = args.mode.pop()
-        if args.mode == "nosplit":
-            config["pick"]["chimera_split"]["execute"] = False
-        else:
-            config["pick"]["chimera_split"]["execute"] = True
-            if args.mode == "split":
-                config["pick"]["chimera_split"]["blast_check"] = False
-            else:
-                config["pick"]["chimera_split"]["blast_check"] = True
-                config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+        mode = args.mode.pop()
+        config = _set_pick_mode(config, mode)
 
     if args.skip_split:
-        if not all(_ in config["prepare"]["files"]["labels"] for _ in args.skip_split):
-            raise InvalidJson("Some of the labels to skip for splitting are invalid: {}".format(
-                [_ for _ in args.skip_split if _ not in config["prepare"]["files"]["labels"]]
+        if not all(_ in config.prepare.files.labels for _ in args.skip_split):
+            raise InvalidConfiguration("Some of the labels to skip for splitting are invalid: {}".format(
+                [_ for _ in args.skip_split if _ not in config.prepare.files.labels]
             ))
-        config["pick"]["chimera_split"]["skip"] = list(set(config["pick"]["chimera_split"]["skip"].extend(
-            args.skip_split)))
+        config.pick.chimera_split.skip = list(set(config.pick.chimera_split.skip.extend(args.skip_split)))
 
-    if args.pad is True:
-        config["pick"]["alternative_splicing"]["pad"] = True
-
-    if args.min_clustering_cds_overlap is not None:
-        config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cds_overlap
+    config.pick.alternative_splicing.pad = args.pad if args.pad is not None else config.pick.alternative_splicing.pad
+    config.pick.clustering.min_cds_overlap = args.min_clustering_cds_overlap if args.min_clustering_cds_overlap is not \
+        None else config.pick.clustering.min_cds_overlap
 
     if args.min_clustering_cdna_overlap is not None:
-        config["pick"]["clustering"]["min_cdna_overlap"] = args.min_clustering_cdna_overlap
+        config.pick.clustering.min_cdna_overlap = args.min_clustering_cdna_overlap
         if args.min_clustering_cds_overlap is None:
-            config["pick"]["clustering"]["min_cds_overlap"] = args.min_clustering_cdna_overlap
+            config.pick.clustering.min_cds_overlap = args.min_clustering_cdna_overlap
 
-    if args.intron_range is not None:
-        config["pick"]["run_options"]["intron_range"] = sorted(args.intron_range)
+    config.pick.run_options.intron_range = sorted(args.intron_range) if args.intron_range is not None else \
+        config.pick.run_options.intron_range
 
-    if args.codon_table is not None:
-        try:
-            args.codon_table = int(args.codon_table)
-        except ValueError:
-            pass
-        config["serialise"]["codon_table"] = args.codon_table
-    else:
-        assert args.full is False or "codon_table" in config["serialise"]
+    config.serialise.codon_table = str(args.codon_table) if args.codon_table not in (None, False, True) else \
+        config.serialise.codon_table
 
-    config.pop("__loaded_scoring", None)
-    config.pop("scoring_file", None)
-    config.pop("filename", None)
-    config.pop("as_requirements", None)
-    config.pop("scoring", None)
-    config.pop("not_fragmentary", None)
-    config.pop("requirements", None)
+    config.pick.alternative_splicing.keep_cds_disrupted_by_ri = True if args.keep_disrupted_cds is True else \
+        config.pick.alternative_splicing.keep_cds_disrupted_by_ri
 
-    if args.keep_disrupted_cds is True:
-        config["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = True
+    config.pick.alternative_splicing.keep_retained_introns = False if args.exclude_retained_introns is True else \
+        config.pick.alternative_splicing.keep_retained_introns
 
-    if args.exclude_retained_introns is True:
-        config["pick"]["alternative_splicing"]["keep_retained_introns"] = False
+    if args.out_dir:
+        config.prepare.files.output_dir = args.out_dir
+        config.serialise.files.output_dir = args.out_dir
+        config.pick.files.output_dir = args.out_dir
+
+    config.check()
 
     # Check that the configuration file is correct
-    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml", delete=False)
-    output = yaml.dump(config, default_flow_style=False)
-    print_config(output, tempcheck)
-    tempcheck.flush()
-    try:
-        to_json(tempcheck.name)
-    except InvalidJson as exc:
-        raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
+    with tempfile.NamedTemporaryFile("wt", suffix=".json", delete=True) as tempcheck:
+        print_config(config, tempcheck, full=args.full, output_format="json")
+        tempcheck.flush()
+        try:
+            load_and_validate_config(tempcheck.name)
+        except InvalidConfiguration as exc:
+            raise InvalidConfiguration("Created an invalid configuration file! Error:\n{}".format(exc))
 
-    if args.json is True:
-        json.dump(config, args.out, sort_keys=True, indent=4)
-    elif args.yaml is True:
-        output = yaml.dump(config, default_flow_style=False)
-        print_config(output, args.out)
-    elif args.toml is True:
-        output = tomlkit.dumps(config)
-        print_toml_config(output, args.out)
-    elif args.out.name.endswith("json"):
-        json.dump(config, args.out, sort_keys=True, indent=4)
-    elif args.out.name.endswith("yaml"):
-        output = yaml.dump(config, default_flow_style=False)
-        print_config(output, args.out)
+    # Print out the final configuration file
+    if args.json is True or args.out.name.endswith("json"):
+        format_name = "json"
+    elif args.yaml is True or args.out.name.endswith("yaml"):
+        format_name = "yaml"
     else:
-        output = tomlkit.dumps(config)
-        print_toml_config(output, args.out)
+        format_name = "toml"
+
+    print_config(config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
 
 
 def configure_parser():
@@ -349,15 +220,19 @@ def configure_parser():
                      for fname in glob.iglob(os.path.join(scoring_folder, "**", "*yaml"), recursive=True)]
 
     parser = argparse.ArgumentParser(description="Configuration utility for Mikado")
-                                     #formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Random seed number.")
+    seed_group = parser.add_mutually_exclusive_group()
+    seed_group.add_argument("--seed", type=int, default=0, help="Random seed number. Default: 0.")
+    seed_group.add_argument("--random-seed", action="store_true", default=False,
+                            help="Generate a new random seed number (instead of the default of 0)")
     preparer = parser.add_argument_group("Options related to the prepare stage.")
     preparer.add_argument("--minimum-cdna-length", default=None, type=int, dest="minimum_cdna_length",
                           help="Minimum cDNA length for transcripts.")
     preparer.add_argument("--max-intron-length", default=None, type=int, dest="max_intron_length",
                           help="Maximum intron length for transcripts.")
+    preparer.add_argument("--strip-faulty-cds", default=None, action="store_true",
+                          help="Flag. If set, transcripts with an incorrect CDS will be retained but \
+with their CDS stripped. Default behaviour: the whole transcript will be considered invalid and discarded.")
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
                          help="Scoring file to use. Mikado provides the following:\n{}".format(
@@ -410,6 +285,12 @@ Default: 20%%.")
 locus during the late picking stages. \
 NOTE: if not specified, and --min-cdna-overlap is specified on the command line, min-cds-overlap will be set to this value! \
 Default: 20%%.")
+    picking.add_argument("--report-all-orfs", default=False, action="store_true",
+                         help="Boolean switch. If set to true, all ORFs will be reported, not just the primary.")
+    picking.add_argument("--report-all-external-metrics", default=None,
+                         action="store_true",
+                         help="Boolean switch. If activated, Mikado will report all available external metrics, not just \
+those requested for in the scoring configuration. This might affect speed in Minos analyses.")
     picking.add_argument("--cds-only", dest="cds_only",
                          default=None, action="store_true",
                          help=""""Flag. If set, Mikado will only look for overlap in the coding features \

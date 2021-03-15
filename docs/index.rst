@@ -13,10 +13,14 @@
 .. |python_36_badge| image:: https://img.shields.io/badge/python-3.6-blue.svg
    :target: https://www.python.org/downloads/release/python-360/
 .. |python_37_badge| image:: https://img.shields.io/badge/python-3.7-blue.svg
-   :target: https://www.python.org/downloads/release/python-371/
-.. |travis_status| image:: https://travis-ci.org/lucventurini/mikado.svg?branch=master
-    :target: https://travis-ci.org/lucventurini/mikado
-.. |coverage| image:: https://codecov.io/gh/lucventurini/mikado/branch/master/graph/badge.svg
+   :target: https://www.python.org/downloads/release/python-372/
+.. |python_38_badge| image:: https://img.shields.io/badge/python-3.8-blue.svg
+   :target: https://www.python.org/downloads/release/python-386/
+.. |python_39_badge| image:: https://img.shields.io/badge/python-3.9-blue.svg
+   :target: https://www.python.org/downloads/release/python-391/
+.. |gh_action_status| image:: https://github.com/EI-CoreBioinformatics/mikado/workflows/Mikado/badge.svg
+    :target: https://github.com/EI-CoreBioinformatics/mikado/actions?query=workflow%3A%22Mikado%22+branch%3Amaster
+.. |coverage| image:: https://codecov.io/gh/EI-CoreBioinformatics/mikado/branch/master/graph/badge.svg
   :target: https://codecov.io/gh/lucventurini/mikado
 .. |releases| image:: https://img.shields.io/github/release/EI-CoreBioinformatics/mikado.svg
   :target: https://github.com/EI-CoreBioinformatics/mikado/releases
@@ -30,10 +34,11 @@
 Mikado: pick your transcript
 ############################
 
-|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |travis_status| |coverage|
+|releases| |downloads| |conda downloads| |python_36_badge| |python_37_badge| |python_38_badge| |python_39_badge| |gh_action_status| |coverage|
 
 :Authors:
     Venturini Luca,
+    Yanes Luis,
     Caim Shabhonam,
     Mapleson Daniel,
     Kaithakottil Gemy George,

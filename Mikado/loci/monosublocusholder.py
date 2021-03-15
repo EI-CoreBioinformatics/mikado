@@ -5,7 +5,6 @@ This module defines a holder of Monosublocus instances. It is the last step
 before the definition of real loci.
 """
 
-import itertools
 from sys import version_info
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
@@ -37,7 +36,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
     # pylint: disable=super-init-not-called
     def __init__(self, transcript_instance=None,
-                 json_conf=None, logger=None,
+                 configuration=None, logger=None,
                  verified_introns=None, **kwargs):
 
         # I know what I am doing by NOT calling the Sublocus super but rather
@@ -45,7 +44,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         Abstractlocus.__init__(self,
                                transcript_instance=None,
                                verified_introns=verified_introns,
-                               json_conf=json_conf,
+                               configuration=configuration,
                                logger=logger,
                                **kwargs)
         self._not_passing = set()
@@ -78,25 +77,15 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :type check_in_locus: bool
         """
 
-        #
-        # monosublocus: Abstractlocus,
-        # transcript: Transcript,
-        # flank = 0,
-        # logger = None,
-        # cds_only = False,
-        # min_cdna_overlap = 0.2,
-        # min_cds_overlap = 0.2,
-        # classic_method = False
-
         if check_in_locus is True and self.in_locus(
                 self,
                 transcript,
-                flank=self.json_conf["pick"]["clustering"]["flank"],
+                flank=self.configuration.pick.clustering.flank,
                 logger=self.logger,
-                cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-                min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-                min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-                simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+                cds_only=self.configuration.pick.clustering.cds_only,
+                min_cdna_overlap=self.configuration.pick.clustering.min_cdna_overlap,
+                min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
+                simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic
         ) is False:
 
                 self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
@@ -116,32 +105,32 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                         min_cdna_overlap=0.2,
                         min_cds_overlap=0.2,
                         simple_overlap_for_monoexonic=True) -> bool:
+        """Alias for the Sublocus.is_intersecting method"""
+
         return Sublocus.is_intersecting(transcript, other, cds_only=cds_only,
                                         logger=logger, min_cdna_overlap=min_cdna_overlap,
                                         min_cds_overlap=min_cds_overlap,
                                         simple_overlap_for_monoexonic=simple_overlap_for_monoexonic)
 
-    def add_monosublocus(self, monosublocus_instance: Monosublocus,
-                         check_in_locus=True):
+    def add_monosublocus(self, monosublocus_instance: Monosublocus, check_in_locus=True):
         """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
 
-        :param monosublocus_instance
+        :param monosublocus_instance: the instance to add
         :type monosublocus_instance: Monosublocus
+
+        :param check_in_locus: boolean flag - should we perform checks to verify the monosublocus is compatible?
         """
+
         assert len(monosublocus_instance.transcripts) == 1
-        # if len(self.transcripts) == 0:
-        #     check_in_locus = False
-        # else:
-        #     check_in_locus = True
         for tid in monosublocus_instance.transcripts:
             self.add_transcript_to_locus(monosublocus_instance.transcripts[tid],
                                          check_in_locus=check_in_locus)
 
     def __str__(self, print_cds=False, source_in_name=True):
-        """This special method is explicitly *not* implemented;
-        this Locus object is not meant for printing, only for computation!
-
-        :param print_cds: flag. Ignored.
+        """
+        Method to print out the sublocus lines in GFF format.
+        :param print_cds: flag. Should we print the CDS?
+        :param source_in_name: boolean flag. Should we add the original source of the transcript to the ID?
         """
 
         lines = []
@@ -175,7 +164,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
             lines.append(transcript_instance.format(
                 "gff",
-                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                all_orfs=self.configuration.pick.output_format.report_all_orfs,
                 with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
@@ -184,7 +173,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         """Overriden and set to NotImplemented to avoid cross-calling it when inappropriate."""
         raise NotImplementedError("Monosubloci are the input of this object, not the output.")
 
-    def define_loci(self, purge=False, excluded=None):
+    def define_loci(self, purge=False, excluded=None, check_requirements=True):
         """This is the main function of the class. It is analogous
         to the define_subloci class defined for sublocus objects,
         but it returns "Locus" objects (not "Monosublocus").
@@ -199,27 +188,29 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         :param excluded
         :type excluded: Excluded
 
+        :param check_requirements: boolean flag. If set to false, transcripts will not be checked for passing requirements.
+        :type check_requirements: bool
+
         """
         if self.splitted is True:
             return
 
         self.excluded = excluded
 
-        self.filter_and_calculate_scores()
+        self.filter_and_calculate_scores(check_requirements=check_requirements)
 
         graph = self.define_graph(
             self.transcripts,
             inters=self.is_intersecting,
             logger=self.logger,
-            cds_only=self.json_conf["pick"]["clustering"]["cds_only"],
-            min_cdna_overlap=self.json_conf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=self.json_conf["pick"]["clustering"]["min_cds_overlap"],
-            simple_overlap_for_monoexonic=self.json_conf["pick"]["clustering"]["simple_overlap_for_monoexonic"]
+            cds_only=self.configuration.pick.clustering.cds_only,
+            min_cdna_overlap=self.configuration.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
+            simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic
         )
 
         loci = []
         while len(graph) > 0:
-            # cliques = self.find_cliques(graph)
             communities = self.find_communities(graph)
             to_remove = set()
             for locus_comm in communities:
@@ -229,16 +220,15 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 to_remove.add(selected_tid)
                 to_remove.update(set(graph.neighbors(selected_tid)))
                 if purge is False or selected_transcript.score > 0:
-                    new_locus = Locus(selected_transcript, logger=self.logger, json_conf=self.json_conf,
+                    new_locus = Locus(selected_transcript, logger=self.logger, configuration=self.configuration,
                                       use_transcript_scores=self._use_transcript_scores)
                     loci.append(new_locus)
+
             self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
             graph.remove_nodes_from(to_remove)  # Remove nodes from graph, iterate
 
         for locus in sorted(loci):
             self.loci[locus.id] = locus
-            if self.regressor is not None:
-                self.loci[locus.id].regressor = self.regressor
         self.splitted = True
         return
 
@@ -301,5 +291,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         state = Abstractlocus.as_dict(self)
         return state
 
-    def load_dict(self, state):
-        Abstractlocus.load_dict(self, state)
+    def load_dict(self, state, load_transcripts=True, load_configuration=True):
+        Abstractlocus.load_dict(self, state, load_configuration=load_configuration,
+                                load_transcripts=load_transcripts)

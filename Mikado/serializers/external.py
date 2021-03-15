@@ -9,13 +9,14 @@ will have a tag, and internally the files will be TAB-delimited
 
 import os
 import pyfaidx
-from sqlalchemy import Column, String, Integer, ForeignKey, Float, Boolean
-from sqlalchemy.sql.schema import PrimaryKeyConstraint
-from sqlalchemy.orm import column_property
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.sql.schema import PrimaryKeyConstraint, Index
+from sqlalchemy.orm import column_property, relationship, backref
 from sqlalchemy.orm.session import Session  # sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
-from .blast_serializer import Query
+from .blast_serializer.query import Query
 from ..utilities.log_utils import check_logger, create_default_logger
 import numbers
 import pandas as pd
@@ -33,6 +34,7 @@ class ExternalSource(DBBASE):
     source = Column(String, unique=True)
     rtype = Column(String, unique=False)
     valid_raw = Column(Boolean)
+    __table_args__ = ((Index("external_source_idx", "source_id"),))
 
     def __init__(self, source, rtype, valid_raw):
 
@@ -63,20 +65,41 @@ class External(DBBASE):
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     source_id = Column(Integer, ForeignKey(ExternalSource.source_id), unique=False)
     ext_constraint = PrimaryKeyConstraint("query_id", "source_id", name="source_key")
-    source = column_property(select([ExternalSource.source]).where(
-        ExternalSource.source_id == source_id))
     score = Column(String, nullable=False)
 
-    query = column_property(select([Query.query_name]).where(
-        Query.query_id == query_id))
+    query_object = relationship(Query, uselist=False, backref=backref("external"), lazy="select")
+    source_object = relationship(ExternalSource, uselist=False, backref=backref("external"), lazy="select")
 
-    valid_raw = column_property(select([ExternalSource.valid_raw]).where(
-        ExternalSource.source_id == source_id))
+    @hybrid_property
+    def query(self):
+        if self.query_object:
+            return self.query_object.query_name
+        else:
+            return None
 
-    rtype = column_property(select([ExternalSource.rtype]).where(
-        ExternalSource.source_id == source_id))
+    @hybrid_property
+    def valid_raw(self):
+        if self.source_object:
+            return self.source_object.valid_raw
+        else:
+            return None
 
-    __table_args__ = (ext_constraint, )
+    @hybrid_property
+    def rtype(self):
+        if self.source_object:
+            return self.source_object.rtype
+        else:
+            return None
+
+    @hybrid_property
+    def source(self):
+        if self.source_object:
+            return self.source_object.source
+        else:
+            return None
+
+    __table_args__ = ((ext_constraint,
+                      Index("external_idx", "query_id", "source_id")))
 
     def __init__(self, query_id, source_id, score):
 
@@ -92,15 +115,15 @@ class External(DBBASE):
 class ExternalSerializer:
 
     def __init__(self, handle,
-                 json_conf=None,
+                 configuration=None,
                  logger=None, delimiter="\t"):
 
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase | io.TextIOWrapper
 
-        :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict | None
+        :param configuration: Optional configuration dictionary with db connection parameters.
+        :type configuration: dict | MikadoConfiguration | DaijinConfiguration | None
         """
 
         if logger is not None:
@@ -116,14 +139,13 @@ class ExternalSerializer:
             self.close()
             return
 
-        fasta_index = json_conf["serialise"]["files"]["transcripts"]
+        fasta_index = configuration.serialise.files.transcripts
         if isinstance(fasta_index, (str, bytes)):
             if isinstance(fasta_index, bytes):
                 fasta_index = fasta_index.decode()
             if not os.path.exists(fasta_index):
                 error = """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
-                Please run mikado serialise in the folder with the correct files, and/or modify the configuration
-                or the command line options."""
+Please run mikado serialise in the folder with the correct files, and/or modify the configuration or the command line options."""
                 self.logger.critical(error)
                 raise AssertionError(error)
             self.fasta_index = pyfaidx.Fasta(fasta_index)
@@ -140,30 +162,20 @@ class ExternalSerializer:
 
         try:
             self.data = pd.read_csv(self.handle, delimiter=delimiter, index_col=["tid"])
-        except ValueError:
-            self.data = pd.read_csv(self.handle, delimiter=delimiter)
-            if self.data.index.name is not None:
-                exc = ValueError("Invalid index name: {}. It should be tid or not specified.".format(
-                    self.data.index.name))
-                self.logger.exception(exc)
-                return
-            else:
-                self.data.index.name = "tid"
-        except KeyboardInterrupt:
-            raise KeyboardInterrupt
-        except Exception as exc:
-            self.logger.exception(exc)
+        except (ValueError, pd.errors.ParserError) as exc:
+            self.logger.critical("Invalid input file!")
+            self.logger.critical(exc)
             raise
 
         if len(self.data.columns) == 0:
-            error = TypeError("Not enough fields specified for the external file! Header: {}".format(
-                self.data.columns))
+            error = pd.errors.ParserError(
+                "Not enough fields specified for the external file! Header: {}".format(self.data.columns))
             self.logger.exception(error)
             raise error
 
         self.data.fillna(0, inplace=True)
 
-        self.engine = connect(json_conf, logger=logger)
+        self.engine = connect(configuration, logger=logger)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
         inspector = Inspector.from_engine(self.engine)
@@ -171,10 +183,7 @@ class ExternalSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session
-        if json_conf is not None:
-            self.maxobjects = json_conf["serialise"]["max_objects"]
-        else:
-            self.maxobjects = 10000
+        self.maxobjects = configuration.serialise.max_objects
 
     def serialize(self):
         """This function will load the external scores into the database."""
@@ -302,7 +311,7 @@ class ExternalSerializer:
                 if record in cache:
                     continue
                 objects.append(Query(record, len(self.fasta_index[record])))
-                assert record not in found, record
+                assert record not in found, "The record {record} is duplicated in the FASTA index".format(record=record)
                 found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)

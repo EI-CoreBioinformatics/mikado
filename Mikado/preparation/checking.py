@@ -2,18 +2,16 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
-import zlib
 import pysam
 import msgpack
 from ..transcripts.transcriptchecker import TranscriptChecker
 from .. import exceptions
-from ..loci import Transcript
+from ..transcripts import Transcript
 from ..utilities.log_utils import create_null_logger, create_queue_logger
 import logging
 import queue
 import time
 import sys
-import rapidjson as json
 import operator
 import random
 import zlib
@@ -32,7 +30,7 @@ def create_transcript(lines,
                       canonical_splices=(("GT", "AG"),
                                          ("GC", "AG"),
                                          ("AT", "AC")),
-                      force_keep_cds=False,
+                      strip_faulty_cds=False,
                       logger=None):
     """Function to create the checker.
 
@@ -52,9 +50,9 @@ def create_transcript(lines,
     :param canonical_splices: the splices considered as canonical for the species.
     :type canonical_splices: list[tuple]
 
-    :param force_keep_cds: boolean. If set to true, coding transcripts that would be flipped are instead excluded.
-                           The intention is that this flag will mirror strip_cds.
-    :type force_keep_cds: bool
+    :param strip_faulty_cds: boolean. If set to true, transcripts with invalid CDSs or on the wrong strand will have
+    their CDS removed. Otherwise, in such cases, they will be discarded by raising an InvalidTranscript exception.
+    :type strip_faulty_cds: bool
 
     :param logger: optional logger to use during processing.
 
@@ -109,7 +107,7 @@ def create_transcript(lines,
                                               lenient=lenient,
                                               strand_specific=strand_specific,
                                               canonical_splices=canonical_splices,
-                                              force_keep_cds=force_keep_cds,
+                                              strip_faulty_cds=strip_faulty_cds,
                                               is_reference=is_reference,
                                               logger=logger)
         logger.debug("Finished adding exon lines to %s", lines["tid"])
@@ -151,7 +149,7 @@ class CheckingProcess(multiprocessing.Process):
                  tmpdir,
                  lenient=False,
                  seed=None,
-                 force_keep_cds=False,
+                 strip_faulty_cds=False,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -193,7 +191,7 @@ class CheckingProcess(multiprocessing.Process):
         self.gtf_out = os.path.join(tmpdir, "{0}-{1}".format(
             gtf_out, self.identifier
         ))
-        self.force_keep_cds = force_keep_cds
+        self.strip_faulty_cds= strip_faulty_cds
         self.shelve_stacks = shelve_stacks
         self.batch_file = batch_file
 
@@ -212,7 +210,7 @@ class CheckingProcess(multiprocessing.Process):
     def run(self):
         checker = functools.partial(create_transcript,
                                     # lenient=self.lenient,
-                                    force_keep_cds=self.force_keep_cds,
+                                    strip_faulty_cds=self.strip_faulty_cds,
                                     canonical_splices=self.canonical,
                                     logger=self.logger)
 

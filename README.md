@@ -17,17 +17,23 @@ Extended documentation is hosted on ReadTheDocs: http://mikado.readthedocs.org/
 
 Mikado can be installed from PyPI with pip:
 
-```pip3.5 install mikado```
+```pip3 install mikado```
 
 Alternatively, you can clone the repository from source and install with:
 
-    python3 setup.py test;
-    python3 setup.py bdist_wheel;
-    pip3 install dist/*whl
+    pip wheel -w dist .
+    pip install dist/*whl    
     
-You can verify the correctness of the installation with the unit tests:
+You can verify the correctness of the installation with the unit tests (*outside of the source folder*, as otherwise Python will get confused and try to use the `Mikado` source folder instead of the system installation):
 
-    python3 setup.py test
+    python -c "import Mikado; Mikado.test(); Mikado.test(label='slow')"
+
+An alternative way of installing using `setuptools`:
+
+    pip install -r requirements.txt
+    pip install Cython
+    python setup.py bdist_wheel
+    pip install dist/*whl
 
 The steps above will ensure that any additional python dependencies will be installed correctly. A full list of library dependencies can be found in the file ``requirements.txt``
 
@@ -46,11 +52,16 @@ If you plan to generate the alignment and assembly part as well through Daijin, 
 
 - SAMTools
 - If you have short-read RNA-Seq data:
-    - At least one short-read RNA-Seq aligner, choice between [GSNAP][GMAP], [STAR], [TopHat2], [HISAT2]
+    - At least one short-read RNA-Seq aligner, choice between [GSNAP], [GMAP], [STAR], [TopHat2], [HISAT2]
     - At least one RNA-Seq assembler, choice between [StringTie], [Trinity], [Cufflinks], [CLASS2]. Trinity additionally requires [GMAP].
     - [Portcullis] is optional, but highly recommended to retrieve high-quality junctions from the data 
 - If you have long-read RNA-Seq data:
     - At least one long-read RNA-Seq aligner, current choice between [STAR] and [GMAP]
+
+## Development guide
+
+We provide source trail files ([https://www.sourcetrail.com/](https://www.sourcetrail.com/)) to aid in development.
+As required by the SourceTrail application, these files are present in the master directory, as "Mikado.srctrl*".
     
 ## Citing Mikado
 

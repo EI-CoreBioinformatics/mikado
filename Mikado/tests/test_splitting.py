@@ -2,11 +2,12 @@
 
 import logging
 import operator
+import os
 import unittest
 from sys import version_info
 import pysam
 from .. import loci, parsers, utilities, configuration
-from ..transcripts.transcript_methods import splitting
+from Mikado.transcripts.transcript_methods import splitting
 import tempfile
 from ..parsers import bed12
 from ..utilities.log_utils import create_default_logger
@@ -73,22 +74,21 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.transcript.logger = self.logger
 
-        self.transcript.json_conf = configuration.configurator.to_json(None)
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.8
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"] = 0.8  # 80%
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"] = 0.0001
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"] = 0.0001
-        self.transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
-
+        self.transcript.configuration = configuration.configurator.load_and_validate_config(None)
+        self.transcript.configuration.pick.chimera_split.blast_check = False
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.min_overlap_duplication = 0.8
+        self.transcript.configuration.pick.chimera_split.blast_params.minimal_hsp_overlap = 0.8  # 80%
+        self.transcript.configuration.pick.chimera_split.blast_params.hsp_evalue = 0.0001
+        self.transcript.configuration.pick.chimera_split.blast_params.evalue = 0.0001
+        self.transcript.configuration.pick.orf_loading.minimal_secondary_orf_length = 50
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
         self.transcript.load_orfs([self.bed1, self.bed2])
         self.assertTrue(self.transcript.is_coding)
         self.assertEqual(self.transcript.number_internal_orfs,
                          2, str(self.transcript))
         self.transcript.finalize()
-        self.assertIn("pick", self.transcript.json_conf)
 
         self.transcript.logger = self.logger
 
@@ -130,10 +130,9 @@ class TestSplitMonoexonic(unittest.TestCase):
         :return:
         """
 
-        self.assertIsNotNone(self.transcript.json_conf)
-        self.assertIn("pick", self.transcript.json_conf)
+        self.assertIsNotNone(self.transcript.configuration)
 
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
+        self.transcript.configuration.pick.chimera_split.blast_check = False
 
         # with self.assertLogs("test_mono", level="DEBUG") as log_split:
         new_transcripts = list(splitting.split_by_cds(self.transcript))
@@ -142,19 +141,18 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(new_transcripts[0].start, self.transcript.start)
         self.assertEqual(new_transcripts[1].end, self.transcript.end)
 
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
-        self.assertFalse(sl.json_conf["pick"]["chimera_split"]["blast_check"])
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
+        self.assertFalse(sl.configuration.pick.chimera_split.blast_check)
         self.assertEqual(len(sl.transcripts), 1)
         sl.logger.setLevel("DEBUG")
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split(self):
 
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
@@ -163,17 +161,16 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.assertEqual(1,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_stringent_split(self):
 
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "STRINGENT"
 
         cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
@@ -182,19 +179,18 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         self.assertEqual(1,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_permissive_split(self):
 
         self.transcript.logger = self.logger
 
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "PERMISSIVE"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "PERMISSIVE"
 
         cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
@@ -202,9 +198,9 @@ class TestSplitMonoexonic(unittest.TestCase):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
 
         self.assertEqual(2, len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -238,44 +234,42 @@ class TestSplitMonoexonic(unittest.TestCase):
 
         hit2 = self.get_second_hit()
         self.transcript.blast_hits.append(hit2)
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "PERMISSIVE"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "PERMISSIVE"
 
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_stringent_split_twohits(self):
 
         hit2 = self.get_second_hit()
         self.transcript.blast_hits.append(hit2)
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "STRINGENT"
 
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_no_splitting_by_source(self):
         self.transcript.source = "foo"
         for sources in [[], [self.transcript.source], ["bar"], ["bar", [self.transcript.source]]]:
             with self.subTest(sources=sources):
-                self.transcript.json_conf["pick"]["chimera_split"]["skip"] = sources
+                self.transcript.configuration.pick.chimera_split.skip = sources
                 if self.transcript.source in sources:
                     final = 1
                 else:
                     final = 2
                 self.assertEqual(final, len(list(splitting.split_by_cds(self.transcript))))
-                sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
-                sl.load_all_transcript_data(data_dict=dict())
+                sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
+                sl.load_all_transcript_data()
                 self.assertEqual(len(sl.transcripts), final)
 
     def test_one_orf(self):
@@ -285,32 +279,31 @@ class TestSplitMonoexonic(unittest.TestCase):
 
     def test_no_hsps(self):
         self.transcript.blast_hits = []
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         logger = utilities.log_utils.create_default_logger("test_no_hsps")
         logger.setLevel("DEBUG")
         self.transcript.logger = logger
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_lenient_split_twohits(self):
 
         hit2 = self.get_second_hit()
         self.transcript.blast_hits.append(hit2)
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     @staticmethod
@@ -343,20 +336,19 @@ class TestSplitMonoexonic(unittest.TestCase):
     def test_spanning_hit_lenient(self):
 
         self.transcript.blast_hits = [self.get_spanning_hit()]
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.configuration.pick.chimera_split.blast_check = True
 
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
 
         self.assertEqual(1, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 1)
 
     def test_spanning_hit_nocheck(self):
         self.transcript.blast_hits = [self.get_spanning_hit()]
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
+        self.transcript.configuration.pick.chimera_split.blast_check = False
         cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
@@ -365,17 +357,16 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(len(cds_boundaries), 2)
         self.assertEqual(self.transcript.number_internal_orfs, 2)
         self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_deleted_hits(self):
 
         delattr(self.transcript, "blast_hits")
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
-        self.transcript.json_conf["pick"][
-            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.configuration.pick.chimera_split.blast_check = True
+        self.transcript.configuration.pick.chimera_split.blast_params.leniency = "LENIENT"
         self.transcript.logger = self.logger
         with self.assertLogs(logger=self.logger, level="WARNING") as log_split:
             self.assertEqual(2, len(list(splitting.split_by_cds(self.transcript))))
@@ -407,10 +398,11 @@ class TestWithPhase(unittest.TestCase):
         self.transcript.logger = self.logger
         self.transcript.logger.setLevel("INFO")
 
-        self.transcript.json_conf = configuration.configurator.to_json("")
-        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
-        self.assertIsNotNone(self.transcript.json_conf)
-        self.assertIn("pick", self.transcript.json_conf)
+        self.transcript.configuration = configuration.configurator.load_and_validate_config("")
+        self.transcript.configuration.pick.chimera_split.blast_check = False
+        self.assertIsNotNone(self.transcript.configuration)
+        self.db_folder = tempfile.TemporaryDirectory()
+        self.transcript.configuration.db_settings.db = os.path.join(self.db_folder.name, "mikado.db")
 
     def testPositive(self):
 
@@ -530,9 +522,9 @@ class TestWithPhase(unittest.TestCase):
         self.assertEqual(self.transcript.selected_cds_start, 4000)
         self.assertEqual(self.transcript.strand, "-")
 
-        sl = loci.Superlocus(self.transcript, json_conf=self.transcript.json_conf)
+        sl = loci.Superlocus(self.transcript, configuration=self.transcript.configuration)
         self.assertEqual(len(sl.transcripts), 1)
-        sl.load_all_transcript_data(data_dict=dict())
+        sl.load_all_transcript_data()
         self.assertEqual(len(sl.transcripts), 2)
 
     def test_negative_orf_gtg(self):
@@ -564,25 +556,26 @@ ACACGTGTCCGCC"""
                               "CDS", "934","1137", "5.7", "-", "0",
                               "ID=12199_3;partial=00;start_type=GTG;rbs_motif=None;rbs_spacer=None;gc_cont=0.657;conf=78.73;score=5.69;cscore=7.02;sscore=-1.33;rscore=0.33;uscore=-0.91;tscore=-0.75;"
                               ])
-        temp_fa = tempfile.NamedTemporaryFile(mode="wt", suffix=".fa")
-        temp_gff = tempfile.NamedTemporaryFile(mode="wt", suffix=".gff3")
-        print("##gff-version\t3", file=temp_gff)
-        print(prodigal, file=temp_gff)
-        print(fasta, file=temp_fa)
-        temp_gff.flush()
-        temp_fa.flush()
-        handle = open(temp_gff.name, mode="rt")
-        fasta_index = pysam.FastaFile(temp_fa.name)
-        bed12_parser = bed12.Bed12Parser(handle,
-                                         fasta_index=fasta_index,
-                                         is_gff=True,
-                                         transcriptomic=True,
-                                         max_regression=1)
-        record = next(bed12_parser)
-        self.assertIsInstance(record, bed12.BED12)
-        self.assertFalse(record.has_start_codon)
-        self.assertFalse(record.invalid)
-        self.assertEqual(record.phase, 1, record)
+        with tempfile.NamedTemporaryFile(mode="wt", suffix=".fa") as temp_fa, \
+                tempfile.NamedTemporaryFile(mode="wt", suffix=".gff3") as temp_gff:
+            print("##gff-version\t3", file=temp_gff)
+            print(prodigal, file=temp_gff)
+            print(fasta, file=temp_fa)
+            temp_gff.flush()
+            temp_fa.flush()
+            handle = open(temp_gff.name, mode="rt")
+            fasta_index = pysam.FastaFile(temp_fa.name)
+            bed12_parser = bed12.Bed12Parser(handle,
+                                             fasta_index=fasta_index,
+                                             is_gff=True,
+                                             transcriptomic=True,
+                                             max_regression=1)
+            record = next(bed12_parser)
+            self.assertIsInstance(record, bed12.BED12)
+            self.assertFalse(record.has_start_codon)
+            self.assertFalse(record.invalid)
+            self.assertEqual(record.phase, 1, record)
+            os.remove(temp_fa.name + ".fai")
 
 
 if __name__ == "__main__":

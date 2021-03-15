@@ -6,7 +6,7 @@
 Module to serialize GFF files.
 """
 
-from . import Parser
+from .parser import Parser
 from .gfannotation import GFAnnotation, _attribute_definition
 from sys import intern
 import re
@@ -14,6 +14,9 @@ import re
 
 # This class has exactly how many attributes I need it to have
 # pylint: disable=too-many-instance-attributes
+from ..exceptions import InvalidParsingFormat
+
+
 class GffLine(GFAnnotation):
     """Object which serializes a GFF line."""
 
@@ -43,7 +46,13 @@ class GffLine(GFAnnotation):
         :return:
         """
 
-        infolist = self._attribute_pattern.findall(self._attr.rstrip().rstrip(";"))
+        attr = self._attr.rstrip().rstrip(";")
+        infolist = self._attribute_pattern.findall(attr)
+        if not infolist and attr:
+            raise InvalidParsingFormat(
+                "The attribute section of this line could not be parsed correctly. Is this a GFF3?\n{}".format(
+                    self._line))
+
         attribute_order = [key for key, val in infolist if key not in ("Parent", "parent", "id", "ID", "Id")]
         attributes = dict((key, _attribute_definition(val)) for key, val in infolist)
 
@@ -107,6 +116,8 @@ class GffLine(GFAnnotation):
                     mid = None
         if not name:
             name = attributes.get("name", None)
+            if not name:
+                name = attributes.get("Name", None)
         attrs = []
         if mid is not None:
             attrs.append("ID={0}".format(mid))
@@ -232,8 +243,6 @@ class GffLine(GFAnnotation):
             return False
         if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
-        elif self.id is not None and "transcript:" in self.id and self.parent is not None:
-            return True
         elif self.feature.endswith("_gene_segment"):  # Necessary for V_gene_segment, C_gene_segment, etc.
             return True
         return False
@@ -317,7 +326,7 @@ class GffLine(GFAnnotation):
         else:
             if "Derives_from" not in self.attributes:
                 key = [_ for _ in self.attributes.keys() if _.lower() == "derives_from"]
-                assert len(key) == 1, (str(self), key)
+                assert len(key) == 1, (str(self), "Multiple 'derives_from' found:\n"+ str(key))
                 self.attributes["Derives_from"] = self.attributes[key[0]]
 
             return self.attributes["Derives_from"].split(",")
@@ -359,22 +368,30 @@ class GFF3(Parser):
         """
         super().__init__(handle)
         self.header = False
+        self.__line_counter = 0
 
     def __next__(self):
 
         if self.closed:
             raise StopIteration
-        line = next(self._handle)
+        try:
+            line = next(self._handle)
+            self.__line_counter += 1
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError) as exc:
+            line = None
+            error = "Invalid line for file {name}, position {counter}:\n{line}Error: {exc}".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
+            raise InvalidParsingFormat(error)
 
         if line[0] == "#":
             return GffLine(line, header=True)
 
         try:
             gff_line = GffLine(line)
-        except Exception:
-            error = "Invalid line for file {}, position {}:\n{}".format(
-                self.name, self._handle.tell(), line)
-            raise ValueError(error)
+        except Exception as exc:
+            error = "Invalid line for file {name}, position {counter}:\n{line}Error: {exc}".format(
+                name=self.name, counter=self.__line_counter, line=line, exc=exc)
+            raise InvalidParsingFormat(error)
         return gff_line
 
     @property

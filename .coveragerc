@@ -1,9 +1,9 @@
 [run]
 omit =
+      setup.py
       Mikado/tests/*
       Mikado/subprograms/util/awk_gtf.py
       Mikado/subprograms/util/class_codes.py
       Mikado/subprograms/util/metrics.py
-      Mikado/subprograms/util/convert.py      
-      Mikado/configuration/daijin_configurator.py
-      Mikado/daijin/__init__.py
+      Mikado/daijin/mikado.py
+      Mikado/daijin/assemble.py

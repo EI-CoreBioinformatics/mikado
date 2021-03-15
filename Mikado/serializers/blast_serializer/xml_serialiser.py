@@ -1,4 +1,7 @@
+from functools import partial
+from ...utilities import default_for_serialisation
 import rapidjson as json
+dumper = partial(json.dumps, default=default_for_serialisation)
 from ...parsers.blast_utils import BlastOpener
 from .xml_utils import _get_query_for_blast, _get_target_for_blast
 from xml.parsers.expat import ExpatError
@@ -8,7 +11,9 @@ from sqlalchemy.orm.session import Session
 import msgpack
 import tempfile
 import os
-from . import Query, Target, prepare_hit, InvalidHit
+from .query import Query
+from .target import Target
+from .hit import prepare_hit, InvalidHit
 from .xml_utils import get_multipliers, get_off_by_one
 from .utils import load_into_db
 import multiprocessing as mp
@@ -21,64 +26,56 @@ import struct
 struct_row = struct.Struct(">LLL")
 
 
-def xml_pickler(json_conf, filename, default_header,
+def xml_pickler(configuration, filename, default_header,
                 cache=None,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    engine = connect(json_conf, strategy="threadlocal")
+    engine = connect(configuration, strategy="threadlocal")
     session = Session(bind=engine)
 
     if not valid:
         err = "Invalid BLAST file: %s" % filename
         raise TypeError(err)
     directory = os.path.dirname(filename)
-    try:
-        dbname = tempfile.mktemp(suffix=".db", dir=directory)
-        dbhandle = open(dbname, "wb")
-    except (OSError, PermissionError):
-        dbname = tempfile.mktemp(suffix=".db")
-        dbhandle = open(dbname, "wb")
+    with tempfile.NamedTemporaryFile(suffix=".db", dir=directory, mode="wb", delete=False) as dbhandle:
+        dbname = dbhandle.name
+        if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
+            cache = dict()
+            cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
+            cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
 
-    if not isinstance(cache, dict) or set(cache.keys()) != {"query", "target"}:
-        cache = dict()
-        cache["query"] = dict((item.query_name, item.query_id) for item in session.query(Query))
-        cache["target"] = dict((item.target_name, item.target_id) for item in session.query(Target))
+        rows = b""
+        try:
+            with BlastOpener(filename) as opened:
+                try:
+                    qmult, tmult = None, None
+                    for query_counter, record in enumerate(opened, start=1):
+                        if qmult is None:
+                            qmult, tmult = get_multipliers(record)
+                            off_by_one = get_off_by_one(record)
+                        hits, hsps, cache = objectify_record(
+                            record, [], [], cache, max_target_seqs=max_target_seqs,
+                            qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
-    rows = b""
-    try:
-        with BlastOpener(filename) as opened:
-            try:
-                qmult, tmult = None, None
-                for query_counter, record in enumerate(opened, start=1):
-                    if qmult is None:
-                        qmult, tmult = get_multipliers(record)
-                        off_by_one = get_off_by_one(record)
-                    hits, hsps, cache = objectify_record(
-                        record, [], [], cache, max_target_seqs=max_target_seqs,
-                        qmult=qmult, tmult=tmult, off_by_one=off_by_one)
+                        record = {"hits": hits, "hsps": hsps}
+                        jrecord = dumper(record)
+                        write_start = dbhandle.tell()
+                        write_length = dbhandle.write(msgpack.dumps(jrecord))
+                        rows += struct_row.pack(query_counter, write_start, write_length)
 
-                    record = {"hits": hits, "hsps": hsps}
-                    try:
-                        jrecord = json.dumps(record, number_mode=json.NM_NATIVE)
-                    except ValueError:
-                        jrecord = json.dumps(record)
-                    write_start = dbhandle.tell()
-                    write_length = dbhandle.write(msgpack.dumps(jrecord))
-                    rows += struct_row.pack(query_counter, write_start, write_length)
+                except ExpatError as err:
+                    raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
+                                                                                                                  err))
+        except xml.etree.ElementTree.ParseError as err:
+            # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
+            raise xml.etree.ElementTree.ParseError(
+                "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
+        except ValueError as err:
+            # logger.error("Invalid BLAST entry")
+            raise ValueError(
+                "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
 
-            except ExpatError as err:
-                raise ExpatError("{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename,
-                                                                                                              err))
-    except xml.etree.ElementTree.ParseError as err:
-        # logger.error("%s is an invalid BLAST file, sending back anything salvageable", filename)
-        raise xml.etree.ElementTree.ParseError(
-            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
-    except ValueError as err:
-        # logger.error("Invalid BLAST entry")
-        raise ValueError(
-            "{} is an invalid BLAST file, sending back anything salvageable.\n{}".format(filename, err))
-
-    return dbname, zlib.compress(rows)
+        return dbname, zlib.compress(rows)
 
 
 def _serialise_xmls(self):
@@ -101,7 +98,7 @@ def _serialise_xmls(self):
             self.xml.remove(filename)
 
     cache = {"query": self.queries, "target": self.targets}
-    if self._xml_debug is False and (self.single_thread is True or self.procs == 1):
+    if self._blast_loading_debug is False and (self.single_thread is True or self.procs == 1):
         for filename in self.xml:
             valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
             if not valid:
@@ -131,20 +128,19 @@ def _serialise_xmls(self):
             except ExpatError:
                 self.logger.error("%s is an invalid BLAST file, saving what's available", filename)
         _, _ = load_into_db(self, hits, hsps, force=True)
-    elif self._xml_debug is True or self.procs > 1:
-        self.logger.debug("Creating a pool with %d processes",
-                          min(self.procs, len(self.xml)))
+    elif self._blast_loading_debug is True or self.procs > 1:
+        self.logger.warning("Creating a pool with %d processes", min(self.procs, len(self.xml)))
         results = []
-        if self._xml_debug is True:
+        if self._blast_loading_debug is True:
             for num, filename in enumerate(self.xml):
-                results.append(xml_pickler(self.json_conf,
+                results.append(xml_pickler(self.configuration,
                                            filename, self.header,
                                            cache=None,
                                            max_target_seqs=self._max_target_seqs))
         else:
             pool = mp.Pool(self.procs)
             for num, filename in enumerate(self.xml):
-                args = (self.json_conf, filename, self.header)
+                args = (self.configuration, filename, self.header)
                 kwds = {"max_target_seqs": self._max_target_seqs, "cache": None}
                 pool.apply_async(xml_pickler, args=args, kwds=kwds, callback=results.append)
             pool.close()

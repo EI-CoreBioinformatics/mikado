@@ -8,7 +8,7 @@ import subprocess
 import re
 
 
-diamond_pat = re.compile("^diamond version (\S*)[$|\s]*")
+diamond_pat = re.compile(r"^diamond version (\S*)[$|\s]*")
 
 @functools.lru_cache(maxsize=4, typed=True)
 def diamond_to_correct(command):
@@ -45,12 +45,12 @@ envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
 
 
 REF = config["reference"]["genome"]
-# TODO: this is hack that should be solved more neatly
 if "out_dir" in config:
     OUT_DIR = config["out_dir"]
 else:
     OUT_DIR = config["prepare"]["files"]["output_dir"]
 THREADS = int(config["threads"])
+print(THREADS)
 
 if "mikado" in config:
     MIKADO_MODES=config["mikado"]["modes"]
@@ -132,8 +132,14 @@ for key, items in td_codes.items():
 def get_codon_table(return_id=True):
 
     table = config["serialise"]["codon_table"]
+    assert table is not None, config["serialise"]
+    try:
+        table = int(table)
+    except (ValueError,TypeError):
+        pass
     if table == 0:
         table = 1
+
     if isinstance(table, int):
         table = CodonTable.ambiguous_dna_by_id[table]
     elif isinstance(table, (str, bytes)):
@@ -177,7 +183,7 @@ rule mikado_prepare:
     log: os.path.join(MIKADO_DIR, "mikado_prepare.log")
     threads: THREADS
     message: "Preparing transcripts using mikado"
-    shell: "{params.load} mikado prepare -l {log} --start-method=spawn --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
+    shell: "{params.load} mikado prepare -l {log} --start-method=spawn --fasta={input.ref} --configuration={params.cfg} -od {MIKADO_DIR} 2>&1"
 
 rule create_blast_database:
     input: fa=BLASTX_TARGET
@@ -383,8 +389,8 @@ rule mikado_serialise:
     threads: THREADS
     # conda: os.path.join(envdir, "mikado.yaml")
     shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn \
---transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} {params.no_start_adj} \
---force {params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
+--transcripts={input.transcripts} --genome_fai={input.fai} --configuration={params.cfg} {params.no_start_adj} \
+{params.orfs} -od {MIKADO_DIR} --procs={threads} -l {log}"
 
 rule mikado_pick:
     input:
@@ -400,7 +406,7 @@ rule mikado_pick:
     threads: THREADS
     message: "Running mikado picking stage"
     shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} \
---procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} -l {log} \
+--procs={threads} --start-method=spawn --configuration={params.cfg} -od {params.outdir} -l {log} \
 --loci-out mikado-{wildcards.mode}.loci.gff3 -lv INFO -db {input.db} {input.gtf}"
 
 rule mikado_stats:

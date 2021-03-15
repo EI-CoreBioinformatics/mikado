@@ -15,12 +15,13 @@ import sys
 from collections import namedtuple
 from functools import partial
 from logging import handlers as log_handlers
-from ...transcripts.transcript import Transcript, Namespace
+from ...transcripts.transcript import Transcript
+from ...utilities.namespace import Namespace
 from ..accountant import Accountant
 from ..contrast import compare as c_compare
 from ..resultstorer import ResultStorer
 from ...exceptions import InvalidTranscript, InvalidCDS
-from ...utilities.intervaltree import IntervalTree
+from ...utilities import IntervalTree
 import msgpack
 import tempfile
 from ..reference_preparation.gene_dict import GeneDict
@@ -387,11 +388,7 @@ class Assigner:
                     results.extend(new_matches[gene])
                     del new_matches[gene]
 
-        if len(new_matches) == 0:
-            error = AssertionError("Filtered all results for %s. This is wrong!",
-                                   prediction.id)
-            self.logger.error(error)
-            raise error
+        assert len(new_matches) > 0, "Filtered all results for {}. This is wrong!".format(prediction.id)
 
         fused = collections.defaultdict(list)
         dubious = set()
@@ -760,8 +757,7 @@ class Assigner:
         file, and the final statistics into the stats file.
         """
 
-        self.logger.debug("Finished parsing, total: %d transcript%s.", self.done, "s" if self.done > 1 else "")
-
+        self.logger.debug(f"Finished parsing, total: {self.done} transcript{'s' if self.done > 1 else ''}.")
         self.print_refmap()
         self.stat_calculator.print_stats()
         self.logger.info("Finished printing final stats")
@@ -914,7 +910,7 @@ class Assigner:
                 for tid in sorted(self.gene_matches[gid].keys()):
                     if len(self.gene_matches[gid][tid]) == 0:
                         # First part of the tuple
-                        row = tuple([tid, gid] + ["NA"] * 6)
+                        row = tuple([tid, gid] + ["NA"] * 7)
                     else:
                         # Choose the best hit for the transcript
                         if any((x.j_f1[0] > 0 or x.n_f1[0] > 0) for x in self.gene_matches[gid][tid]):

@@ -10,10 +10,11 @@ import collections
 import logging
 import operator
 from logging import handlers as log_handlers
-from ..transcripts import Transcript, Namespace
-from ..utilities.f1 import calc_f1
+from ..transcripts import Transcript
+from ..utilities.namespace import Namespace
+from ..utilities import calc_f1, Interval
 from .resultstorer import ResultStorer
-from ..utilities.intervaltree import Interval, IntervalTree
+from ..utilities import IntervalTree
 import networkx as nx
 import numpy as np
 
@@ -286,7 +287,7 @@ class Accountant:
             ichain = IntervalTree.from_tuples(chain)
             evaluator[ichain] = chain
             graph.add_node(ichain)
-            positions.insert(ichain.start, ichain.end, value=ichain)
+            positions.insert(Interval(ichain.start, ichain.end, value=ichain))
 
         for ichain, chain in evaluator.items():
             found = positions.find(ichain.start, ichain.end)
@@ -533,8 +534,6 @@ class Accountant:
                 bases[0] += len(set.intersection(curr_pred_bases, curr_ref_bases))
                 bases[1] += len(curr_pred_bases)
                 bases[2] += len(curr_ref_bases)
-
-        # result_dictionary["bases"] = dict()
 
         assert bases[0] <= min(bases[1], bases[2]), bases
         result_dictionary["bases"] = bases

@@ -512,9 +512,6 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
     # is retained compared to the primary or any other valid AS. Default: false.
     # - valid_ccodes: Valid class codes for AS events. Valid codes are in categories
     # 'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h
-    # - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)
-    # - max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)
-    # - max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)
     # - min_score_perc: Minimum score threshold for subsequent AS events. Only transcripts with a score at least (best) * value are retained.
     # - only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns.
     # - pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same
@@ -745,4 +742,4 @@ Parameters:
 Technical details
 ~~~~~~~~~~~~~~~~~
 
-The configuration file obeys a specific JSON schema which can be found at :download:`Mikado/configuration/configuration_blueprint.json <configuration_blueprint.json>`. Every time a Mikado utility is launched, it checks the configuration file against the schema to validate it. The schema contains non-standard "Comment" and "SimpleComment" string arrays which are used at runtime to generate the comment strings in the YAML output.
+The configuration file obeys a specific schema defined by the :class:`Mikado.configuration.daijin_configuration` or the :class:`Mikado.configuration.configuration`. Every time a Mikado utility is launched, it checks the configuration file against the schema defined by those classes to validate it.

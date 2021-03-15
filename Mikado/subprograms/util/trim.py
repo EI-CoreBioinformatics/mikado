@@ -34,26 +34,16 @@ def trim_noncoding(transcript, max_length=0):
     exons = sorted(transcript.exons)
     first, last = exons[0], exons[-1]
     if (first[1] - first[0] + 1) > max_length:
-        # newfirst = list(first)
-        # newfirst[0] = first[1] - max_length
         newfirst = tuple([first[1] - max_length, first[1]])
         transcript.start = newfirst[0]
         transcript.remove_exon(first)
         transcript.add_exon(newfirst)
-        # transcript.segments.remove(("exon", first))
-        # transcript.segments.append(("exon", newfirst))
 
-    # last = transcript.exons[-1]
     if (last[1] - last[0] + 1) > max_length:
         newlast = tuple([last[0], last[0] + max_length])
         transcript.end = last[0] + max_length
         transcript.remove_exon(last)
         transcript.add_exon(newlast)
-        # if transcript.selected_cds_length > 0:
-        #     last_utr = [segment for segment in transcript.combined_utr if
-        #                 segment[1] == last[1]][0]
-        #     transcript.combined_utr.remove(last_utr)
-        #     transcript.combined_utr.append(tuple(newlast))
 
     return transcript
 
@@ -243,6 +233,7 @@ def strip_terminal(transcript, args):
     assert transcript.end == transcript.exons[-1][1], (transcript.end, transcript.exons)
     return transcript
 
+
 def trim_gene(current_gene, format_name, args):
     """"""
 
@@ -272,17 +263,15 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
-    from ...parsers import to_gff
-    from ...loci import Transcript
-    from ...transcripts.reference_gene import Gene
+    from ...parsers import parser_factory
+    from ...transcripts import Transcript, Gene
 
-    args.gff = to_gff(args.gff)
+    args.gff = parser_factory(args.gff)
     args.logger = create_default_logger("trimmer")
     args.logger.setLevel("WARN")
 
     if args.as_gtf is False:
-        print("##gff-version 3",
-              file=args.out)
+        print("##gff-version 3", file=args.out)
 
     if args.as_gtf is True:
         format_name = "gtf"
@@ -332,8 +321,7 @@ def trim_parser():
     Command line parser for the utility.
     """
 
-    parser = argparse.ArgumentParser(
-        "Script to trim down the terminal exons of multiexonic transcripts")
+    parser = argparse.ArgumentParser("Script to trim down the terminal exons of multiexonic transcripts")
     parser.add_argument("-ml", "--max_length", type=int, default=50,
                         help="Maximal length of trimmed terminal exons")
     parser.add_argument("--as-gtf", default=False, action="store_true",

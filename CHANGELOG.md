@@ -1,3 +1,87 @@
+# Version 2.2.0
+Removed Cython from the requirements.txt file. This allows to perform the tests correctly in a Conda environment (as Conda disallows installing Cython as part of a distributed package).
+As a result of this change, the preferred installation procedure from source has to be slightly amended:
+- either install using `pip wheel -w dist . && pip install dist/Mikado*whl`
+- or install with `python setup.py bdist_wheel` **after** having forcibly installed Cython, with `pip install Cython` or the like.
+
+Other changes:
+- Fix [#381](https://github.com/EI-CoreBioinformatics/mikado/issues/381): now Mikado will be able to guess correctly 
+  the input file format, instead of relying on the file name extension or user's settings. Sniffing for files 
+  provided as a stream is *disabled* though.
+- Fix [#382](https://github.com/EI-CoreBioinformatics/mikado/issues/382): now Mikado can accept generic BED12 files 
+  as input junctions, not just Portcullis junctions. This allows e.g. a user to provide a ***set of gene models*** 
+  in BED12 format as sources of valid junctions.
+- Fix [#384](https://github.com/EI-CoreBioinformatics/mikado/issues/384): now Mikado convert deals properly with 
+  unsorted GTFs/GFFs. 
+- Fix [#386](https://github.com/EI-CoreBioinformatics/mikado/issues/386): dealing better with unsorted GFFs/GTFs for 
+  the stats utility.
+- Fix [#387](https://github.com/EI-CoreBioinformatics/mikado/issues/387): now Mikado will always use a static seed, 
+  rather than generating a new one per call unless specifically instructed to do so. The old behaviour can still be 
+  replicated by either setting the `seed` parameter to `null` (ie `None`) in the configuration file, or by 
+  specifying `--random-seed` during the command invocation.
+- General increase in code unit-test coverage; in particular:  
+  - Slightly increased the unit-test coverage for the locus classes, e.g. properly covering the `as_dict` and `load_dict`
+    methods. Minor bugfixes related to the introduction of these unit-tests.
+- `Mikado.parsers.to_gff` has been renamed to `Mikado.parsers.parser_factory`.
+- The code related to the transcript padding has been moved to the submodule `Mikado.transcripts.pad`, rather than 
+  being part of the `Mikado.loci.locus` submodule.
+- Mikado will error informatively if the scoring configuration file is malformed.
+
+# Version 2.1.1
+
+Hotfix release:
+- **IMPORTANT** Mikado now uses correctly the scores associated to a given source.
+- **IMPORTANT** Mikado was not forwarding the original source to transcripts derived by chimera splitting. This compounded the issue above.
+- Corrected the issue that caused the issues above, ie transcripts where not dumping and reloading all relevant fields. Now implemented properly and tested with specific new routines. 
+- Corrected an issue that caused Mikado to erroneously calculate twice the metrics and scores of loci, therefore reporting some wrong ones in the output files.
+  - affected metrics where e.g. `selected_cds_intron_fraction` and `combined_cds_intron_fraction`. 
+- Removed `quicksect` from the requirements.
+
+# Version 2.1.0
+
+Bugfix and speed improvement release.
+
+- Fix a bug that prevented Mikado from reporting the correct metrics/scores in the output of *loci* files. This bug only affected reporting, not the results themselves. See [issue 376](https://github.com/EI-CoreBioinformatics/mikado/issues/376)  
+- Fix a bug in printing out the statistics for an annotation file with `mikado util stats` ([issue 378](https://github.com/EI-CoreBioinformatics/mikado/issues/378))
+- When doing serialising, Mikado now by default will drop and reload everything. The previous default behaviour results in hard-to-parse errors and is not what is usually desired anyway.
+- Improved the performance of pick in multiple ways ([issue 375](https://github.com/EI-CoreBioinformatics/mikado/issues/375)):
+  - now only external metrics that are requested in the scoring file will be printed out in the final `metrics` files. This reduces runtime in e.g. Minos. The new CLI switch `--report-all-external-metrics` (both in `configure` and `pick`) can be used to revert to the old behaviour.
+  - the `external` table in the Mikado database now is indexed properly, increasing speed. 
+  - batch and compress the results before sending them through a queue (@ljyanesm)
+  - @brentp enhanced the bcbio `intervaltree.pyx` into `quicksect`. Copied this new version of interval tree and adapted it to Mikado.
+  - Using sqlalchemy bakeries for the SQLite queries, as well as LRU caches in various parts of Mikado.
+  - Removed excessive copying in multiple parts of the program, especially regarding the configuration objects and during padding.
+  - Using `operator.attrgetter` instead of a custom (and slower) recursive `getattr` function.
+- Removed unsafe calls to tempfile.mktemp and the like, for increased security according to CodeQL.
+  
+
+# Version 2.0.2
+
+Bugfix release.
+
+- Fix infinite recursion bug when trying to recover lost transcripts
+- Fix performance regression by passing the configuration to Excluded locus objects.
+
+# Version 2.0.1
+
+BugFix release.
+
+- Fixed a bug that caused Mikado configure (but not daijin configure, or "mikado configure --daijin") to print out invalid configuration files.
+- Restored the functionality of "--full" - now Mikado can print out both partial (but still valid) or fully-fledged configuration files.
+- Configured bumpversion
+- Corrected a small bug in parsing EnsEMBL GFF3
+- Cured some deprecation warning messages from marshmallow and numpy
+- Small bug fix in the CLIs of mikado/daijin configure.
+- Default value of the seed is now 0 (ie: undefined, a random one will be selected). Only integers are allowed values.
+- Small bugfixes/extensions in the test suite.
+
+# Version 2.0
+
+Official second release of Mikado. **All users are advised to update as soon as possible**.
+
+See https://github.com/EI-CoreBioinformatics/mikado/milestone/22?closed=1 for a non-comprehensive list of all the issues closed in 
+relation to this release.
+
 # Version 2.0 - public release candidate 1 (prc1)
 
 This is the second major release of Mikado. It contains **backwards-incompatible changes** to the data structures used in the program;

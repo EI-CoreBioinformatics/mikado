@@ -11,7 +11,7 @@ assembling or checking the expression.
 
 import argparse
 from ..scales.compare import compare
-from ..parsers import to_gff
+from ..parsers import parser_factory
 from multiprocessing import cpu_count
 
 
@@ -34,14 +34,14 @@ def compare_parser():
     input_files = parser.add_argument_group(
         'Prediction and annotation files.')
     input_files.add_argument('-r', '--reference',
-                             type=to_gff,
+                             type=parser_factory,
                              required=True,
                              help="""Reference annotation file.
                              By default, an index will be crated and saved with the suffix
                              ".midx".""")
     targets = input_files.add_mutually_exclusive_group(required=True)
     targets.add_argument('-p', '--prediction',
-                         type=to_gff,
+                         type=parser_factory,
                          help='Prediction annotation file.')
     targets.add_argument("--self", default=False,
                          action="store_true",

@@ -15,19 +15,23 @@ def encode_result(obj):
 
 class Assigners(mp.Process):
 
-    def __init__(self, index, args: Namespace, queue, returnqueue, log_queue, counter):
+    def __init__(self, index, args: Namespace, queue, returnqueue, log_queue, counter, max_objects=1000):
         super().__init__()
-        # self.accountant_instance = Accountant(genes, args, counter=counter)
-        if hasattr(args, "fuzzymatch"):
-            self.__fuzzymatch = args.fuzzymatch
-        else:
-            self.__fuzzymatch = 0
+        self.__fuzzymatch = getattr(args, "fuzzymatch", 0)
         self.__counter = counter
         self._index = index
         self.queue = queue
         self.returnqueue = returnqueue
         self._args = args
         self.log_queue = log_queue
+        self._max_objects = max_objects
+
+    def _send_results(self, results: list, force=False) -> list:
+        if force or len(results) >= self._max_objects:
+            result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
+            self.returnqueue.put(("tmap", result))
+            results = []
+        return results
 
     def run(self):
         self._args.__dict__["log_queue"] = self.log_queue
@@ -41,11 +45,6 @@ class Assigners(mp.Process):
             if transcripts == "EXIT":
                 self.queue.put("EXIT")
                 self.queue.task_done()
-                result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
-                self.returnqueue.put(("tmap", result))
-                refmap, stats = self.assigner_instance.dump()
-                self.returnqueue.put(("refmap", refmap, stats))
-                self.returnqueue.put("EXIT")
                 break
             else:
                 dumped = msgpack.loads(transcripts)
@@ -56,11 +55,14 @@ class Assigners(mp.Process):
                     if isinstance(result, ResultStorer):
                         result = [result]
                     results.extend(result)
-                    if len(results) >= 1000:
-                        result = msgpack.dumps([res.as_dict() for res in results], strict_types=True)
-                        self.returnqueue.put(("tmap", result))
-                        results = []
+                    results = self._send_results(results)
                 self.queue.task_done()
+
+        self._send_results(results, force=True)
+        refmap, stats = self.assigner_instance.dump()
+        self.returnqueue.put(("refmap", refmap, stats))
+        self.returnqueue.put("EXIT")
+        return
 
 
 class FinalAssigner(mp.Process):
@@ -76,10 +78,7 @@ class FinalAssigner(mp.Process):
         self.nprocs = nprocs
 
     def run(self):
-        try:
-            self.args.__dict__["log_queue"] = self.log_queue
-        except AttributeError:
-            raise AttributeError(self.args)
+        self.args.__dict__["log_queue"] = self.log_queue
         self.assigner = Assigner(self.index, self.args, printout_tmap=True)
         finished_children = 0
         while finished_children < self.nprocs:

@@ -5,12 +5,12 @@ from the database/dictionary provided during the pick operation.
 
 import operator
 from itertools import groupby
-
+from typing import List
 from sqlalchemy import and_
 from sqlalchemy.orm.session import sessionmaker
-
+from ...parsers.bed12 import BED12
 from ...serializers.junction import Junction
-from ..clique_methods import define_graph, find_cliques, find_communities
+from ..._transcripts.clique_methods import define_graph, find_cliques, find_communities
 from ...utilities import dbutils
 
 __author__ = 'Luca Venturini'
@@ -201,7 +201,7 @@ def check_loaded_orfs(transcript, primary_phase=0):
         transcript.feature = "mRNA"
 
     transcript.phases = dict()
-    transcript._first_phase = primary_phase
+    transcript.__first_phase = primary_phase
     transcript._trust_orf = False
     transcript.finalize()
 
@@ -221,12 +221,8 @@ def __load_blast(transcript, data_dict=None, reverse=False):
     # if self.query_id is None:
     #     return
 
-    # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
-    #     return
-
-    max_target_seqs = transcript.json_conf[
-        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
+    max_target_seqs = transcript.configuration.pick.chimera_split.blast_params.max_target_seqs
+    maximum_evalue = transcript.configuration.pick.chimera_split.blast_params.evalue
 
     if data_dict is None:
         blast_hits_query = [_.as_dict() for _ in transcript.blast_baked(transcript.session).params(
@@ -280,28 +276,24 @@ def _connect_to_db(transcript):
     """
 
     transcript.engine = dbutils.connect(
-        transcript.json_conf, transcript.logger)
+        transcript.configuration, transcript.logger)
 
     transcript.sessionmaker = sessionmaker()
     transcript.sessionmaker.configure(bind=transcript.engine)
     transcript.session = transcript.sessionmaker()
 
 
-def load_information_from_db(transcript, json_conf, introns=None, session=None,
-                             data_dict=None):
+def load_information_from_db(transcript, configuration, introns=None, data_dict=None):
     """This method will invoke the check for:
 
     :param transcript: the Transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
-    :param json_conf: Necessary configuration file
-    :type json_conf: dict
+    :param configuration: Necessary configuration file
+    :type json_conf: (MikadoConfiguration|DaijinConfiguration)
 
     :param introns: the verified introns in the Locus
     :type introns: None,set
-
-    :param session: an SQLAlchemy session
-    :type session: sqlalchemy.orm.session
 
     :param data_dict: a dictionary containing the information directly
     :type data_dict: dict
@@ -311,73 +303,15 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
     """
 
     transcript.logger.debug("Loading {0}".format(transcript.id))
-    transcript.json_conf = json_conf
+    transcript.configuration = configuration
 
-    __load_verified_introns(transcript, data_dict, introns)
-    if data_dict is not None:
-        retrieve_from_dict(transcript, data_dict)
-    else:
-        if session is None:
-            _connect_to_db(transcript)
-        else:
-            transcript.session = session
-        candidate_orfs = []
-        if transcript.is_reference is False:
-            transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
-            ext_results = transcript.external_baked(transcript.session).params(query=transcript.id).all()
-            for row in ext_results:
-                if row.rtype == "int":
-                    score = int(row.score)
-                elif row.rtype == "bool":
-                    score = bool(int(row.score))
-                elif row.rtype == "complex":
-                    score = complex(row.score)
-                elif row.rtype == "float":
-                    score = float(row.score)
-                else:
-                    raise ValueError("Invalid rtype: {}".format(row.rtype))
-
-                transcript.external_scores[row.source] = (score, row.valid_raw)
-
-            for row in transcript.external_sources(transcript.session).all():
-                if row.source not in transcript.external_scores:
-                    if row.rtype in ("int", "complex", "float"):
-                        score = 0
-                    elif row.rtype == "bool":
-                        score = False
-                    else:
-                        raise ValueError("Invalid rtype: {}".format(row.rtype))
-                    transcript.external_scores[row.source] = (score, row.valid_raw)
-
-            for orf in retrieve_orfs(transcript):
-                candidate_orfs.append(orf)
-            transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
-
-            transcript.logger.debug("Loading the ORFs for %s", transcript.id)
-            old_strand = transcript.strand
-            load_orfs(transcript, candidate_orfs)
-
-            if transcript.monoexonic is False:
-                is_reversed = False
-            elif old_strand != transcript.strand and ((old_strand is None and transcript.strand == "-")
-                or (old_strand is not None)):
-                is_reversed = True
-            else:
-                is_reversed = False
-            transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
-
-        else:
-            transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
-            is_reversed = False
-
-        transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
-        __load_blast(transcript, reverse=is_reversed)
-        transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
+    __load_verified_introns(transcript, verified_introns=introns)
+    retrieve_from_dict(transcript, data_dict)
     # Finally load introns, separately
     transcript.logger.debug("Loaded data for %s", transcript.id)
 
 
-def retrieve_from_dict(transcript, data_dict):
+def retrieve_from_dict(transcript, data_dict: dict):
     """
     Method to retrieve transcript data directly from a dictionary.
 
@@ -385,7 +319,7 @@ def retrieve_from_dict(transcript, data_dict):
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param data_dict: the dictionary with loaded data from DB
-    :type data_dict: (None | dict)
+    :type data_dict: dict
     """
 
     transcript.logger.debug(
@@ -397,8 +331,8 @@ def retrieve_from_dict(transcript, data_dict):
                             sorted(transcript.introns))
 
     # ORF data
-    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
-    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
+    trust_strand = transcript.configuration.pick.orf_loading.strand_specific
+    min_cds_len = transcript.configuration.pick.orf_loading.minimal_orf_length
 
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
@@ -438,7 +372,6 @@ def retrieve_from_dict(transcript, data_dict):
         transcript.logger.debug("Skipping ORF loading for reference %s", transcript.id)
         is_reversed = False
 
-    # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
     transcript.logger.debug("Retrieving BLAST hits for %s",
                             transcript.id)
 
@@ -448,20 +381,20 @@ def retrieve_from_dict(transcript, data_dict):
                             transcript.id)
 
 
-def find_overlapping_cds(transcript, candidates: list) -> list:
+def find_overlapping_cds(transcript, candidates: list) -> List[BED12]:
     """
-    Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
-    It will pass to the function the class's "is_overlapping_cds" method
-    (which would be otherwise be inaccessible from the Abstractlocus class method).
-    As we are interested only in the communities, not the cliques,
-    this wrapper discards the cliques
-    (first element of the Abstractlocus.find_communities results)
+    Method to identify overlapping ORFs using a clique-algorithm. If any is found, ORFs are discarded until
+    all ORFs are isolated from each other.
+    This method will also discard ORFs that are marked as invalid by the BED12 class and/or do not meet the minimum
+    requirements set up in the configuration.
+
+    In case of overlapping ORFs, Mikado will prefere
 
     :param transcript: the Transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
+    :type transcript: Mikado.transcripts.Transcript
 
     :param candidates: candidate ORFs to analyse
-    :type candidates: list[Mikado.serializers.orf.Orf]
+    :type candidates: list[BED12]
 
     """
 
@@ -470,11 +403,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         candidates = list(corf for corf in candidates if corf.strand == "+")
 
     # Prepare the minimal secondary length parameter
-    if transcript.json_conf is not None:
-        minimal_secondary_orf_length = \
-            transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
-    else:
-        minimal_secondary_orf_length = 0
+    minimal_secondary_orf_length = transcript.configuration.pick.orf_loading.minimal_secondary_orf_length
     transcript.logger.debug("Minimal orf loading: %d", minimal_secondary_orf_length)
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
@@ -513,12 +442,15 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         [x.name for x in candidate_orfs]))
     final_orfs = [candidate_orfs[0]]
     if len(candidate_orfs) > 1:
-        others = list(corf for corf in candidate_orfs[1:] if
-                      corf.cds_len >= minimal_secondary_orf_length)
-        transcript.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
-            len(others), transcript.id,
-            minimal_secondary_orf_length
-        ))
+        others = []
+        for corf in candidate_orfs[1:]:
+            passed = corf.cds_len >= minimal_secondary_orf_length
+            transcript.logger.debug("ORF %s for %s %s minimal length of %s (its length: %s)",
+                                    corf.name, transcript.id, "has" if passed else "does not have",
+                                    minimal_secondary_orf_length, corf.cds_len)
+            if passed:
+                others.append(corf)
+
         final_orfs.extend(others)
 
     transcript.logger.debug("Retained %d ORFs for %s: %s",
@@ -557,11 +489,6 @@ def __create_internal_orf(transcript, orf):
         assert transcript.start <= current_end < current_start <= transcript.end, (
             transcript.start, current_end, current_start, transcript.end
         )
-        # This is not true in the case of truncated ORFs!
-        # assert (current_start - current_end + 1) % 3 == 0, (
-        #     current_end, current_start,
-        #     current_start - current_end + 1
-        # )
         cds_exons.append(("exon", transcript.exons[0]))
         if current_end > transcript.start:
             cds_exons.append(("UTR", tuple([transcript.start, current_end - 1])))
@@ -606,33 +533,28 @@ def __create_internal_orf(transcript, orf):
     return cds_exons
 
 
-def __load_verified_introns(transcript, data_dict=None, introns=None):
+def __load_verified_introns(transcript, verified_introns=None):
 
-    """This method will load verified junctions from the external
-    (usually the superlocus class).
+    """This method will load verified junctions from outside.
+    Verified introns can either be given as a set or alternatively they will be retrieved by opening
+    a connection to the Mikado database, using the information provided in the configuration.
 
     :param transcript: the Transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
-    :param data_dict: the dictionary with data to load
-    :type data_dict: (dict | None)
-
-    :param introns: verified introns
-    :type introns: (set | None)
+    :param verified_introns: verified introns
+    :type verified_introns: (set | None)
     """
 
     transcript.logger.debug("Checking introns; candidates %s", transcript.introns)
-    if data_dict is None:
+    if verified_introns is None:
         transcript.logger.debug("Checking introns using the database for %s",
                                 transcript.id)
 
         for intron in transcript.introns:
-            # Disable checks as the hybridproperties confuse
-            # both pycharm and pylint
+            # Disable checks as the hybridproperties confuse both pycharm and pylint
             # noinspection PyCallByClass,PyTypeChecker
             # pylint: disable=no-value-for-parameter
-            # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
-            # import sqlalchemy
             for ver_intron in transcript.session.query(Junction).filter(and_(
                     Junction.chrom == transcript.chrom,
                     intron[0] == Junction.junction_start,
@@ -645,17 +567,17 @@ def __load_verified_introns(transcript, data_dict=None, introns=None):
 
     else:
         transcript.logger.debug("Checking introns using data structure for %s; introns: %s",
-                                transcript.id, introns)
+                                transcript.id, verified_introns)
         for intron in transcript.introns:
             transcript.logger.debug("Checking intron %s%s:%d-%d for %s",
                                     transcript.chrom, transcript.strand,
                                     intron[0], intron[1], transcript.id)
-            if (intron[0], intron[1], transcript.strand) in introns:
+            if (intron[0], intron[1], transcript.strand) in verified_introns:
                 transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
                                         transcript.chrom, transcript.strand,
                                         intron[0], intron[1], transcript.id)
                 transcript.verified_introns.add(intron)
-            elif (intron[0], intron[1], None) in introns:
+            elif (intron[0], intron[1], None) in verified_introns:
                 transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
                                         transcript.chrom, None,
                                         intron[0], intron[1], transcript.id)
@@ -664,51 +586,6 @@ def __load_verified_introns(transcript, data_dict=None, introns=None):
     transcript.logger.debug("Found these introns for %s: %s",
                             transcript.id, transcript.verified_introns)
     return
-
-
-def retrieve_orfs(transcript):
-
-    """This method will look up the ORFs loaded inside the database.
-    During the selection, the function will also remove overlapping ORFs.
-
-    :param transcript: the Transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
-
-    """
-
-    # if self.query_id is None:
-    #     return []
-
-    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
-    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
-
-    orf_results = transcript.orf_baked(transcript.session).params(query=transcript.id,
-                                                                  cds_len=min_cds_len)
-    transcript.logger.debug("Retrieving ORFs from database for %s",
-                            transcript.id)
-
-    assert orf_results is not None
-
-    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True and
-                                            transcript.strand is not None):
-        # Remove negative strand ORFs for multiexonic transcripts,
-        # or monoexonic strand-specific transcripts
-        assert orf_results is not None
-        candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
-    else:
-        candidate_orfs = orf_results.all()
-
-    transcript.logger.debug("Found %d ORFs for %s",
-                            len(candidate_orfs), transcript.id)
-    assert isinstance(candidate_orfs, list)
-
-    if len(candidate_orfs) == 0:
-        return []
-    else:
-        result = [orf.as_bed12() for orf in candidate_orfs]
-        for orf in result:
-            assert orf.chrom == transcript.id, (orf.chrom, transcript.id)
-        return result
 
 
 def orf_sorter(orf):

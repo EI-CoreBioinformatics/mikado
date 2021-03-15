@@ -1,15 +1,27 @@
+import operator
 import os
+import pickle
+import re
 import unittest
-import builtins
+import random
+import pandas as pd
+from pytest import mark
+
+from Mikado.exceptions import InvalidTranscript, InvalidCDS
+from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
+    _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
+    _check_cdna_vs_utr, _fix_stop_codon
+from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
-from ..configuration.configurator import to_json
+from Mikado.utilities import Interval, IntervalTree
+from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
 from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
 from ..transcripts.transcript import Metric
-from ..transcripts.transcript_methods import retrieval
+from Mikado.transcripts.transcript_methods import retrieval
 from ..utilities.log_utils import create_default_logger
 
 
@@ -103,6 +115,73 @@ class TestMetricClass(unittest.TestCase):
                             return self.__test
 
                         test.rtype = invalid
+
+    def test_external_score(self):
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(configuration=conf)
+        for source in conf.prepare.files.source_score.keys():
+            t.original_source = source
+            self.assertEqual(t.source_score, conf.prepare.files.source_score[source])
+
+        t.original_source = "foo"
+        self.assertEqual(t.source_score, 0)
+
+    def test_pickling_unpickling_metrics(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t+\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(bed_line, source="tr", configuration=conf)
+        t.finalize()
+        for metrics in t.get_available_metrics():
+            try:
+                rtype = operator.attrgetter("{metric}.rtype")(Transcript)
+            except AttributeError:
+                continue
+            if rtype == "float":
+                value = random.random()
+            elif rtype == "bool":
+                value = random.choice([True, False])
+            elif rtype == "int":
+                value = random.randint(0, 1000)
+            try:
+                setattr(t, metrics, value)
+            except AttributeError:
+                continue
+        u = pickle.loads(pickle.dumps(t))
+        for metric in t.get_available_metrics():
+            original, new = getattr(t, metric), getattr(u, metric)
+            self.assertEqual(original, new, (metric, original, new))
+
+    def test_undefined_strand_multi(self):
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t.\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        for tentative in [False, True]:
+            with self.subTest(tentative=tentative):
+                if tentative is False:
+                    with self.assertRaises(InvalidTranscript):
+                        t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                else:
+                    t = Transcript(bed_line, source="tr", accept_undefined_multi=tentative)
+                    t.finalize()
+                    self.assertEqual(t.strand, None)
+
+    def test_cds_bridging_two_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1200), (1301, 1500)]
+        t.combined_cds = [(1101, 1400)]
+        t.logger = create_default_logger("test_cds_bridging_two_exons", level="DEBUG")
+        with self.assertLogs("test_cds_bridging_two_exons") as cmo:
+            t.finalize()
+        self.assertFalse(t.is_coding, cmo.output)
+
+    def test_overlapping_exons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 1001, 1500, "+", "foo"
+        t.exons = [(1001, 1400), (1301, 1500)]
+        t.logger = create_default_logger("test_overlapping_exons", level="DEBUG")
+        with self.assertRaises(InvalidTranscript):
+            t.finalize()
 
     def test_category(self):
 
@@ -355,6 +434,121 @@ class TestAsBed12(unittest.TestCase):
                                    ))
 
 
+class TestPrintTranscriptomic(unittest.TestCase):
+    
+    def setUp(self):
+        transcript_lines = """
+Chr5\t26581217\t26581531\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t26581217\t26581218\t0\t1\t314\t0
+Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513
+Chr5\t26574999\t26578012\tID=at_AT5G66600.2;coding=True;phase=0\t0\t-\t26575104\t26577954\t0\t9\t411,126,87,60,100,809,126,72,157\t0,495,711,885,1035,1261,2163,2378,2856
+Chr5\t26574999\t26578625\tID=at_AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t411,126,87,60,100,809,126,72,82,188,107\t0,495,711,885,1035,1261,2163,2378,2856,3239,3519
+        """
+
+        self.transcripts = dict() 
+        for line in transcript_lines.split("\n"):
+            if line.strip() == "":
+                continue
+            transcript = Transcript(BED12(line))
+            transcript.finalize()
+            transcript.parent = transcript.id + "_gene"
+            transcript.name = transcript.id
+            self.transcripts[transcript.id] = transcript
+
+        self.assertEqual(len(self.transcripts), 4)
+
+    def test_bed12(self):
+
+        results = {
+            "st_Stringtie_STAR.21709.1": [
+                "st_Stringtie_STAR.21709.1\t0\t314\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t0\t1\t0\t1\t314\t0",
+                "st_Stringtie_STAR.21709.1\t0\t314\tID=st_Stringtie_STAR.21709.1;coding=False\t0\t+\t0\t1\t0\t1\t314\t0"
+            ],
+            "at_AT5G66610.2": [
+                "at_AT5G66610.2\t0\t1900\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t109\t1873\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,106,160,705,826,904,1009,1222,1285,1404",
+                "at_AT5G66610.2\t0\t1900\tID=at_AT5G66610.2;coding=False\t0\t+\t0\t1\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,106,160,705,826,904,1009,1222,1285,1404",
+            ],
+            "at_AT5G66600.2": [
+                "at_AT5G66600.2\t0\t1948\tID=at_AT5G66600.2;coding=True;phase=0\t0\t+\t58\t1843\t0\t9\t157,72,126,809,100,60,87,126,411\t0,157,229,355,1164,1264,1324,1411,1537",
+                "at_AT5G66600.2\t0\t1948\tID=at_AT5G66600.2;coding=False\t0\t+\t0\t1\t0\t9\t157,72,126,809,100,60,87,126,411\t0,157,229,355,1164,1264,1324,1411,1537"
+            ],
+            "at_AT5G66600.3": [
+                "at_AT5G66600.3\t0\t2168\tID=at_AT5G66600.3;coding=True;phase=0\t0\t+\t218\t2063\t0\t11\t107,188,82,72,126,809,100,60,87,126,411\t0,107,295,377,449,575,1384,1484,1544,1631,1757",
+                "at_AT5G66600.3\t0\t2168\tID=at_AT5G66600.3;coding=False\t0\t+\t0\t1\t0\t11\t107,188,82,72,126,809,100,60,87,126,411\t0,107,295,377,449,575,1384,1484,1544,1631,1757"
+            ]
+        }
+
+        for tid, transcript in self.transcripts.items():
+            with self.subTest(tid=tid):
+                with_cds = transcript.format(format_name="bed12", with_cds=True, transcriptomic=True)
+                without_cds = transcript.format(format_name="bed12", with_cds=False, transcriptomic=True)
+                self.assertEqual(with_cds, results[tid][0])
+                self.assertEqual(without_cds, results[tid][1])
+
+    def test_gff3(self):
+
+        results = {
+            "st_Stringtie_STAR.21709.1": [
+                """st_Stringtie_STAR.21709.1\tbed12\ttranscript\t1\t314\t0.0\t+\t.\tID=st_Stringtie_STAR.21709.1;Parent=st_Stringtie_STAR.21709.1_gene;Name=st_Stringtie_STAR.21709.1
+st_Stringtie_STAR.21709.1\tbed12\texon\t1\t314\t.\t+\t.\tID=st_Stringtie_STAR.21709.1.exon1;Parent=st_Stringtie_STAR.21709.1""",
+                """st_Stringtie_STAR.21709.1\tbed12\ttranscript\t1\t314\t0.0\t+\t.\tID=st_Stringtie_STAR.21709.1;Parent=st_Stringtie_STAR.21709.1_gene;Name=st_Stringtie_STAR.21709.1
+st_Stringtie_STAR.21709.1\tbed12\texon\t1\t314\t.\t+\t.\tID=st_Stringtie_STAR.21709.1.exon1;Parent=st_Stringtie_STAR.21709.1"""
+            ],
+            "at_AT5G66610.2":
+                [
+                    """at_AT5G66610.2\tbed12\tmRNA\t1\t1900\t0.0\t+\t.\tID=at_AT5G66610.2;Parent=at_AT5G66610.2_gene;Name=at_AT5G66610.2
+at_AT5G66610.2\tbed12\texon\t1\t1900\t.\t+\t.\tID=at_AT5G66610.2.exon1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tfive_prime_UTR\t1\t109\t.\t+\t.\tID=at_AT5G66610.2.five_prime_UTR1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tCDS\t110\t1873\t.\t+\t0\tID=at_AT5G66610.2.CDS1;Parent=at_AT5G66610.2
+at_AT5G66610.2\tbed12\tthree_prime_UTR\t1874\t1900\t.\t+\t.\tID=at_AT5G66610.2.three_prime_UTR1;Parent=at_AT5G66610.2""",
+                    """at_AT5G66610.2\tbed12\ttranscript\t1\t1900\t0.0\t+\t.\tID=at_AT5G66610.2;Parent=at_AT5G66610.2_gene;Name=at_AT5G66610.2
+at_AT5G66610.2\tbed12\texon\t1\t1900\t.\t+\t.\tID=at_AT5G66610.2.exon1;Parent=at_AT5G66610.2"""
+                ],
+            "at_AT5G66600.2": ["""at_AT5G66600.2\tbed12\tmRNA\t1\t1948\t0.0\t+\t.\tID=at_AT5G66600.2;Parent=at_AT5G66600.2_gene;Name=at_AT5G66600.2
+at_AT5G66600.2\tbed12\texon\t1\t1948\t.\t+\t.\tID=at_AT5G66600.2.exon1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tfive_prime_UTR\t1\t58\t.\t+\t.\tID=at_AT5G66600.2.five_prime_UTR1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tCDS\t59\t1843\t.\t+\t0\tID=at_AT5G66600.2.CDS1;Parent=at_AT5G66600.2
+at_AT5G66600.2\tbed12\tthree_prime_UTR\t1844\t1948\t.\t+\t.\tID=at_AT5G66600.2.three_prime_UTR1;Parent=at_AT5G66600.2""",
+                 """at_AT5G66600.2\tbed12\ttranscript\t1\t1948\t0.0\t+\t.\tID=at_AT5G66600.2;Parent=at_AT5G66600.2_gene;Name=at_AT5G66600.2
+at_AT5G66600.2\tbed12\texon\t1\t1948\t.\t+\t.\tID=at_AT5G66600.2.exon1;Parent=at_AT5G66600.2"""],
+            "at_AT5G66600.3": ["""at_AT5G66600.3\tbed12\tmRNA\t1\t2168\t0.0\t+\t.\tID=at_AT5G66600.3;Parent=at_AT5G66600.3_gene;Name=at_AT5G66600.3
+at_AT5G66600.3\tbed12\texon\t1\t2168\t.\t+\t.\tID=at_AT5G66600.3.exon1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tfive_prime_UTR\t1\t218\t.\t+\t.\tID=at_AT5G66600.3.five_prime_UTR1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tCDS\t219\t2063\t.\t+\t0\tID=at_AT5G66600.3.CDS1;Parent=at_AT5G66600.3
+at_AT5G66600.3\tbed12\tthree_prime_UTR\t2064\t2168\t.\t+\t.\tID=at_AT5G66600.3.three_prime_UTR1;Parent=at_AT5G66600.3""",
+                 """at_AT5G66600.3\tbed12\ttranscript\t1\t2168\t0.0\t+\t.\tID=at_AT5G66600.3;Parent=at_AT5G66600.3_gene;Name=at_AT5G66600.3
+at_AT5G66600.3\tbed12\texon\t1\t2168\t.\t+\t.\tID=at_AT5G66600.3.exon1;Parent=at_AT5G66600.3"""]
+        }
+
+        self.maxDiff = None
+        for tid, transcript in self.transcripts.items():
+            with self.subTest(tid=tid):
+                with_cds = transcript.format(format_name="gff3", with_cds=True, transcriptomic=True).strip()
+                without_cds = transcript.format(format_name="gff3", with_cds=False, transcriptomic=True).strip()
+                self.assertEqual(with_cds, results[tid][0])
+                self.assertEqual(without_cds, results[tid][1])
+
+#     def test_gtf(self):
+#         output = """
+# Chr5    bed12   transcript      26581218        26581531        0.0     +       .       gene_id "gene_1"; transcript_id "st_Stringtie_STAR.21709.1"; Name "st_Stringtie_STAR.21709.1";
+# Chr5    bed12   exon    26581218        26581531        .       +       .       gene_id "gene_1"; transcript_id "st_Stringtie_STAR.21709.1";
+# at_AT5G66610.2  bed12   mRNA    1       1900    0.0     +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2"; Name "at_AT5G66610.2";
+# at_AT5G66610.2  bed12   exon    1       1900    0.0     +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2"; Name "at_AT5G66610.2";
+# Chr5    bed12   5UTR    1       109     .       +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# Chr5    bed12   CDS     110     1873    .       +       0       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# Chr5    bed12   3UTR    1874    1900    .       +       .       gene_id "gene_2"; transcript_id "at_AT5G66610.2";
+# at_AT5G66600.2  bed12   mRNA    1       1948    0.0     +       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2"; Name "at_AT5G66600.2";
+# at_AT5G66600.2  bed12   exon    1       1948    0.0     +       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2"; Name "at_AT5G66600.2";
+# Chr5    bed12   3UTR    1       58      .       -       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# Chr5    bed12   CDS     59      1843    .       -       0       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# Chr5    bed12   5UTR    1844    1948    .       -       .       gene_id "gene_3"; transcript_id "at_AT5G66600.2";
+# at_AT5G66600.3  bed12   mRNA    1       2168    0.0     +       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3"; Name "at_AT5G66600.3";
+# at_AT5G66600.3  bed12   exon    1       2168    0.0     +       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3"; Name "at_AT5G66600.3";
+# Chr5    bed12   3UTR    1       218     .       -       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+# Chr5    bed12   CDS     219     2063    .       -       0       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+# Chr5    bed12   5UTR    2064    2168    .       -       .       gene_id "gene_4"; transcript_id "at_AT5G66600.3";
+#     """
+
+
 class TestPrintIntrons(unittest.TestCase):
 
     def test_not_coding(self):
@@ -528,7 +722,7 @@ Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tID=test1.exon2;Parent=test1"""
         self.assertEqual(gff3, gff3_res)
 
         gff3_cds = [GffLine(_) for _ in gff3.split("\n") if GffLine(_).feature == "CDS"]
-        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GffLine(_).feature == "CDS"]
+        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GtfLine(_).feature == "CDS"]
         gff3_cds = dict(((_.start, _.end), _) for _ in gff3_cds)
         gtf_cds = dict(((_.start, _.end), _) for _ in gtf_cds)
 
@@ -551,18 +745,16 @@ class TestRetrieval(unittest.TestCase):
         self.tr.id = "test1"
         self.tr.parent = "gene1"
         self.tr.finalize()
-        conf = to_json(os.path.join(
+        conf = load_and_validate_config(os.path.join(
             os.path.dirname(__file__),
             "configuration.yaml"
         ))
-        self.assertTrue(conf["pick"]["chimera_split"]["blast_check"])
-        self.assertTrue(conf["pick"]["chimera_split"]["execute"])
-        self.assertEqual(conf["pick"]["chimera_split"]["blast_params"]["leniency"],
-                         "LENIENT")
+        self.assertTrue(conf.pick.chimera_split.blast_check)
+        self.assertTrue(conf.pick.chimera_split.execute)
+        self.assertEqual(conf.pick.chimera_split.blast_params.leniency, "LENIENT")
+        conf.pick.orf_loading.minimal_secondary_orf_length = 50
 
-        conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
-
-        self.tr.json_conf = conf
+        self.tr.configuration = conf
 
     def test_load_pos_and_neg(self):
         
@@ -585,7 +777,7 @@ class TestRetrieval(unittest.TestCase):
         with self.assertLogs("null", "DEBUG") as _:
             after_overlap_check = retrieval.find_overlapping_cds(self.tr, [b1, b2])
 
-        self.assertEqual(len(after_overlap_check), 2, self.tr.json_conf["pick"]["orf_loading"])
+        self.assertEqual(len(after_overlap_check), 2, self.tr.configuration.pick.orf_loading)
         self.assertEqual(after_overlap_check,
                          [b1, b2],
                          [_.name for _ in after_overlap_check])
@@ -618,6 +810,27 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
 
+    def test_exon_intron_lengths(self):
+
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        self.assertEqual(t.max_exon_length, 0)
+        self.assertEqual(t.min_exon_length, 0)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+        t.add_exons([(101, 1000)])
+        self.assertEqual(t.max_exon_length, 900)
+        self.assertEqual(t.min_exon_length, 900)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+
+    def test_suspicious_splicing(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.attributes["canonical_on_reverse_strand"] = "True"
+        t.attributes["mixed_splices"] = False
+        self.assertTrue(t.suspicious_splicing)
+
     def test_frames(self):
 
         self.assertIsInstance(self.t1.frames, dict)
@@ -640,6 +853,46 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
 
         self.assertEqual(len(correct_frames), int(self.t1.combined_cds_length / 3), correct_frames)
         self.assertEqual(self.t1.framed_codons, correct_frames)
+
+    def test_wrong_proportions(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.finalize()
+        for invalid in (10, -0.1, "a"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(TypeError):
+                    t.proportion_verified_introns_inlocus = invalid
+                t.proportion_verified_introns_inlocus = 1
+                with self.assertRaises(TypeError):
+                    t.cds_disrupted_by_ri = invalid
+                t.cds_disrupted_by_ri = True
+                with self.assertRaises(TypeError):
+                    t.selected_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.combined_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.selected_cds_locus_fraction = invalid
+                with self.assertRaises(ValueError):
+                    # t is non-coding
+                    t.selected_cds_locus_fraction = .4
+
+    def test_set_codons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.add_exons([(101, 1000)], features=["CDS"])
+        t.finalize()
+        for valid in (0, "0", "false", False):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertFalse(t.has_start_codon)
+            self.assertFalse(t.has_stop_codon)
+        for valid in (1, "1", "true", "True"):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertTrue(t.has_start_codon)
+            self.assertTrue(t.has_stop_codon)
 
     def test_conversion(self):
 
@@ -776,10 +1029,286 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertTrue(new_t.is_coding)
         self.assertEqual(new_t.number_internal_orfs, 2)
         self.assertNotIn(("CDS", (900, 1200), 0), new_t.as_dict()["orfs"].get(2, []))
-        import pandas as pd
         s = pd.Series(cmo.output)
         self.assertTrue(any(s.str.contains(
-            "ORF 2 of test.1 is invalid, removing.*")), cmo.output)
+            "ORF 2 of test.1 is invalid. Exception:")), cmo.output)
+
+    def test_as_and_load_dict_verified_introns(self):
+        self.t1.verified_introns = {(5577, 5696)}
+        self.t1.proportion_verified_introns_inlocus = 1.0
+        t1_state = self.t1.as_dict()
+        new_t = Transcript()
+        new_t.load_dict(t1_state)
+        assert new_t.verified_introns == self.t1.verified_introns
+
+    def test_as_and_load_dict_blast_hits(self):
+        hit = dict()
+        hit["evalue"] = 10**-6
+        hit["hsps"] = []
+        hit["target"] = "target1"
+        hit["target_length"] = 636
+        hit["query_start"] = 1
+        hit["query_end"] = 636
+        hit["target_cov"] = 100
+        hit["bits"] = 1200
+        hit["query_cov"] = 100
+        hit["evalue"] = 10**(-6)
+        hit["global_identity"] = 100
+        hit["query_aligned_length"] = 636 - 1
+        hit["target_aligned_length"] = 636 - 1
+        self.t1.blast_hits.append(hit)
+        t1_state = self.t1.as_dict()
+        new_t = Transcript()
+        new_t.load_dict(t1_state)
+        assert new_t.blast_hits == self.t1.blast_hits
+
+
+class TestPicklingAndToFromDict(unittest.TestCase):
+
+    def test_as_dict_and_load(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = Transcript()
+        dumped = original.as_dict()
+        recovered.load_dict(dumped, trust_orf=False)
+
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
+    def test_pickling_comprehensive(self):
+        bed_line = "Chr5\t26584773\t26587782\tID=at_AT5G66610.2;coding=True;phase=0\t0\t+\t26585222\t26587755\t0\t10\t106,54,545,121,78,105,213,63,119,496\t0,446,571,1208,1443,1646,1864,2160,2310,2513"
+        original = Transcript(bed_line)
+        original.external.foo = 10
+
+        original.finalize()
+        recovered = pickle.loads(pickle.dumps(original))
+        missed_keys = []
+        new_keys = []
+        different_keys = []
+
+        for key in original.__dict__:
+            if not key in recovered.__dict__:
+                if key in ["engine", "session", "sessionmaker"]:
+                    # We expect these keys to be missing, they cannot be pickled and we are not trasmitting
+                    # the configuration.
+                    continue
+                missed_keys.append(key)
+                continue
+            new, old = recovered.__dict__[key], original.__dict__[key]
+            if not isinstance(new, type(old)):
+                different_keys.append((key, str(new), str(old)))
+                continue
+            elif old != new:
+                if "external" in key:
+                    previous = dict((key, value) for key, value in old.items())
+                    now = dict((key, value) for key, value in new.items())
+                    different = False
+                    for key in set.union(set(previous.keys()), set(now.keys())):
+                        if key not in previous or key not in now or now[key] != previous[key]:
+                            different = True
+                            break
+                    if different:  # and max(len(now), len(previous)) > 0:
+                        different_keys.append((key, str(previous), str(now)))
+                elif isinstance(recovered.__dict__[key], IntervalTree):
+                    old_ivs = []
+                    new_ivs = []
+                    old.traverse(lambda iv: old_ivs.append(iv))
+                    new.traverse(lambda iv: new_ivs.append(iv))
+                    old_ivs = sorted(old_ivs)
+                    new_ivs = sorted(new_ivs)
+                    if old_ivs != new_ivs:
+                        different_keys.append((key, str(old_ivs), str(new_ivs)))
+                else:
+                    different_keys.append((key, str(old), str(new)))
+
+        for key in recovered.__dict__:
+            if not key in original.__dict__:
+                new_keys.append(key)
+
+        self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
+        self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
+        self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
+
+class FinalizeTests(unittest.TestCase):
+
+    # from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
+    #     _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
+    #     _check_cdna_vs_utr, _fix_stop_codon
+
+    def test_calculate_introns(self):
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exon((101, 1000))
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, set())
+        self.assertEqual(transcript.splices, set())
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, {(501, 600)})
+        self.assertEqual(transcript.splices, {501, 600})
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript.add_exons([(201, 500)], features="CDS")
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, {(501, 600)})
+        self.assertEqual(transcript.splices, {501, 600})
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        # transcript = Transcript()
+        # transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        # transcript.add_exons([(101, 500), (601, 1000)])
+        # transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        # self.assertGreater(len(transcript.combined_cds), 0)
+        # self.assertGreater(transcript.number_internal_orfs, 0)
+        # transcript = _calculate_introns(transcript)
+        # self.assertEqual(transcript.introns, {(501, 600)})
+        # self.assertEqual(transcript.splices, {501, 600})
+        # self.assertEqual(transcript.combined_cds_introns, {(501, 600)}, transcript.combined_cds_introns)
+        # self.assertEqual(transcript.selected_cds_introns, {(501, 600)}, transcript.selected_cds_introns)
+
+    def test_basic_final_checks(self):
+        transcript = Transcript()
+        transcript.start, transcript.end = 101, 1000
+        transcript.id = "foo"
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"No exon defined for the transcript foo. Aborting",
+                             str(exc.exception)))
+
+        transcript = Transcript()
+        transcript.start, transcript.end = 101, 1000
+        transcript.id = "foo"
+        transcript._possibly_without_exons = True
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.exons, [(101, 1000)])
+
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id = 101, 1000, "foo"
+        transcript.exons = [(91, 1000)]
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.start, 91)
+        self.assertEqual(transcript.end, 1000)
+
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id = 101, 1000, "foo"
+        transcript.exons = [(101, 5000)]
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.start, 101)
+        self.assertEqual(transcript.end, 5000)
+
+        # Infer exons from CDS + UTR
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        utr = [(101, 200), (201, 400), (801, 900), (950, 1000)]
+        cds = [(401, 600), (701, 800)]
+        exons = [(101, 200), (201, 600), (701, 900), (950, 1000)]
+        transcript.add_exons(cds, features="CDS")
+        transcript.add_exons(utr, features="UTR")
+        self.assertEqual(transcript.combined_utr, utr)
+        self.assertEqual(transcript.combined_cds, cds)
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.exons, exons)
+
+        # Mangled UTR/CDS
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        transcript.add_exons([(101, 210), (850, 1000)], features="UTR")
+        self.assertEqual(transcript.combined_utr, [(101, 210), (850, 1000)])
+        self.assertEqual(transcript.combined_cds, [(201, 500), (601, 900)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Transcript.* has a mangled CDS/UTR", str(exc.exception)),
+                             str(exc.exception))
+
+        # CDS absent, UTR present
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 1000)])
+        transcript.add_exons([(101, 210), (850, 1000)], features="UTR")
+        self.assertEqual(transcript.combined_utr, [(101, 210), (850, 1000)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Transcript.* has defined UTRs but no CDS.*", str(exc.exception)),
+                             str(exc.exception))
+
+        # Overlapping exons
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 500), (499, 1000)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Overlapping exons found", str(exc.exception)))
+
+    def test_check_with_double_internal_orf(self):
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 470), (499, 1000)])
+        # Now add the internal ORFs
+        transcript.internal_orfs.append(
+            [('UTR', (101, 150)), ('exon', (101, 470)), ('CDS', (151, 450), 0), ("UTR", (451, 470)),
+             ('exon', (499, 1000)), ('UTR', (499, 1000))])
+        transcript.internal_orfs.append(
+            [('UTR', (101, 470)), ('exon', (101, 470)), ('UTR', (499, 500)), ('exon', (499, 1000)),
+             ('CDS', (501, 560), 0), ('UTR', (561, 1000))])
+        with self.assertLogs(transcript.logger, level="DEBUG") as cmo:
+            transcript.finalize()
+        self.assertTrue(transcript.is_coding, cmo.output)
+        self.assertEqual(transcript.combined_cds, [(151, 450), (501, 560)])
 
 
 if __name__ == '__main__':

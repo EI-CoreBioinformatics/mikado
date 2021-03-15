@@ -3,31 +3,47 @@
 """
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
-
+import dataclasses
+import operator
+import random
+import re
 import unittest
 import os.path
 import logging
+from collections import namedtuple
+from copy import deepcopy
+
+import io
+import marshmallow
 import pkg_resources
-from ..configuration import configurator
-from .. import exceptions
-from ..parsers import GFF  # ,GTF, bed12
-from ..parsers.GTF import GtfLine
-from ..transcripts.transcript import Transcript
-from ..loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
-from ..loci.locus import expand_transcript
-from ..transcripts.reference_gene import Gene
-from ..utilities.log_utils import create_null_logger, create_default_logger
-from ..utilities import overlap
+import pytest
+from numpy import arange
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile, SizeFilter, RangeFilter, \
+    InclusionFilter, MinMaxScore, TargetScore
+from Mikado._transcripts.transcript_base import Metric
+from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
+from Mikado import exceptions
+from Mikado.parsers import GFF  # ,GTF, bed12
+from Mikado.parsers.GTF import GtfLine
+from Mikado.transcripts.transcript import Transcript
+from Mikado.loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
+from Mikado.loci.locus import pad_transcript
+from Mikado.transcripts.reference_gene import Gene
+from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.utilities.overlap import overlap
 import itertools
-from ..utilities.intervaltree import Interval
-from .. import loci
+from Mikado.utilities import Interval
+from Mikado import loci
+from Mikado.loci.abstractlocus import to_bool
 import pickle
 import inspect
-from ..parsers.bed12 import BED12
+from Mikado.parsers.bed12 import BED12
 import pysam
 from pytest import mark
 from itertools import combinations_with_replacement
-from ..scales.assignment.assigner import Assigner
+from Mikado.scales.assignment.assigner import Assigner
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
@@ -43,6 +59,20 @@ class OverlapTester(unittest.TestCase):
                          100)
         self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
                          overlap((100, 200), (100, 200)))
+
+
+class ToBoolTester(unittest.TestCase):
+
+    def test_bool(self):
+        for param in (1, True, "True", "tRue", "true", 1.0):
+            with self.subTest(param=param):
+                self.assertEqual(to_bool(param), True)
+        for param in (0, False, "False", "faLse", "false", 0.0):
+            with self.subTest(param=param):
+                self.assertEqual(to_bool(param), False)
+        for param in (2, 5.5, "hello", dict(), "Falsee", "Trrue"):
+            with self.subTest(param=param), self.assertRaises((AttributeError, TypeError, ValueError)):
+                to_bool(param)
 
 
 class ExcludedTester(unittest.TestCase):
@@ -71,9 +101,260 @@ class ExcludedTester(unittest.TestCase):
 
         excluded.remove_transcript_from_locus(transcript2.id)
         self.assertNotIn(transcript2.id, excluded)
+        self.assertEqual(repr(excluded), "{name}\t{chrom}\t{start}\t{end}\t{strand}\t{transcripts}".format(
+            name="excluded_transcripts",
+            chrom=excluded.chrom, start=26603003, end=26604376, strand="-",
+            transcripts="AT5G66650.1"))
         monosub = Monosublocus(transcript2)
         excluded.add_monosublocus(monosub)
         self.assertIn(transcript2.id, excluded)
+        # test repr
+        self.assertEqual(repr(excluded), "{name}\t{chrom}\t{start}\t{end}\t{strand}\t{transcripts}".format(
+            name="excluded_transcripts",
+            chrom=excluded.chrom, start=26603003, end=26612891, strand="-",
+            transcripts="AT5G66650.1,AT5G66670.1"))
+
+
+class SuperlocusTester(unittest.TestCase):
+
+    def test_find_lost_transcripts(self):
+        conf = MikadoConfiguration()
+        # With this scoring, we are giving a score of 10 to transcripts with a CDS and a cDNA length >= 300.
+        # We are giving a negative score to any transcript shorter than 300 bps, coding or not
+        conf.scoring.scoring = {
+            "cdna_length": MinMaxScore(rescaling="min", multiplier=-5,
+                                       filter=SizeFilter(value=300, operator="le")),
+            "combined_cds_length": MinMaxScore(rescaling="max", multiplier=10,
+                                               filter=SizeFilter(value=300, operator="ge"))
+        }
+        conf.scoring.requirements.expression = ["cdna_length"]
+        conf.scoring.requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.requirements._check_my_requirements()
+
+        conf.scoring.cds_requirements.expression = ["cdna_length"]
+        conf.scoring.cds_requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.cds_requirements._check_my_requirements()
+
+        conf.pick.clustering.flank = 500
+
+        t1 = Transcript(configuration=conf)
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "valid"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+        self.assertGreater(t1.cdna_length, 300)
+        self.assertGreater(t1.combined_cds_length, 300)
+
+        t2 = Transcript(configuration=conf)
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 700, 900, "+", "invalid.1"
+        t2.add_exons([(700, 900)])
+        t2.finalize()
+
+        t3 = Transcript(configuration=conf)
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 2100, 2310, "+", "invalid.2"
+        t3.add_exons([(2100, 2310)])
+        t3.add_exons([(2100, 2310)], features="CDS")
+        t3.finalize()
+
+        logger = create_default_logger("test_find_lost_transcripts")
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        sl.filter_and_calculate_scores()
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        self.assertGreater(sl.scores[t1.id]["score"], 0, sl.scores[t1.id])
+        self.assertLessEqual(sl.scores[t2.id]["score"], 0)
+        self.assertLessEqual(sl.scores[t3.id]["score"], 0)
+
+        locus = Locus(t1)
+        sl.loci[locus.id] = locus
+        sl._find_lost_transcripts()
+        self.assertEqual(sl.lost_transcripts, dict())
+        sl.configuration.pick.clustering.purge = False
+        sl.logger.setLevel("DEBUG")
+        sl._find_lost_transcripts()
+        self.assertEqual(sorted(list(sl.lost_transcripts.keys())), sorted([t2.id, t3.id]))
+        sl.loci = dict()
+        sl.configuration.pick.clustering.purge = True
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 1)
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        sl.logger.setLevel("DEBUG")
+        sl.configuration.pick.clustering.purge = False
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 3)
+
+    def test_sl_is_intersecting(self):
+        
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        for prod in itertools.chain(itertools.combinations([t1, t2, t3], 2), [(t3, t4)]):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        for prod in [(t1, t4), (t2, t4)]:
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+        
+        for mono in [t5, t6, t7]:
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=True))
+
+        for prod in itertools.combinations([t5, t6, t7], 2):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            # CDS-only is activated only when both are coding
+            if prod[0].is_coding and prod[1].is_coding:
+                self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+            else:
+                self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        # Now check that monoexonic and multi-exonic transcripts never intersect
+        for prod in itertools.product([t1, t2, t3, t4], [t5, t6, t7, t8]):
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+
+    def test_define_graph(self):
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+
+        # This is monoexonic for the CDS *but* Multiexonic for the cDNA
+        t9 = Transcript()
+        t9.chrom, t9.start, t9.end, t9.strand, t9.id = "Chr1", 1121, 2000, "+", "mono_multi"
+        t9.add_exons([(1121, 1500), (1601, 2000)])
+        t9.add_exons([(1121, 1490)], features="CDS")
+        t9.finalize()
+        self.assertTrue(t9.is_coding)
+
+        sl = Superlocus(t1, flank=2000)
+        sl.configuration.pick.clustering.cds_only = False
+        [sl.add_transcript_to_locus(t) for t in [t2, t3, t4, t5, t6, t7, t8, t9]]
+        self.assertEqual(len(sl.transcripts), 9)
+        graph = sl.define_graph()
+        multi_ids = [t.id for t in [t1, t2, t3, t4, t9]]
+        mono_ids = [t.id for t in [t5, t6, t7, t8]]
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(mono_ids[:3], 2)))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(mono_ids[:3], [t8.id])))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(multi_ids,
+                                                                                    mono_ids)))
+        sl.configuration.pick.clustering.cds_only = True
+        graph = sl.define_graph()
+        self.assertFalse(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+
+        for comb in itertools.combinations(multi_ids, 2):
+            if set.issubset(set(comb), {t1.id, t2.id, t3.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.combinations(mono_ids, 2):
+            if t5.id in comb and t6.id in comb:
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.product(mono_ids, [t9.id]):
+            if set.issubset(set(comb), {t5.id, t6.id, t9.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product([t.id for t in [t1, t2, t3, t4]],
+                                                                                    [t9.id] + mono_ids)))
 
 
 class RefGeneTester(unittest.TestCase):
@@ -201,6 +482,10 @@ class RefGeneTester(unittest.TestCase):
 
 class AbstractLocusTester(unittest.TestCase):
 
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
     def setUp(self):
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
     Chr1\tfoo\texon\t101\t400\t.\t+\t.\tID=t0:exon1;Parent=t0
@@ -227,10 +512,73 @@ class AbstractLocusTester(unittest.TestCase):
 
         self.assertTrue(self.transcript2.monoexonic)
         self.assertEqual(self.transcript2.chrom, gff_transcript2[0].chrom)
-        self.json_conf = configurator.to_json(None)
+        self.configuration = configurator.load_and_validate_config(None)
+        self.assertIsNotNone(self.configuration.scoring, self.configuration)
+        self.transcript1.configuration = self.configuration
+        self.transcript2.configuration = self.configuration
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
 
-        self.transcript1.json_conf = self.json_conf
-        self.transcript2.json_conf = self.json_conf
+    def test_create_metrics_row(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        transcript.id = "foo"
+        transcript.finalize()
+        transcript.is_reference = True
+        for locus in [Locus, Sublocus, Superlocus]:
+            for score, tpm in itertools.product([None, 10, 1.56789], [None, 10, 2.5689]):
+                transcript.score = score
+                transcript.external_scores["tpm"] = [tpm]
+                instance = locus(transcript)
+                # locus.scores[transcript.id] = score
+                instance.get_metrics()
+                instance.scores_calculated = True
+                instance.scores[transcript.id] = {"score": score}
+                self.assertTrue(instance.scores_calculated)
+                self.assertEqual(transcript.score, score)
+                row = instance._create_metrics_row(transcript.id, instance._metrics[transcript.id],
+                                                   transcript)
+                self.assertEqual(transcript.score, score)
+                self.assertIsInstance(row, dict)
+                self.assertIn("tid", row.keys())
+                if locus == Locus:
+                    self.assertEqual(row["alias"], transcript.id)
+                else:
+                    self.assertEqual(row["tid"], transcript.id)
+                self.assertIn("external.tpm", row)
+                if tpm is None:
+                    self.assertEqual(row["external.tpm"], "NA")
+                elif tpm == 10:
+                    self.assertEqual(row["external.tpm"], 10)
+                elif tpm == 2.5689:
+                    self.assertEqual(row["external.tpm"], 2.57)
+                if score is None:
+                    self.assertEqual(row["score"], "NA", locus)
+                elif score == 10:
+                    self.assertEqual(row["score"], 10, locus)
+                else:
+                    self.assertEqual(row["score"], 1.57, locus)
+
+    def test_removal(self):
+        for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
+            obj = cls(self.transcript1, configuration=self.configuration)
+            if cls != Monosublocus:
+                obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+            self.assertEqual(obj.start, min(self.transcript2.start, self.transcript1.start))
+            self.assertEqual(obj.chrom, "Chr1")
+            obj._remove_all()
+            self.assertEqual(obj.chrom, None)
+            self.assertEqual(obj.start, float("Inf"))
+            self.assertEqual(obj.end, float("-Inf"))
+            self.assertEqual(len(obj.transcripts), 0)
+
+    def test_invalid_conf(self):
+        for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
+            for invalid in ([], ("hello",), 10, "I_do_not_exist.yaml"):
+                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidConfiguration):
+                    cls(self.transcript1, configuration=invalid)
 
     def test_not_implemented(self):
         with self.assertRaises(TypeError):
@@ -238,8 +586,8 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_equality(self):
         for child1, child2 in combinations_with_replacement([Superlocus, Sublocus, Monosublocus, Locus], 2):
-            obj1, obj2 = (child1(self.transcript1, json_conf=self.json_conf),
-                          child2(self.transcript1, json_conf=self.json_conf))
+            obj1, obj2 = (child1(self.transcript1, configuration=self.configuration),
+                          child2(self.transcript1, configuration=self.configuration))
             if child1 == child2:
                 self.assertEqual(obj1, obj2)
             else:
@@ -258,16 +606,558 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertGreaterEqual(child2, child2)
             self.assertGreaterEqual(child1, child1)
 
+    def test_invalid_logger(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), "hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.logger = invalid
+            l.logger = None
+            self.assertIs(l.logger, create_null_logger())
+
+    def test_invalid_source(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(AssertionError):
+                        l.source = invalid
+            l.source = None
+            self.assertEqual(l.source, "Mikado")
+            l.source = "Test"
+            self.assertEqual(l.source, "Test")
+
+    def test_invalid_stranded(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(ValueError):
+                        l.stranded = invalid
+            l.stranded = False
+            self.assertFalse(l.stranded)
+            l.stranded = True
+            self.assertTrue(l.stranded)
+
+    def test_invalid_flank(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [-10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.flank = invalid
+            for valid in [0, 100, 1000]:
+                l.flank = valid
+                self.assertEqual(l.flank, valid)
+
+    def test_calculate_score_empty_locus(self):
+        logger = create_default_logger("test_calculate_score_empty_locus", level="DEBUG")
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None, logger=logger)
+            for metric in l.available_metrics:
+                with self.assertLogs(logger, level="DEBUG") as cmo:
+                    l._calculate_score(metric)
+                self.assertTrue(any([re.search(r"No transcripts in.*\. Returning.", out) is not None for out in
+                                     cmo.output]))
+
+    def test_get_denominator(self):
+        # _get_denominator(param: Union[MinMaxScore, TargetScore],
+        #   use_raw: str, metrics: dict) -> (Union[float,int], Union[float, int, bool])
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        metrics = {"foo.1": .5, "foo.2": .1, "foo.3": 1}
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=metrics),
+                         (-1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+        max_score = MinMaxScore(rescaling="max", filter=None)
+
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=metrics),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+
+        target_score = TargetScore(value=.5, rescaling="target", filter=None)
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=metrics),
+                         (.5, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=metrics),
+                         (.5, .5))
+
+    def test_get_score_for_metric(self):
+
+        # _get_score_for_metric(tid_metric, use_raw, target, denominator, param, min_val, max_val)
+
+        for invalid in [10, b"10", dict(), 100.0]:
+            with self.assertRaises(ValueError):
+                Abstractlocus._get_score_for_metric(invalid, use_raw=True,
+                                                    target=None, denominator=1, param="fraction",
+                                                    min_val=0, max_val=1)
+
+        max_score = MinMaxScore(rescaling="max", filter=None)
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        target_score = TargetScore(rescaling="target", value=5, filter=None)
+
+        for num, denominator, rescaling in itertools.product(
+                arange(0, 1.05, .05), arange(.5, 10, .5), [max_score, min_score, target_score]):
+            if rescaling.rescaling == "target":
+                with self.assertRaises(ValueError) as exc:
+                    Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                                        target=None, denominator=denominator, param=rescaling,
+                                                        min_val=0, max_val=1)
+            else:
+                self.assertEqual(Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                            target=None, denominator=denominator, param=rescaling,
+                                            min_val=0, max_val=1), round(num / denominator, 2))
+
+        min_val = 0
+        max_val = 1.05
+        for num, denominator, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False], arange(.5, 10, .5),
+                arange(.5, 10, .5)):
+            max_score = MinMaxScore(rescaling="max", filter=None, multiplier=multiplier)
+            min_score = MinMaxScore(rescaling="min", filter=None, multiplier=multiplier)
+            max_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                            target=None, denominator=denominator, param=max_score,
+                                            min_val=min_val, max_val=max_val)
+            self.assertEqual(max_result, round(multiplier * abs((num - min_val) / denominator), 2))
+            min_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                             target=None, denominator=denominator, param=min_score,
+                                                             min_val=min_val, max_val=max_val)
+            self.assertEqual(min_result, round(multiplier * abs(1 - (num - min_val) / denominator), 2),
+                             (num, denominator, multiplier))
+
+        for num, denominator, target, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False],
+                arange(.5, 10, .5), arange(.05, 1.05, .5), arange(.5, 10, .5)):
+            num, denominator, target, multiplier = float(num), float(denominator), float(target), float(multiplier)
+            target_score = TargetScore(rescaling="target", filter=None, multiplier=multiplier, value=target)
+            target_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                                target=target, denominator=denominator,
+                                                                param=target_score,
+                                                                min_val=min_val, max_val=max_val)
+            # score = 1 - abs(tid_metric - target) / denominator
+            expected = round(multiplier * (1 - abs((num - target) / denominator)), 2)
+            self.assertEqual(target_result, expected, (num, denominator, multiplier, target))
+
+    def test_check_usable_raw(self):
+        # _check_usable_raw(transcript, param, use_raw, rescaling, logger=create_null_logger())
+        for invalid in [b"cdna_length", 10, None, dict()]:
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(None, invalid, False, "max")
+            self.assertIsNotNone(re.search(r"Invalid type of parameter", str(exc.exception)))
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(invalid, "cdna_length", False, "max")
+            self.assertIsNotNone(re.search(r"Invalid transcript type", str(exc.exception)))
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo"
+        t.add_exons([(101, 500), (601, 1000)])
+        t.add_exons([(201, 500), (601, 900)], features="CDS")
+        t.finalize()
+        t.external_scores.tpm = [10, False]
+        t.external_scores.fraction = [.5, True]
+        t.attributes["FPKM"] = 10
+        logger = create_default_logger("test_check_usable_raw", level="WARNING")
+        for param in t.get_available_metrics():
+            for use_raw, rescaling in itertools.product([False, True], ["min", "max", "target"]):
+                metr = getattr(Transcript, param)
+                if not isinstance(metr, Metric):
+                    continue
+                usable_raw = metr.usable_raw
+                if use_raw is True and (usable_raw is False or rescaling == "target"):
+                    with self.assertLogs(logger, level="WARNING") as cmo:
+                        found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                  logger=logger)
+                    self.assertTrue(any(re.search(r"Switching to False", out) for out in cmo.output))
+                    self.assertFalse(found_use_raw)
+                else:
+                    found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                    logger=logger)
+                    self.assertEqual(use_raw, found_use_raw)
+
+        # Now external things
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        # Now attributes. Attributes are just returning use_raw
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+    def test_get_param_metrics(self):
+        """"""
+        
+        param = "combined_cds_length"
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 101, 1000, "+", "foo"
+        # cDNA 800 bps, CDS 60 bps
+        t1.add_exons([(101, 500), (601, 1000)])
+        t1.add_exons([(471, 500), (601, 630)], features="CDS")
+        t1.finalize()
+
+        # cDNA 210 bps, CDS 210 bps
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 451, 710, "+", "bar"
+        t2.add_exons([(451, 500), (551, 710)])
+        t2.add_exons([(451, 500), (551, 710)], features="CDS")
+        t2.finalize()
+
+        self.assertEqual(operator.attrgetter(param)(t1), t1.combined_cds_length)
+        self.assertEqual(operator.attrgetter(param)(t2), t2.combined_cds_length)
+        self.assertEqual(t1.combined_cds_length, 60)
+        self.assertEqual(t2.combined_cds_length, 210)
+
+        transcripts = {"foo": t1, "bar": t2}
+        metrics = {t1.id: {param: t1.combined_cds_length},
+                   t2.id: {param: t2.combined_cds_length}}
+
+        param_conf = MinMaxScore(rescaling="max", filter=None)
+
+        # First case: raise errors if the dictionary is not a dictionary ...
+        for invalid in [None, 10, b"20", list()]:
+            with self.assertRaises(AttributeError):
+                Abstractlocus._get_param_metrics(invalid, metrics, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, invalid, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, invalid, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, param, invalid)
+
+        # Second case: no filter. Presume that the metrics come back.
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, dict(), param, param_conf)
+        self.assertEqual(restored_metrics, metrics)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length}, param_metrics)
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        # Third case. Now we have a filter but without a name, so we are presuming that it applies to
+        # combined_cds_length.
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=150))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {t2.id: t2.combined_cds_length})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=300))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {})
+
+        # Fourth case, now we are filtering on a different parameter, cdna_length
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=10))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=300))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=2000))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({}, param_metrics)
+
+        # Fifth case. Considering external and attributes
+
+        t1.external_scores["tpm"] = [10, False]
+        t1.external_scores["fraction"] = [.5, True]
+        t1.attributes["FPKM"] = 10
+        t2.external_scores["tpm"] = [5, False]
+        t2.external_scores["fraction"] = [1, True]
+        t2.attributes["FPKM"] = 50
+
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=5))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0],
+                                         t2.id: t2.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=50))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric=None,
+                                                                    value=5))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="lt",
+                                                                    metric="external.fraction",
+                                                                    value=.6))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+
+    def test_score(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.id, t.score = "Chr1", 101, 1000, "foo", None
+        t.add_exons([(101, 1000)])
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.id, t2.score = "Chr1", 101, 1000, "foo2", 100
+        t2.add_exons([(101, 1000)])
+        for locus in [Locus, Sublocus, Superlocus]:
+            l = locus(None)
+            self.assertIsNone(l.score)
+            l = locus(t)
+            self.assertEqual(l.score, 0)
+            l.add_transcript_to_locus(t2, check_in_locus=False)
+            self.assertEqual(l.score, 100)
+
+            for invalid in [10, -5, dict(), None]:
+                with self.assertRaises(ValueError):
+                    l._use_transcript_scores = invalid
+
+            for valid in [False, True]:
+                l._use_transcript_scores = valid
+                self.assertEqual(valid, l._use_transcript_scores)
+                self.assertEqual(valid, l.scores_calculated)
+
     def test_serialisation(self):
-        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
-            child1 = child(self.transcript1)
-            # Check compiled in dictionary
-            self.assertIsInstance(child1.json_conf, dict)
-            assert any((isinstance(child1.json_conf[_], dict) and child1.json_conf[_].get("compiled", None) is not None)
-                       or not isinstance(child1.json_conf[_], dict) for _ in child1.json_conf.keys())
-            obj = pickle.dumps(child1)
-            nobj = pickle.loads(obj)
-            self.assertEqual(child1, nobj)
+        engine = create_engine("sqlite://")
+        maker = sessionmaker(bind=engine)
+        session = maker()
+        for child in [Superlocus, Sublocus, Monosublocus, Locus, Excluded]:
+            with self.subTest(child=child):
+                child1 = child(self.transcript1)
+                child1.session = session
+                child1.sessionmaker = sessionmaker
+                # Check compiled in dictionary
+                self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
+                obj = pickle.dumps(child1)
+                nobj = pickle.loads(obj)
+                self.assertEqual(child1, nobj)
+                obj2 = child1.as_dict()
+                self.assertIsInstance(obj2, dict)
+                obj3 = child1.as_dict()
+                self.assertEqual(obj2, obj3)
+                nobj2 = child(None)
+                nobj2.load_dict(obj2)
+                self.assertEqual(child1, nobj2)
+                # Now try to inject a daijin configuration
+                d = DaijinConfiguration()
+                obj2["json_conf"] = dataclasses.asdict(d)
+                assert isinstance(obj2["json_conf"], dict)
+                nobj2b = child(None)
+                nobj2b.load_dict(obj2, load_configuration=True)
+                self.assertIsInstance(nobj2b.configuration, DaijinConfiguration)
+                # Now avoid loading the configuration altogether
+                nobj2b = child(None, configuration=MikadoConfiguration())
+                seed = nobj2b.configuration.seed = child1.configuration.seed + 1
+                obj2["json_conf"] = dataclasses.asdict(d)
+                nobj2b.load_dict(obj2, load_configuration=False)
+                self.assertEqual(nobj2b.configuration.seed, seed)
+                self.assertIsInstance(nobj2b.configuration, MikadoConfiguration)
+                # Finally let's validate that an invalid configuration would be found out
+                obj2["json_conf"] = {"I am an invalid": "dictionary"}
+                with self.assertRaises(marshmallow.exceptions.MarshmallowError):
+                    nobj2b = child(None)
+                    nobj2b.load_dict(obj2, load_configuration=True)
+
+    def test_slocus_dicts(self):
+
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
+        locus = Superlocus(self.transcript1)
+        locus.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+        locus.subloci = [Sublocus(self.transcript1)]
+        l = Locus(self.transcript1)
+        locus.loci = {l.id: l}
+        ml = MonosublocusHolder(Monosublocus(self.transcript1))
+        locus.monoholders = [ml]
+        locus.excluded = Excluded(self.transcript2, configuration=locus.configuration)
+        conf = locus.configuration.copy()
+        _without = locus.as_dict(with_subloci=False, with_monoholders=False)
+        self.assertEqual(_without["subloci"], [])
+        self.assertEqual(_without["monoholders"], [])
+        self.assertEqual(_without["excluded"], locus.excluded.as_dict())
+        self.assertEqual(_without["loci"], {l.id: l.as_dict()})
+        _with = locus.as_dict(with_subloci=True, with_monoholders=True)
+        self.assertIsNotNone(_with["json_conf"]["seed"])
+        self.assertEqual(_with["json_conf"]["seed"], conf.seed)
+        self.assertEqual(_with["subloci"], [locus.subloci[0].as_dict()])
+        self.assertEqual(_with["monoholders"], [ml.as_dict()])
+        self.assertEqual(conf.seed, locus.configuration.seed)
+        self.assertEqual(conf.seed, self.transcript2.configuration.seed)
+        excl = Excluded(self.transcript2, configuration=conf)
+        self.assertEqual(excl.configuration.seed, locus.configuration.seed)
+        self.assertEqual(_with["excluded"], Excluded(self.transcript2, configuration=conf).as_dict())
+        self.assertEqual(_with["loci"], {l.id: l.as_dict()})
+        self.assertIsInstance(_with["json_conf"], dict)
+        # Now test the reloading
+        # def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True,
+        #                   load_configuration=True):
+        conf.threads = 10
+        self.assertNotEqual(conf, locus.configuration)
+        num = 0
+        for print_subloci in (True, False):
+            for print_monoloci in (True, False):
+                for load_transcripts in (True, False):
+                    for load_configuration in (True, False):
+                        with self.subTest(
+                            print_subloci=print_subloci,
+                            print_monoloci=print_monoloci,
+                            load_transcripts=load_transcripts,
+                            load_configuration=load_configuration
+                        ):
+                            num += 1
+                            test = Superlocus(None, configuration=conf)
+                            self.assertIsInstance(_with["json_conf"], dict, num)
+                            test.load_dict(
+                                deepcopy(_with), print_subloci=print_subloci, print_monoloci=print_monoloci,
+                                load_transcripts=load_transcripts, load_configuration=load_configuration)
+                            if load_configuration is False:
+                                self.assertEqual(conf, test.configuration)
+                            else:
+                                self.assertEqual(locus.configuration, test.configuration)
+                            if load_transcripts is True:
+                                self.assertEqual(locus.transcripts, test.transcripts)
+                            else:
+                                self.assertEqual(test.transcripts, dict((tid, transcript.as_dict())
+                                                                        for tid, transcript in
+                                                                        locus.transcripts.items()))
+                            if print_subloci is True:
+                                self.assertEqual(locus.excluded, test.excluded)
+                                self.assertEqual(locus.subloci, test.subloci)
+                            else:
+                                self.assertEqual(test.subloci, [])
+                            if print_monoloci is True:
+                                self.assertEqual(test.monoholders, locus.monoholders)
+                            else:
+                                self.assertEqual(test.monoholders, [])
+
+    def test_evaluate(self):
+        """Test to verify the abstractlocus.evaluate static method"""
+        # param: Union[str, int, bool, float],
+        #                  conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]
+
+        # Params: eq, ne, gt, ge, lt, le, in, not in, within, not within
+
+        # eq, ne
+        for val in (2, 3.0, True):
+            for oval in (2, 3.0, True, 4.0, 5, False):
+                for op in ["ne", "eq"]:
+                    filt = NumBoolEqualityFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if (val == oval and op == "eq") or (val != oval and op == "ne"):
+                            self.assertTrue(result)
+                        else:
+                            self.assertFalse(result)
+        # ge, lt, le, gt
+        for val in (2, 3.0, 4):
+            for oval in (2, 3, 4, 5):
+                for op in ["gt", "ge", "lt", "le"]:
+                    filt = SizeFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if op == "lt":
+                            self.assertEqual(oval < val, result, (oval, val, op))
+                        elif op == "le":
+                            self.assertEqual(oval <= val, result, (oval, val, op))
+                        elif op == "ge":
+                            self.assertEqual(oval >= val, result, (oval, val, op))
+                        else:  # "gt"
+                            self.assertEqual(oval > val, result, (oval, val, op))
+
+        # within, not within
+        within = RangeFilter.Schema().load({"operator": "within", "value": [20, 10]})
+        without = RangeFilter.Schema().load({"operator": "not within", "value": [20, 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate(15, within))
+            self.assertTrue(obj.evaluate(5, without))
+            self.assertFalse(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate(5, within))
+
+        # in, not in
+        within = InclusionFilter.Schema().load({"operator": "in", "value": ["valid_one", "valid_two", 10]})
+        without = InclusionFilter.Schema().load({"operator": "not in", "value": ["valid_one", "valid_two", 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate("valid_one", within))
+            self.assertTrue(obj.evaluate("valid_three", without))
+            self.assertTrue(obj.evaluate(10, within))
+            self.assertTrue(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate("valid_one", without))
+            self.assertFalse(obj.evaluate("valid_three", within))
+            self.assertFalse(obj.evaluate(10, without))
+            self.assertFalse(obj.evaluate(15, within))
+
+        # Mock to demonstrate that ValueError is raised
+        _mock = namedtuple("mock", ["operator", "value"])
+        mock = _mock("foo", "hello")
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            with self.assertRaises(ValueError):
+                obj.evaluate(10, mock)
+
+    def test_calculate_metrics(self):
+        logger = create_default_logger("test_calculate_metrics", level="DEBUG")
+        stream = io.StringIO()
+        logger.addHandler(logging.StreamHandler(stream))
+        for locus_class in [Locus, Sublocus, Superlocus, Monosublocus]:
+            locus = locus_class(self.transcript1, logger=logger)
+            self.assertFalse(locus.metrics_calculated)
+            with self.assertLogs(logger, level="DEBUG"):
+                locus.calculate_metrics(self.transcript1.id)
+            self.assertFalse(locus.metrics_calculated)
+            _ = stream.getvalue()
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name):
+                locus.get_metrics()
+            self.assertGreater(len(stream.getvalue()), 0, self._caplog.text)
+            self._caplog.clear()
+            self.assertTrue(locus.metrics_calculated)
+            stream.close()
+            locus.logger.removeHandler(stream)
+            stream = io.StringIO()
+            locus.logger.addHandler(logging.StreamHandler(stream))
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name) as cmo:
+                locus.get_metrics()
+            logged = stream.getvalue()
+            self.assertEqual(len(logged), 0, logged)
+            self._caplog.clear()
+        stream.close()
 
     def test_in_locus(self):
 
@@ -317,12 +1207,8 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_invalid_sublocus(self):
 
-        with self.assertRaises(ValueError):
-            self.transcript1.json_conf = None
-            _ = Sublocus(self.transcript1, json_conf=None)
-
-        with self.assertRaises((OSError, FileNotFoundError)):
-            _ = Sublocus(self.transcript1, json_conf="test")
+        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidConfiguration)):
+            _ = Sublocus(self.transcript1, configuration="test")
 
     def test_sublocus_from_sublocus(self):
 
@@ -332,6 +1218,37 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertTrue(s2.fixed_size)
         for attr in ["parent", "chrom", "start", "end", "strand", "attributes"]:
             self.assertEqual(getattr(s, attr), getattr(s2, attr))
+
+    def test_pickling_unpickling(self):
+
+        bed_line = "Chr5\t26585506\t26586850\tID=c58_g1_i2.mrna1.35;coding=False\t99.0\t+\t26585506\t26585507\t0\t5\t383,121,78,105,213\t0,475,710,913,1131"
+        conf = MikadoConfiguration()
+        conf.prepare.files.source_score = {"at": 5, "tr": -1, "pb": 1, "st": 0}
+        t = Transcript(bed_line, source="tr", configuration=conf)
+        t.finalize()
+        for metrics in t.get_available_metrics():
+            try:
+                rtype = operator.attrgetter("{metric}.rtype")(Transcript)
+            except AttributeError:
+                continue
+            if rtype == "float":
+                value = random.random()
+            elif rtype == "bool":
+                value = random.choice([True, False])
+            elif rtype == "int":
+                value = random.randint(0, 1000)
+            else:
+                continue
+            try:
+                setattr(t, metrics, value)
+            except AttributeError:
+                continue
+        for loctype in Sublocus, Monosublocus, Superlocus, Locus:
+            locus = loctype(t)
+            nocus = pickle.loads(pickle.dumps(locus))
+            for metric in t.get_available_metrics():
+                original, new = getattr(t, metric), getattr(locus[t.id], metric)
+                self.assertEqual(original, new, (metric, original, new))
 
 
 class LocusTester(unittest.TestCase):
@@ -390,9 +1307,9 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         #     _ = Superlocus(self.transcript1)
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
 
-        self.my_json = configurator.to_json(self.my_json)
-        self.my_json["reference"]["genome"] = self.fai.filename
-        self.assertIn("scoring", self.my_json, self.my_json.keys())
+        self.my_json = configurator.load_and_validate_config(self.my_json)
+        self.my_json.reference.genome = self.fai.filename.decode()
+        self.assertIsInstance(self.my_json.scoring, ScoringFile, self.my_json.scoring)
 
     def test_locus(self):
         """Basic testing of the Locus functionality."""
@@ -404,24 +1321,25 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.transcript2.logger = logger
         self.assertTrue(self.transcript1.monoexonic)
         slocus = Superlocus(self.transcript1,
-                            json_conf=self.my_json, logger=logger)
+                            configuration=self.my_json, logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(len(slocus.transcripts), 2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
         self.assertEqual(slocus.start, min(self.transcript1.start, self.transcript2.start))
         self.assertEqual(slocus.end, max(self.transcript1.end, self.transcript2.end))
         logger.info(slocus.transcripts)
-        slocus.define_subloci()
+        slocus.define_subloci(check_requirements=False)
         self.assertEqual(len(slocus.transcripts), 2)
         logger.info(slocus.subloci)
         logger.info(slocus.transcripts)
         self.assertEqual(len(slocus.transcripts), 2)
         self.assertEqual(len(slocus.subloci), 2)
-        slocus.define_monosubloci()
+        slocus.define_monosubloci(check_requirements=False)
         self.assertEqual(len(slocus.monosubloci), 2)
         slocus.calculate_mono_metrics()
         self.assertEqual(len(slocus.monoholders), 1)
-        slocus.define_loci()
+        slocus.logger.setLevel("DEBUG")
+        slocus.define_loci(check_requirements=False)
         self.assertEqual(len(slocus.loci), 1)
         # self.assertFalse(slocus["t0"].is_coding, slocus["t0"].format("gtf"))
         self.assertFalse(slocus["t1"].is_coding, slocus["t1"].format("gtf"))
@@ -437,9 +1355,9 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 transcript3.add_exon(exon)
         transcript3.finalize()
         self.assertGreater(transcript3.combined_cds_length, 0)
-        self.my_json["pick"]["clustering"]["purge"] = True
+        self.my_json.pick.clustering.purge = True
         logger.setLevel("WARNING")
-        minusuperlocus = Superlocus(transcript3, json_conf=self.my_json)
+        minusuperlocus = Superlocus(transcript3, configuration=self.my_json)
         minusuperlocus.logger = logger
         minusuperlocus.define_subloci()
         self.assertGreater(len(minusuperlocus.subloci), 0)
@@ -459,7 +1377,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 t2 = "1\t105\t2300\tID=T2;coding=False\t0\t{strand}\t105\t2300\t0\t1\t2195\t0".format(
                     strand=strand if strand else ".")
                 t2 = Transcript(BED12(t2))
-                sl = loci.Superlocus(t1, stranded=stranded, json_conf=None)
+                sl = loci.Superlocus(t1, stranded=stranded, configuration=None)
                 self.assertIn(t1.id, sl)
                 if not stranded or t2.strand == t1.strand:
                     sl.add_transcript_to_locus(t2)
@@ -536,9 +1454,9 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.add_exons([(100, 250), (300, 505), (600, 1000)])
         t3.finalize()
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
 
-        loc = Superlocus(t1, json_conf=jconf)
+        loc = Superlocus(t1, configuration=jconf)
         loc.add_transcript_to_locus(t2)
         loc.add_transcript_to_locus(t3)
 
@@ -580,49 +1498,29 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.add_exons([(100, 250), (300, 505), (600, 1000)])
         t3.finalize()
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
         log = create_default_logger("tester", level="DEBUG")
-        with self.assertLogs(log, "DEBUG") as cm:
-            jconf = configurator.check_json(jconf, logger=log)
 
-        self.assertIn("__loaded_scoring", jconf, cm.output)
-        self.assertEqual(jconf["__loaded_scoring"], jconf["pick"]["scoring_file"],
-                         cm.output)
+        jconf.scoring.requirements.parameters = dict()
+        jconf.scoring.requirements.expression = ["suspicious_splicing"]
+        jconf.scoring.requirements.parameters["suspicious_splicing"] = NumBoolEqualityFilter.Schema().load(
+            {"operator": "ne", "name": "suspicious_splicing", "value": True})
 
-        del jconf["requirements"]
-
-        # del jconf["scoring_file"]
-
-        jconf["requirements"] = dict()
-        jconf["requirements"]["parameters"] = dict()
-        jconf["requirements"]["expression"] = ["suspicious_splicing"]
-        jconf["requirements"]["parameters"]["suspicious_splicing"] = dict()
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["operator"] = "ne"
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["name"] = "suspicious_splicing"
-        jconf["requirements"]["parameters"]["suspicious_splicing"]["value"] = True
-
-        jconf["pick"]["alternative_splicing"]["report"] = False
+        jconf.pick.alternative_splicing.report = False
+        jconf.scoring.check(minimal_orf_length=jconf.pick.orf_loading.minimal_orf_length)
         # Necessary to make sure that the externally-specified requirements are taken in
-        configurator.check_all_requirements(jconf)
-        self.assertEqual(
-            jconf["requirements"]["expression"],
-            "evaluated[\"suspicious_splicing\"]")
-
-        jconf = configurator.check_json(jconf)
-
-        self.assertEqual(
-            jconf["requirements"]["expression"],
-            "evaluated[\"suspicious_splicing\"]",
-            jconf["requirements"])
+        self.assertEqual(jconf.scoring.requirements._expression, "evaluated[\"suspicious_splicing\"]")
 
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2])
         for suspicious in (False, True):
             with self.subTest(suspicious=suspicious):
-                loc = Superlocus(t1, json_conf=jconf, logger=logger)
+                logger.setLevel("WARNING")
+                loc = Superlocus(t1, configuration=jconf, logger=logger)
                 t2.attributes["canonical_on_reverse_strand"] = suspicious
                 loc.add_transcript_to_locus(t2)
                 loc.add_transcript_to_locus(t3)
                 self.assertEqual(len(loc.transcripts), 3)
+                # loc.logger.setLevel("DEBUG")
                 loc.define_subloci()
                 self.assertEqual(len(loc.transcripts), 3 if not suspicious else 2)
 
@@ -674,12 +1572,12 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t3.chrom, t3.start, t3.end, t3.strand, t3.id, = "Chr5", 999, 2002, "+", "t3"
         t3.add_exons([(999, 1200), (1500, 2002)])
         t3.finalize()
-        logger = create_default_logger("test_reducing_methods_one_2", level="DEBUG")
+        logger = create_default_logger("test_reducing_methods_one_2", level="WARNING")  # level="DEBUG")
         locus = Superlocus(t1, logger=logger)
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus._complex_limit = (3, 10**4)
-        locus.define_subloci()
+        locus.define_subloci(check_requirements=False)
         self.assertNotIn("t1", locus)
         self.assertNotIn("t2", locus)
         self.assertIn("t3", locus)
@@ -705,7 +1603,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus._complex_limit = (3, 10**4)
-        locus.define_subloci()
+        locus.define_subloci(check_requirements=False)
         self.assertNotIn("t1", locus)
         self.assertNotIn("t2", locus)
         self.assertIn("t3", locus)
@@ -731,7 +1629,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         locus.add_transcript_to_locus(t2)
         locus.add_transcript_to_locus(t3)
         locus._complex_limit = (3, 10**4)
-        locus.define_subloci()
+        locus.define_subloci(check_requirements=False)
         self.assertIn("t1", locus)
         self.assertNotIn("t2", locus)
         self.assertIn("t3", locus)
@@ -761,7 +1659,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 locus.add_transcript_to_locus(t3)
                 locus._complex_limit = (1, 10**4)
                 locus.logger.setLevel("DEBUG")
-                locus.define_subloci()
+                locus.define_subloci(check_requirements=False)
                 if is_ref:
                     self.assertIn("t1", locus)
                 else:
@@ -810,7 +1708,107 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 self.assertIn("t2", locus)
                 self.assertNotIn("t3", locus)
 
-    # def test_reducing_methods_two(self):
+    def test_choose_best(self):
+        conf = MikadoConfiguration()
+        conf.seed = 10
+        conf.prepare.files.labels = ["Foo", "Bar", "Baz"]
+        conf.prepare.files.reference = [False, True, True]
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Bar")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr1", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Baz")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 101, 1000, "Foo.3"
+        t3.add_exons([(101, 1000)])
+        t3.source = "Baz"
+        t3.finalize()
+
+        reference_sources = {source for source, is_reference in
+                             zip(conf.prepare.files.labels,
+                                 conf.prepare.files.reference) if is_reference is True}
+        self.assertEqual(reference_sources, {"Bar", "Baz"})
+        self.assertEqual(t1.original_source, "Foo")
+        self.assertEqual(t2.original_source, "Bar")
+        self.assertEqual(t3.original_source, "Baz")
+        self.assertTrue(t3.original_source in reference_sources and
+                        t2.original_source in reference_sources)
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            locus = locus_type(t1, configuration=conf)
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = False
+            locus.configuration.prepare.files.reference = [False, True, True]
+            locus.add_transcript_to_locus(t2, check_in_locus=False)
+            locus.add_transcript_to_locus(t3, check_in_locus=False)
+            locus["Foo.1"].score = 10
+            locus["Foo.2"].score = 5
+            locus["Foo.3"].score = 1
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+            locus.configuration.pick.run_options.reference_update = True
+            self.assertTrue(locus.reference_update)
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = True
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.prepare.files.reference = [False, False, True]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.3")
+            locus.configuration.prepare.files.reference = [False, False, False]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+
+    def test_find_retained_introns_monoexonic(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t1.retained_introns = []
+            locus = locus_type(t1)
+            locus.find_retained_introns(locus[t1.id])
+            self.assertEqual(locus[t1.id].retained_introns, tuple([]))
+
+    def test_skip_evaluate_overlap(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Foo")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr2", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Foo")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 1101, 2000, "Foo.3"
+        t3.add_exons([(1101, 2000)])
+        t3.finalize()
+
+        t4 = Transcript(source="Foo")
+        t4.chrom, t4.strand, t4.start, t4.end, t4.id = "Chr1", "+", 999, 2000, "Foo.4"
+        t4.add_exons([(999, 2000)])
+        t4.finalize()
+
+        t1.is_reference = True
+        t2.is_reference = True
+        t3.is_reference = True
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t4.is_reference = False
+            for t in (t2, t3, t4):
+                intersecting, reason = locus_type._evaluate_transcript_overlap(
+                    t1, t, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+                )
+                self.assertFalse(intersecting, reason)
+            t4.is_reference = True
+            intersecting, reason = locus_type._evaluate_transcript_overlap(
+                t1, t4, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+            )
+            self.assertTrue(intersecting, reason)
 
 
 class ASeventsTester(unittest.TestCase):
@@ -819,20 +1817,17 @@ class ASeventsTester(unittest.TestCase):
 
     def setUp(self):
         
-        self.conf = configurator.to_json(None)
-        # self.conf["pick"]["alternative_splicing"] = dict()
-        self.conf["pick"]["alternative_splicing"]["report"] = True
-        self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
-        self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
-        self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
-        self.conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "o"]
-        self.conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m"]
-        self.conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        self.conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.5
-        self.conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
-        self.conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.2
-        self.conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0.2
-        self.conf["pick"]["alternative_splicing"]["max_isoforms"] = 3
+        self.conf = configurator.load_and_validate_config(None)
+        self.conf.pick.alternative_splicing.report = True
+        self.conf.pick.alternative_splicing.valid_ccodes = ["j", "J", "o"]
+        self.conf.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m"]
+        self.conf.pick.alternative_splicing.only_confirmed_introns = False
+        self.conf.pick.alternative_splicing.min_score_perc = 0.5
+        self.conf.pick.alternative_splicing.keep_retained_introns = True
+        self.conf.pick.alternative_splicing.min_cdna_overlap = 0.2
+        self.conf.pick.alternative_splicing.min_cds_overlap = 0.2
+        self.conf.pick.alternative_splicing.max_isoforms = 3
+        self.conf.pick.alternative_splicing.cds_only = False
     
         self.t1 = Transcript()
         self.t1.chrom = "Chr1"
@@ -851,7 +1846,7 @@ class ASeventsTester(unittest.TestCase):
         
         self.locus = Locus(self.t1)
         self.locus.logger = self.logger
-        self.locus.json_conf = self.conf
+        self.locus.configuration = self.conf
 
     def test_not_intersecting(self):
 
@@ -876,7 +1871,7 @@ class ASeventsTester(unittest.TestCase):
         
         t1 = self.t1.copy()
         t1.strip_cds()
-        locus = Locus(t1, json_conf=self.conf, logger=self.logger)
+        locus = Locus(t1, configuration=self.conf, logger=self.logger)
         t2 = Transcript()
         t2.chrom = "Chr1"
         t2.strand = "+"
@@ -908,6 +1903,7 @@ class ASeventsTester(unittest.TestCase):
         t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
                      "CDS")
         t2.finalize()        
+        self.locus.configuration.pick.alternative_splicing.cds_only = False
 
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
 
@@ -978,9 +1974,9 @@ class ASeventsTester(unittest.TestCase):
 
         # self.locus.add_transcript_to_locus(t2)
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
-        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
-        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "="))
 
     def test_redundant_cds_non_redundant_cdna(self):
@@ -1020,20 +2016,20 @@ class ASeventsTester(unittest.TestCase):
         t3.finalize()
 
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
-        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
-        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (False, "j"))
-        self.locus.json_conf["pick"]["clustering"]["cds_only"] = False
-        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = False
+        self.locus.configuration.pick.clustering.cds_only = False
+        self.locus.configuration.pick.alternative_splicing.cds_only = False
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
         self.locus.remove_transcript_from_locus(t3.id)
-        self.locus.json_conf["pick"]["clustering"]["cds_only"] = True
+        self.locus.configuration.pick.clustering.cds_only = True
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
         self.locus.remove_transcript_from_locus(t3.id)
-        self.locus.json_conf["pick"]["alternative_splicing"]["cds_only"] = True
+        self.locus.configuration.pick.alternative_splicing.cds_only = True
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 
@@ -1081,6 +2077,7 @@ class MonoHolderTester(unittest.TestCase):
                           "CDS")
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
+        self.assertTrue(hasattr(self.t1, "configuration"))
 
     def testCdsOverlap(self):
 
@@ -1313,6 +2310,8 @@ class MonoHolderTester(unittest.TestCase):
                 t2.add_exons([(t2.start, 1560), (2801, t2.end)])
                 t2.add_exons([(1402 + phase, 1560), (2801, 3850 + phase)], "CDS")
                 self.assertIs(t2.is_coding, True)
+                self.assertIsInstance(self.t1, Transcript)
+                self.assertIsInstance(t2, Transcript)
                 self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
                                                                  t2,
                                                                  cds_only=True,
@@ -1412,7 +2411,7 @@ class MonoHolderTester(unittest.TestCase):
         ]
 
         superlocus = None
-        json_conf = configurator.to_json(None)
+        configuration = configurator.load_and_validate_config(None)
 
         for transcript in transcripts:
             tr = Transcript()
@@ -1421,9 +2420,9 @@ class MonoHolderTester(unittest.TestCase):
             tr.add_exons(exons, features="exon")
             tr.add_exons(exons, features="CDS")
             tr.finalize()
-            subl = Sublocus(tr, json_conf=json_conf)
+            subl = Sublocus(tr, configuration=configuration)
             if superlocus is None:
-                superlocus = Superlocus(tr, json_conf=json_conf)
+                superlocus = Superlocus(tr, configuration=configuration)
             else:
                 superlocus.add_transcript_to_locus(tr, check_in_locus=False)
             superlocus.subloci.append(subl)
@@ -1431,6 +2430,9 @@ class MonoHolderTester(unittest.TestCase):
 
         superlocus.subloci_defined = True
         self.assertEqual(len(superlocus.subloci), len(transcripts))
+        superlocus.logger = create_default_logger("test_holder_clustering", level="WARNING")
+        self.assertFalse(superlocus.configuration.pick.clustering.simple_overlap_for_monoexonic)
+        superlocus.configuration.scoring.requirements = None
         superlocus.calculate_mono_metrics()
         self.assertEqual(len(superlocus.monoholders), 1,
                          "\n".join([", ".join(list(_.transcripts.keys())) for _ in superlocus.monoholders]))
@@ -1440,7 +2442,7 @@ class MonoHolderTester(unittest.TestCase):
         """This test verifies that while we can cluster together the transcripts at the holder stage,
         if the overlap is not enough they will fail to be recognised as valid AS events."""
 
-        jconf = configurator.to_json(None)
+        jconf = configurator.load_and_validate_config(None)
 
         t1, t2 = Transcript(), Transcript()
         t1.chrom, t2.chrom = "1", "1"
@@ -1455,22 +2457,22 @@ class MonoHolderTester(unittest.TestCase):
 
         self.assertTrue(MonosublocusHolder.is_intersecting(
             t1, t2, cds_only=False,
-            min_cdna_overlap=jconf["pick"]["alternative_splicing"]["min_cdna_overlap"],
-            min_cds_overlap=jconf["pick"]["alternative_splicing"]["min_cds_overlap"],
+            min_cdna_overlap=jconf.pick.alternative_splicing.min_cdna_overlap,
+            min_cds_overlap=jconf.pick.alternative_splicing.min_cds_overlap,
             simple_overlap_for_monoexonic=True))
         self.assertFalse(MonosublocusHolder.is_intersecting(
             t1, t2, cds_only=False,
-            min_cdna_overlap=jconf["pick"]["clustering"]["min_cdna_overlap"],
-            min_cds_overlap=jconf["pick"]["clustering"]["min_cds_overlap"],
+            min_cdna_overlap=jconf.pick.clustering.min_cdna_overlap,
+            min_cds_overlap=jconf.pick.clustering.min_cds_overlap,
             simple_overlap_for_monoexonic=False))
 
         for simple in (True, False):
             with self.subTest(simple=simple):
-                jconf["pick"]["clustering"]["simple_overlap_for_monoexonic"] = simple
+                jconf.pick.clustering.simple_overlap_for_monoexonic = simple
                 self.logger.setLevel("DEBUG")
-                slocus = Superlocus(t1, json_conf=jconf, logger=self.logger)
+                slocus = Superlocus(t1, configuration=jconf, logger=self.logger)
                 slocus.add_transcript_to_locus(t2)
-                locus = Locus(t1, json_conf=jconf)
+                locus = Locus(t1, configuration=jconf)
                 slocus.loci[locus.id] = locus
                 slocus.define_alternative_splicing()
                 self.assertEqual(len(slocus.loci[locus.id].transcripts), 1)
@@ -1493,24 +2495,19 @@ class TestLocus(unittest.TestCase):
         """Set up for the unit test."""
 
         # Mock dictionary to be used for the alternative splicing checks
-        self.json_conf = configurator.to_json(None)
-        # self.json_conf["pick"] = dict()
-        self.json_conf["pick"]["alternative_splicing"] = dict()
-        self.json_conf["pick"]["alternative_splicing"]["report"] = True
-        self.json_conf["pick"]["alternative_splicing"]["pad"] = True
-        self.json_conf["pick"]["alternative_splicing"]["max_utr_length"] = 2000
-        self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 1000
-        self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 1000
-        self.json_conf["pick"]["alternative_splicing"]["max_isoforms"] = 3
-        self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
-        self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0
-        self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0
-        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.1
-        self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "G", "g"]
-        self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m", "n"]
-        self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        self.configuration = configurator.load_and_validate_config(None)
+        self.configuration.pick.alternative_splicing.report = True
+        self.configuration.pick.alternative_splicing.pad = True
+        self.configuration.pick.alternative_splicing.max_isoforms = 3
+        self.configuration.pick.alternative_splicing.keep_retained_introns = False
+        self.configuration.pick.alternative_splicing.min_cds_overlap = 0
+        self.configuration.pick.alternative_splicing.min_cdna_overlap = 0
+        self.configuration.pick.alternative_splicing.min_score_perc = 0.1
+        self.configuration.pick.alternative_splicing.valid_ccodes = ["j", "G", "g"]
+        self.configuration.pick.alternative_splicing.redundant_ccodes = ["c", "=", "_", "m", "n"]
+        self.configuration.pick.alternative_splicing.only_confirmed_introns = False
 
-        self.json_conf = configurator.check_json(self.json_conf)
+        # self.configuration = configurator.check_json(self.configuration)
 
         t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
         Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
@@ -1595,11 +2592,8 @@ class TestLocus(unittest.TestCase):
         self.t1_retained.score = 10
         self.t1_retained.finalize()
 
-        # self.logger = logging.getLogger("tester")
-        # self.handler = logging.StreamHandler()
         self.logger.setLevel(logging.WARNING)
-        self.json_conf["reference"]["genome"] = self.fai.filename.decode()
-        # self.logger.addHandler(self.handler)
+        self.configuration.reference.genome = self.fai.filename.decode()
 
     def test_validity(self):
         """
@@ -1627,7 +2621,7 @@ class TestLocus(unittest.TestCase):
         """
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
 
     def test_exclude_contained(self):
@@ -1635,7 +2629,7 @@ class TestLocus(unittest.TestCase):
         """Test that we exclude a transcript with a contained class code (c)"""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1646,8 +2640,8 @@ class TestLocus(unittest.TestCase):
         we explicitly ask for it"""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
-        locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("c")
+        locus.configuration = self.configuration.copy()
+        locus._add_to_alternative_splicing_codes("c")
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
         self.assertEqual(len(locus.transcripts), 2)
@@ -1658,7 +2652,7 @@ class TestLocus(unittest.TestCase):
         it passes the muster."""
 
         locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 2)
@@ -1671,17 +2665,17 @@ class TestLocus(unittest.TestCase):
         - we ask for perfect (100%) CDS overlap
         """
 
-        locus = loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
-        self.assertEqual(len(locus.transcripts), 1)
+        configuration = self.configuration.copy()
+        configuration.pick.alternative_splicing.max_isoforms = 3
+        configuration.pick.alternative_splicing.valid_ccodes = ["n", "O", "h"]
 
-        locus.json_conf["pick"]["alternative_splicing"]["max_isoforms"] = 3
-        locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["n", "O", "h"]
+        locus = loci.Locus(self.t1, logger=self.logger, configuration=configuration)
+        self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
 
-        locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("j")
-        locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 1
+        locus._add_to_alternative_splicing_codes("j")
+        locus.configuration.pick.alternative_splicing.min_cds_overlap = 1
 
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1693,7 +2687,7 @@ class TestLocus(unittest.TestCase):
         logger = self.logger
         # logger.setLevel(logging.DEBUG)
         locus = loci.Locus(self.t1, logger=logger)
-        locus.json_conf = self.json_conf
+        locus.configuration = self.configuration.copy()
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)
         self.assertEqual(len(locus.transcripts), 1)
@@ -1705,12 +2699,15 @@ class TestLocus(unittest.TestCase):
         candidate = self.t1
         pickle.dumps(candidate)
 
-        json_conf = configurator.to_json(None)
+        configuration = configurator.load_and_validate_config(None)
 
         for obj in Superlocus, Sublocus, Locus:
             with self.subTest(obj=obj):
-                locus = obj(candidate, json_conf=json_conf)
-                pickle.dumps(locus)
+                locus = obj(candidate, configuration=configuration)
+                dumped = pickle.dumps(locus)
+                recovered = pickle.loads(dumped)
+                self.assertIsInstance(recovered, obj)
+                self.assertEqual(recovered, locus)
 
     def test_double_orf(self):
 
@@ -1781,23 +2778,23 @@ class TestLocus(unittest.TestCase):
                 tr.finalize()
                 self.assertGreater(tr.combined_cds_length, 0, tr.id)
 
-        conf = configurator.to_json(None)
-        conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "g", "G"]
-        conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        conf = configurator.load_and_validate_config(None)
+        conf.pick.alternative_splicing.valid_ccodes = ["j", "J", "g", "G"]
+        conf.pick.alternative_splicing.only_confirmed_introns = False
 
-        conf["as_requirements"] = {"_expression": "cdna_length",
+        conf.as_requirements = {"_expression": "cdna_length",
                                    "expression": "evaluated['cdna_length']",
                                    "parameters": {
                                        "cdna_length": {"operator": "gt", "value": 0, "name": "cdna_length"}
                                    }}
-        conf["pick"]["alternative_splicing"]["pad"] = False
-        conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0.75
+        conf.pick.alternative_splicing.pad = False
+        conf.pick.alternative_splicing.min_cds_overlap = 0.75
 
         with self.subTest():
-            superlocus_one = Superlocus(t1, json_conf=conf)
+            superlocus_one = Superlocus(t1, configuration=conf)
             superlocus_one.add_transcript_to_locus(t1_1)
 
-            locus_one = Locus(t1, json_conf=conf)
+            locus_one = Locus(t1, configuration=conf)
             locus_one.logger = logger
             superlocus_one.loci[locus_one.id] = locus_one
             superlocus_one.loci_defined = True
@@ -1811,9 +2808,9 @@ class TestLocus(unittest.TestCase):
                                  cm.output)
 
         with self.subTest():
-            superlocus_two = Superlocus(t2, json_conf=conf)
+            superlocus_two = Superlocus(t2, configuration=conf)
             superlocus_two.add_transcript_to_locus(t2_1)
-            locus_two = Locus(t2, json_conf=conf)
+            locus_two = Locus(t2, configuration=conf)
             superlocus_two.loci[locus_two.id] = locus_two
             superlocus_two.loci_defined = True
             superlocus_two.logger = logger
@@ -1823,12 +2820,12 @@ class TestLocus(unittest.TestCase):
                         t2.id in superlocus_two.loci[_].transcripts][0]
             self.assertEqual(len(superlocus_two.loci[locus_id].transcripts), 2)
         with self.subTest():
-            superlocus = Superlocus(t1, json_conf=conf)
+            superlocus = Superlocus(t1, configuration=conf)
             superlocus.add_transcript_to_locus(t2, check_in_locus=False)
             superlocus.add_transcript_to_locus(t1_1)
             superlocus.add_transcript_to_locus(t2_1)
-            locus_one = Locus(t1_1, json_conf=conf, logger=logger)
-            locus_two = Locus(t2, json_conf=conf, logger=logger)
+            locus_one = Locus(t1_1, configuration=conf, logger=logger)
+            locus_two = Locus(t2, configuration=conf, logger=logger)
             superlocus.loci[locus_one.id] = locus_one
             superlocus.loci[locus_two.id] = locus_two
             self.assertEqual(len(superlocus.loci[locus_one.id].transcripts), 1)
@@ -1892,17 +2889,6 @@ class WrongSplitting(unittest.TestCase):
 
 class WrongLoadingAndIntersecting(unittest.TestCase):
 
-    def test_wrong_loading(self):
-        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=True)
-        with self.assertRaises(ValueError):
-            sl.load_all_transcript_data(engine=None, data_dict=None)
-
-    @unittest.skip
-    def test_already_loaded(self):
-        t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=True)
-
     def test_wrong_intersecting(self):
         t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
         sl = Superlocus(t1, stranded=True)
@@ -1940,7 +2926,7 @@ class RetainedIntronTester(unittest.TestCase):
 
     def setUp(self):
         self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
-        self.my_json = configurator.to_json(self.my_json)
+        self.my_json = configurator.load_and_validate_config(self.my_json)
 
     def test_5utr_vs_3utr(self):
 
@@ -2057,7 +3043,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2088,7 +3074,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 logger = create_default_logger("test_false_ri", level="DEBUG")
                 sup = Superlocus(tr1, logger=logger)
                 sup.add_transcript_to_locus(tr2)
-                sup.filter_and_calculate_scores()
+                sup.filter_and_calculate_scores(check_requirements=False)
                 self.assertFalse(sup["t1"].cds_disrupted_by_ri)
                 self.assertEqual(sup["t1"].retained_intron_num, 0)
                 self.assertFalse(sup["t2"].cds_disrupted_by_ri)
@@ -2123,7 +3109,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = [Transcript(bed) for bed in beds]
         [transcript.finalize() for transcript in transcripts]
 
-        sstart = 0  # min(_.start for _ in transcripts)
+        sstart = 0
         for transcript in transcripts:
             print(transcript.id, end="\t")
             print(transcript.start - sstart, transcript.end - sstart, transcript.combined_cds_start - sstart,
@@ -2177,7 +3163,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
                 logger.setLevel("WARNING")
-                sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(t1, configuration=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2186,7 +3172,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
                 logger.setLevel("WARNING")
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json, logger=logger)
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2217,7 +3203,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         self.assertEqual(t2.combined_cds_end, 1420)
 
         logger = create_default_logger("test_real_retained_pos_truncated")
-        sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+        sup = Superlocus(t1, configuration=self.my_json, logger=logger)
         sup.add_transcript_to_locus(t2)
 
         sup.logger.setLevel("DEBUG")
@@ -2262,7 +3248,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred, retained in [(t2, True), (t3, False)]:
             with self.subTest(pred=pred, retained=retained):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 self.assertEqual((len(sup.transcripts[pred.id].retained_introns) > 0),
@@ -2292,7 +3278,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
         self.assertEqual(t2.combined_cds_end, 601)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
 
@@ -2317,7 +3303,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.logger = create_default_logger("test_real_retained_pos_noCDS", level="DEBUG")
@@ -2357,7 +3343,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
 
         for pred in [t2, t3]:
             with self.subTest(pred=pred):
-                sup = Superlocus(t1, json_conf=self.my_json)
+                sup = Superlocus(t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(pred)
                 sup.find_retained_introns(pred)
                 if pred == t2:
@@ -2367,7 +3353,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                 self.assertFalse(sup.transcripts[pred.id].cds_disrupted_by_ri)
                 unpickled_t1 = pickle.loads(pickle.dumps(t1))
                 unpickled_other = pickle.loads(pickle.dumps(pred))
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json)
                 sup.add_transcript_to_locus(unpickled_other)
                 sup.find_retained_introns(unpickled_other)
                 if pred == t2:
@@ -2401,7 +3387,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             [(3168568, 3168869),(3168954, 3169234),(3169327, 3169471),(3169589, 3170192)],
         features="CDS")
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
         self.assertGreater(sup.transcripts[t2.id].retained_intron_num, 0)
@@ -2429,7 +3415,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
 
         with self.subTest():
-            sup = Superlocus(t1, json_conf=self.my_json)
+            sup = Superlocus(t1, configuration=self.my_json)
             sup.add_transcript_to_locus(t2)
             sup.logger = create_default_logger("test_real_retained_neg",
                                                level="DEBUG")
@@ -2439,7 +3425,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         with self.subTest():
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_other = pickle.loads(pickle.dumps(t2))
-            sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+            sup = Superlocus(unpickled_t1, configuration=self.my_json)
             sup.add_transcript_to_locus(unpickled_other)
             sup.find_retained_introns(unpickled_other)
             self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
@@ -2502,7 +3488,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
             unpickled_alt = pickle.loads(pickle.dumps(alt))
             with self.subTest(alt=alt):
-                sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+                sup = Superlocus(t1, configuration=self.my_json, logger=logger)
                 logger.setLevel("DEBUG")
                 sup.find_retained_introns(alt)
                 self.assertEqual(alt.retained_intron_num, num_retained,
@@ -2511,7 +3497,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                  (alt.id, alt.retained_introns))
                 logger.setLevel("WARNING")
             with self.subTest(alt=alt):
-                sup = Superlocus(unpickled_t1, json_conf=self.my_json)
+                sup = Superlocus(unpickled_t1, configuration=self.my_json)
                 sup.find_retained_introns(unpickled_alt)
                 self.assertEqual(unpickled_alt.retained_intron_num, num_retained,
                                  unpickled_alt.retained_introns)
@@ -2567,17 +3553,16 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = dict((bed.id, Transcript(bed)) for bed in beds)
         [transcripts[tid].finalize() for tid in transcripts]
         self.assertEqual(len(transcripts), 5)
-        conf = configurator.to_json(None)
-        conf["pick"]["alternative_splicing"]["keep_cds_disrupted_by_ri"] = False
-        conf["pick"]["alternative_splicing"]["pad"] = False
+        conf = configurator.load_and_validate_config(None)
+        conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = False
+        conf.pick.alternative_splicing.pad = False
         logger = create_default_logger("test_issue_255", level="WARNING")
 
-        import operator
         scores = dict((tid, transcripts[tid].score) for tid in transcripts)
         scores = list(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
         self.assertEqual(len(scores), 5)
 
-        locus = Locus(transcripts[scores[0][0]], json_conf=conf, logger=logger)
+        locus = Locus(transcripts[scores[0][0]], configuration=conf, logger=logger)
         for tid, score in scores[1:]:
             locus.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
 
@@ -2612,7 +3597,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         self.assertEqual(t2.cds_tree.find(301, 1000),
@@ -2632,7 +3617,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
             Abstractlocus._is_exon_retained((301, 1000),
                                             "-",
                                             segmenttree, graph, [(301, 470)],
-                                            introns=set.intersection(t1.introns, t2.introns),
+                                            introns=set.union(t1.introns, t2.introns),
                                             internal_splices={1000},
                                             cds_introns=set.union(t1.combined_cds_introns, t2.combined_cds_introns),
                                             logger=create_default_logger("test_not_retained_neg",
@@ -2670,7 +3655,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2701,7 +3686,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         #               ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2734,7 +3719,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         self.assertEqual(len(t2.cds_tree), len(t2.combined_cds) + len(t2.combined_cds_introns))
         self.assertEqual(len(t2.cds_tree), 5)
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2765,7 +3750,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         #               ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json)
+        sup = Superlocus(t1, configuration=self.my_json)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2789,7 +3774,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         t2.finalize()
 
         logger = create_default_logger("test_neg_delayed_cds", level="WARNING")
-        sup = Superlocus(t1, json_conf=self.my_json, logger=logger)
+        sup = Superlocus(t1, configuration=self.my_json, logger=logger)
         sup.add_transcript_to_locus(t2)
         sup.find_retained_introns(t2)
 
@@ -2818,7 +3803,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                       ], features="CDS")
         t2.finalize()
 
-        sup = Superlocus(t1, json_conf=self.my_json, stranded=False)
+        sup = Superlocus(t1, configuration=self.my_json, stranded=False)
         sup.add_transcript_to_locus(t2)
 
         sup.find_retained_introns(t2)
@@ -2878,7 +3863,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                     self.assertTrue(transcripts[tid].is_coding, tid)
                 sup = Superlocus(transcripts["t1"])
                 sup.logger = logger
-                sup.json_conf["pick"]["clustering"]["purge"] = False
+                sup.configuration.pick.clustering.purge = False
                 self.assertIn("t1", sup.transcripts.keys())
                 for tid in transcripts:
                     if tid == "t1":
@@ -2969,7 +3954,7 @@ class PicklingTest(unittest.TestCase):
         t3.finalize()
 
         self.t1, self.t2, self.t3 = t1, t2, t3
-        self.json_conf = configurator.to_json(None)
+        self.configuration = configurator.load_and_validate_config(None)
 
     def test_transcript_pickling(self):
 
@@ -2987,7 +3972,7 @@ class PicklingTest(unittest.TestCase):
         for transcript in [self.t1, self.t2, self.t3]:
             for (loc_type, loc_name) in [(_, _.__name__) for _ in (Superlocus, Sublocus, Monosublocus, Locus)]:
                 with self.subTest(transcript=transcript, loc_type=loc_type, loc_name=loc_name):
-                    loc = loc_type(transcript, json_conf=self.json_conf)
+                    loc = loc_type(transcript, configuration=self.configuration)
                     pickled = pickle.dumps(transcript)
                     unpickled = pickle.loads(pickled)
                     self.assertEqual(transcript, unpickled)
@@ -3021,43 +4006,139 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_utr.bed12")
         locus = Locus(transcripts["mikado.Chr5G2.1"], logger=logger)
-        locus.json_conf["reference"]["genome"] = self.fai
+        # [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
+        self.assertIn("J", locus.configuration.pick.alternative_splicing.valid_ccodes)
+        locus.configuration.reference.genome = self.fai.filename.decode()
         # We need to pad
-        locus.json_conf["pick"]["alternative_splicing"]["pad"] = True
-        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 10000
-        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
-        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 1000
-        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
-        locus.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        locus.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.1
-        locus.add_transcript_to_locus(transcripts["mikado.Chr5G2.2"])
-        self.assertIn("mikado.Chr5G2.1", locus.transcripts)
-        self.assertIn("mikado.Chr5G2.2", locus.transcripts)
+        locus.configuration.pick.alternative_splicing.pad = True
+        locus.configuration.pick.alternative_splicing.ts_distance = 10000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.ts_distance = 1000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
+        locus.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
+
+        locus.logger = create_default_logger("test_pad_utr", level="DEBUG")
+        with self.assertLogs("test_pad_utr", "DEBUG") as cmo:
+            locus.add_transcript_to_locus(transcripts["mikado.Chr5G2.2"])
+
+        self.assertIn("mikado.Chr5G2.1", locus.transcripts, cmo.output)
+        self.assertIn("mikado.Chr5G2.2", locus.transcripts, cmo.output)
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].end, locus.end, tid)
+
+    def test_remove_redundant(self):
+        """Test to verify that the routine to remove redundant transcripts after padding functions as desired"""
+        tmult = Transcript()
+        tmult.chrom, tmult.start, tmult.end, tmult.strand, tmult.id = "Chr1", 101, 2000, "+", "foo.1"
+        tmult.add_exons([(101, 500), (801, 1200), (1501, 2000)])
+        tmult.add_exons([(201, 500), (801, 1200), (1501, 1700)], features="CDS")
+        tmult.finalize()
+        tmult_a = tmult.copy()
+        tmult_a.id = "foo.1a"
+
+        tmono = Transcript()
+        tmono.chrom, tmono.start, tmono.end, tmono.strand, tmono.id = "Chr1", 601, 1800, "+", "bar.1"
+        tmono.add_exons([(601, 1800)])
+        # Note that the CDS *must be in-frame* with tmult
+        tmono.add_exons([(711, 1580)], features="CDS")
+        tmono.finalize()
+        tmono_a = tmono.copy()
+        tmono_a.id = "bar.1a"
+
+        conf = MikadoConfiguration()
+        comp = Assigner.compare(tmono, tmult)
+        rev_comp = Assigner.compare(tmult, tmono)
+
+        # Make sure that the transcripts can coexist
+        conf.pick.alternative_splicing.valid_ccodes.extend([comp[0].ccode[0], rev_comp[0].ccode[0]])
+        conf.pick.alternative_splicing.min_cds_overlap = 0.1
+        conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+        conf.pick.alternative_splicing.min_score_perc = 0.01
+        conf.seed = 10
+
+        # Now for the real tests
+        logger = create_default_logger("test_remove_redundant", level="DEBUG")
+        for primary, is_reference, score in itertools.product([tmult.id, tmono.id], [False, True], [5, 10, 1]):
+            with self.subTest():
+                if primary == tmult.id:
+                    locus = Locus(tmult, configuration=conf)
+                    secondary = tmono.id
+                    alt_secondary = tmono_a.id
+                    locus.add_transcript_to_locus(tmono, check_in_locus=False)
+                else:
+                    locus = Locus(tmono, configuration=conf)
+                    secondary = tmult.id
+                    alt_secondary = tmult_a.id
+                    locus.add_transcript_to_locus(tmult, check_in_locus=False)
+
+                locus.primary_transcript_id = primary
+                random.seed(conf.seed)
+                locus.add_transcript_to_locus(tmono_a, check_in_locus=False)
+                locus.add_transcript_to_locus(tmult_a, check_in_locus=False)
+                self.assertIn(tmult.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono.id, locus, (primary, is_reference, score))
+                self.assertIn(tmult_a.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono_a.id, locus, (primary, is_reference, score))
+
+                locus[tmono.id].score = score
+                locus[tmono_a.id].score = 5
+                locus[tmult.id].score = score
+                locus[tmult_a.id].score = 5
+                locus[tmult.id].is_reference = locus[tmono.id].is_reference = is_reference
+
+                locus.logger = logger
+                locus._remove_redundant_after_padding()
+                self.assertTrue(len(locus.transcripts), 2)
+                if is_reference is False:
+                    if score == 5:
+                        self.assertEqual(locus.primary_transcript_id, primary)
+                        self.assertTrue(secondary in locus or alt_secondary in locus)
+                    elif score == 10:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([tmult.id, tmono.id]),
+                                         (primary, is_reference, score))
+                    elif score == 1:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([alt_secondary, primary]),
+                                         (primary, is_reference, score))
+                else:
+                    self.assertEqual(sorted(locus.transcripts.keys()), sorted([primary, secondary]),
+                                     (primary, is_reference, score))
+                # Check that calling again does nothing
+                current = list(sorted(locus.transcripts.keys()))[:]
+                locus._remove_redundant_after_padding()
+                self.assertTrue(current == list(sorted(locus.transcripts.keys())))
+
+        # Now check that a single transcript in a locus causes the function to return immediately
+        locus = Locus(tmult, configuration=conf, logger=logger)
+        with self.assertLogs(logger.name, level="DEBUG") as cmo:
+            locus._remove_redundant_after_padding()
+
+        self.assertTrue(any([re.search(r"only has one transcript, no redundancy removal needed.", output) is not None
+                             for output in cmo.output]))
 
     def test_ad_three_prime(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
         locus = Locus(transcripts["mikado.Chr5G486.1"], logger=logger)
-        locus.json_conf["reference"]["genome"] = self.fai
+        [locus._add_to_alternative_splicing_codes(code) for code in ("J", "j", "G", "h")]
+        self.assertIn("J", locus.configuration.pick.alternative_splicing.valid_ccodes)
+        locus.configuration.reference.genome = self.fai.filename.decode()
         locus.add_transcript_to_locus(transcripts["mikado.Chr5G486.2"])
         # We need to pad
-        locus.json_conf["pick"]["alternative_splicing"]["pad"] = True
-        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 10000
-        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
-        locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 1000
-        locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
-        locus.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-        locus.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.1
-        self.assertIn("mikado.Chr5G486.1", locus.transcripts)
-        self.assertIn("mikado.Chr5G486.2", locus.transcripts)
+        locus.configuration.pick.alternative_splicing.pad = True
+        locus.configuration.pick.alternative_splicing.ts_distance = 10000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.ts_distance = 1000
+        locus.configuration.pick.alternative_splicing.ts_max_splices = 10
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
+        locus.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
+        self.assertIn("mikado.Chr5G486.1", locus.transcripts.keys())
+        self.assertIn("mikado.Chr5G486.2", locus.transcripts.keys())
         locus.logger.setLevel("DEBUG")
         locus.pad_transcripts()
         for tid in locus:
             self.assertEqual(locus[tid].start, locus.start, tid)
-
 
     def test_one_off(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
@@ -3069,12 +4150,12 @@ class PaddingTester(unittest.TestCase):
                 t1.add_exons([(100, 200), (300, 500), (700, 800), (900, 1000)])
                 t1.finalize()
                 loc = Locus(t1, logger=logger)
-                loc.json_conf["reference"]["genome"] = self.fai
+                loc.configuration.reference.genome = self.fai.filename.decode()
                 # We need these to be padded
-                loc.json_conf["pick"]["alternative_splicing"]["ts_distance"] = 1000
-                loc.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = 10
-                loc.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
-                loc.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.1
+                loc.configuration.pick.alternative_splicing.ts_distance = 1000
+                loc.configuration.pick.alternative_splicing.ts_max_splices = 10
+                loc.configuration.pick.alternative_splicing.only_confirmed_introns = False
+                loc.configuration.pick.alternative_splicing.min_cdna_overlap = 0.1
                 t2 = Transcript()
                 t2.chrom, t2.strand, t2.start, t2.end, t2.id, t2.parent = ["Chr5", strand, 299, 1000, "t2", "loc"]
                 t2.add_exons([(299, 400), (700, 800), (900, 1000)])
@@ -3132,7 +4213,7 @@ class PaddingTester(unittest.TestCase):
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
-                locus.json_conf["reference"]["genome"] = genome
+                locus.configuration.reference.genome = genome
                 for t in transcripts:
                     if t == locus.primary_transcript_id:
                         continue
@@ -3159,13 +4240,13 @@ class PaddingTester(unittest.TestCase):
                             locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
                 locus.logger = logger
-                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
-                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
-                # locus.logger.setLevel("DEBUG")
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
+                locus.logger.setLevel("DEBUG")
                 locus.pad_transcripts()
                 locus.logger.setLevel("WARNING")
-
-                self.assertEqual(locus[best].start, transcripts["AT5G01030.2"].start)
+                self.assertEqual(transcripts["AT5G01030.2"].start, 9869)
+                self.assertEqual(locus[best].start, 9869)
                 self.assertIn(best, locus)
                 if max_splice < 2 or pad_distance <= 250:
                     with self.assertLogs(logger, "DEBUG") as cm:
@@ -3216,7 +4297,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         self.assertIn('Human_coding_ENSP00000371111.2.m1', transcripts.keys(), transcripts.keys())
         locus = loci.Locus(transcripts['Human_coding_ENSP00000371111.2.m1'], logger=logger)
-        locus.json_conf["reference"]["genome"] = genome
+        locus.configuration.reference.genome = genome
         for t in transcripts:
             if t == locus.primary_transcript_id:
                 continue
@@ -3242,8 +4323,8 @@ class PaddingTester(unittest.TestCase):
             with self.subTest(pad_distance=pad_distance, max_splice=max_splice):
                 logger = create_default_logger("logger", level="WARNING")
                 locus.logger = logger
-                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
-                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
                 locus.logger.setLevel("DEBUG")
                 with self.assertLogs(logger, level="DEBUG") as pado:
                     locus.pad_transcripts()
@@ -3340,7 +4421,7 @@ class PaddingTester(unittest.TestCase):
                 if coding is False:
                     primary.strip_cds()
                 locus = loci.Locus(primary)
-                locus.json_conf["reference"]["genome"] = genome
+                locus.configuration.reference.genome = genome
                 for t in transcripts:
                     if t == locus.primary_transcript_id:
                         continue
@@ -3364,8 +4445,8 @@ class PaddingTester(unittest.TestCase):
                         locus[transcript].combined_cds_start, locus[transcript].combined_cds_end)
 
                 locus.logger = logger
-                locus.json_conf["pick"]["alternative_splicing"]["ts_distance"] = pad_distance
-                locus.json_conf["pick"]["alternative_splicing"]["ts_max_splices"] = max_splice
+                locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
+                locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
                 locus.pad_transcripts()
 
                 # The .1 transcript can NEVER be expanded, it ends within an intron.
@@ -3416,7 +4497,7 @@ class PaddingTester(unittest.TestCase):
         for phase in (0, 1, 2):
             with self.subTest(phase=phase):
                 locus = Locus(transcripts["AT5G01030.1"], logger=logger)
-                locus.json_conf["reference"]["genome"] = genome
+                locus.configuration.reference.genome = genome
                 other = transcripts["AT5G01030.2"].deepcopy()
                 self.assertNotEqual(other.start, locus["AT5G01030.1"].start)
                 other.unfinalize()
@@ -3424,8 +4505,9 @@ class PaddingTester(unittest.TestCase):
                 other.remove_exon((10644, 12665))
                 other.add_exon((other.start, 12665))
                 other.add_exon((other.start, 12665), feature="CDS", phase=phase)
-                other.finalize()
-                self.assertTrue(other.is_coding)
+                with self.assertLogs(other.logger, level="DEBUG") as cmo:
+                    other.finalize()
+                self.assertTrue(other.is_coding, cmo.output)
                 self.assertEqual(other.phases[(other.start, 12665)], phase)
                 self.assertEqual(other.combined_cds_start, other.start)
                 locus.add_transcript_to_locus(other)
@@ -3456,8 +4538,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -3479,8 +4562,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -3502,8 +4586,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -3537,8 +4622,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -3560,8 +4646,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -3583,8 +4670,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -3624,8 +4712,8 @@ class PaddingTester(unittest.TestCase):
         # Now let us expand on both ends
 
         with self.subTest():
-            expanded = expand_transcript(transcript, template, template,
-                                         fai=self.fai, logger=logger)
+            expanded = pad_transcript(transcript, transcript.deepcopy(), template, template,
+                                      fai=self.fai, logger=logger)
             self.assertEqual(expanded.exons,
                              [(12751151, 12751579),
                               (12751669, 12751808), (12751895, 12752032),
@@ -3646,7 +4734,7 @@ class PaddingTester(unittest.TestCase):
         with self.subTest():
             backup = transcript.deepcopy()
             logger = create_null_logger()
-            expand_transcript(transcript, template, template, self.fai, logger=logger)
+            pad_transcript(transcript, transcript.deepcopy(), template, template, self.fai, logger=logger)
             self.assertEqual(
                 transcript.exons,
                 [(99726, 100220), (100640, 102000)]
@@ -3662,7 +4750,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_null_logger(level="DEBUG")
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
 
-            expand_transcript(transcript, None, None, self.fai, logger)
+            pad_transcript(transcript, backup, None, None, self.fai, logger)
             self.assertEqual(transcript, backup)
 
         self.assertIn("DEBUG:null:test does not need to be expanded, exiting", cm.output)
@@ -3688,7 +4776,7 @@ class PaddingTester(unittest.TestCase):
 
         logger = create_null_logger()
         with self.assertLogs(logger=logger, level="DEBUG"):
-            expand_transcript(transcript, start_transcript, False, self.fai, logger)
+            pad_transcript(transcript, backup, start_transcript, False, self.fai, logger)
             self.assertNotEqual(transcript, backup)
             self.assertEqual(transcript.exons,
                              [(194741, 195337), (195406, 195511),
@@ -3739,7 +4827,7 @@ class PaddingTester(unittest.TestCase):
         transcript.finalize()
         new = transcript.deepcopy()
         locus = Locus(transcript)
-        locus.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        locus.configuration.pick.alternative_splicing.only_confirmed_introns = False
         second = Transcript()
         second.id, second.chrom, second.strand = "test2", "Chr5", "+"
         second.add_exons([(101, 1000), (1301, 1600)])

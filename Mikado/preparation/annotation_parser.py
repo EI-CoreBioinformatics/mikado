@@ -1,24 +1,19 @@
 import multiprocessing
-from ..parsers import to_gff
+from ..parsers import parser_factory
 from ..parsers.bam_parser import BamParser
 from ..utilities.log_utils import create_queue_logger
 from ..utilities import overlap
 import logging
 import logging.handlers
 from .. import exceptions
-from sys import intern, getsizeof
-try:
-    import rapidjson as json
-except ImportError:
-    import json
+from sys import intern
+import rapidjson as json
 import msgpack
-import zlib
 import os
 from ..transcripts import Transcript
 from operator import itemgetter
 import random
 import struct
-import ctypes
 import zlib
 
 
@@ -230,13 +225,8 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             strand = values["strand"]
             if strand is None:
                 strand = "."
-            # try:
-            #     values = json.dumps(values, number_mode=json.NM_NATIVE).encode()
-            # except ValueError:  # This is a crash that happens when there are infinite values
-            #     values = json.dumps(values).encode()
 
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
-            # temp_store.append((chrom, start, end, strand, tid, values))
             values = zlib.compress(msgpack.dumps(values))
             write_start = shelf.tell()
             write_length = shelf.write(values)
@@ -749,7 +739,7 @@ class AnnotationParser(multiprocessing.Process):
                               strand_specific,
                               shelf_name)
             try:
-                gff_handle = to_gff(handle)
+                gff_handle = parser_factory(handle)
                 loader = loaders.get(gff_handle.__annot_type__, None)
                 if loader is None:
                     raise ValueError("Invalid file type: {}".format(gff_handle.name))
@@ -774,8 +764,12 @@ class AnnotationParser(multiprocessing.Process):
                 [self.return_queue.put_nowait((*row, shelf_index)) for row in new_rows]
                 self.logger.debug("Packed %d rows of %s", len(new_rows), label)
 
-            except exceptions.InvalidAssembly as exc:
+            except (exceptions.InvalidAssembly, exceptions.InvalidParsingFormat) as exc:
+                self.logger.exception("Invalid file: %s. Skipping it", handle)
                 self.logger.exception(exc)
+                load_into_storage(shelf_name, [], self.min_length, self.logger, strip_cds=True,
+                                                      max_intron=3 * 10 ** 5)
+                [self.return_queue.put_nowait((*row, shelf_index)) for row in []]
                 continue
             except Exception as exc:
                 self.logger.exception(exc)

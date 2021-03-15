@@ -1,9 +1,13 @@
   # Scoring file suitable for any species with intron sizes similar to plants
 requirements:
-  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding), and, ((exon_num.multi and  (cdna_length.multi, or,  combined_cds_length.multi) and max_intron_length, and, min_intron_length and proportion_verified_introns_inlocus ) or (exon_num.mono and (combined_cds_length.mono or cdna_length.mono))) ]
+  expression: [((combined_cds_fraction.ncrna and exon_num.multi) or combined_cds_fraction.coding), and,
+               ((exon_num.multi and  (cdna_length.multi, or,  combined_cds_length.multi) and max_intron_length,
+               and, min_intron_length and proportion_verified_introns_inlocus and (is_complete or proportion_verified_introns))
+                      or (exon_num.mono and ((combined_cds_length.mono or cdna_length.mono) and (selected_cds_fraction.mono and is_complete)))) ]
   parameters:
     combined_cds_fraction.ncrna: {operator: eq, value: 0}
     combined_cds_fraction.coding: {operator: gt, value: 0.20}
+    selected_cds_fraction.mono: {operator: gt, value: 0.40}
     cdna_length.mono: {operator: gt, value: 400}
     cdna_length.multi: {operator: ge, value: 300}
     combined_cds_length.mono: {operator: gt, value: 225}
@@ -13,8 +17,14 @@ requirements:
     max_intron_length: {operator: le, value: 20000}
     min_intron_length: {operator: ge, value: 5}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
+    proportion_verified_introns: {operator: gt, value: 0}
+    is_complete: {operator: eq, value: true}
+cds_requirements:
+  expression: [combined_cds_length]
+  parameters:
+    combined_cds_length: {operator: ge, value: 0}
 as_requirements:
-  expression: [cdna_length and three_utr_length and five_utr_length and utr_length and suspicious_splicing]
+  expression: [cdna_length and three_utr_length and five_utr_length and utr_length and three_utr_num and five_utr_num and suspicious_splicing]
   parameters:
     cdna_length: {operator: ge, value: 300}
     utr_length: {operator: le, value: 3500}
@@ -22,6 +32,8 @@ as_requirements:
     three_utr_length: {operator: le, value: 3500}
     suspicious_splicing: {operator: ne, value: true}
     max_intron_length: {operator: le, value: 10000}
+    three_utr_num: {operator: lt, value: 3}
+    five_utr_num: {operator: lt, value: 4}
 not_fragmentary:
  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
  parameters:

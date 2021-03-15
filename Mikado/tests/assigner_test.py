@@ -8,18 +8,30 @@ Unit tests for the scales library
 import unittest
 from .. import loci, utilities
 from .. import scales
-import argparse
-import os
-from .. import parsers
-import csv
-import tempfile
 from ..scales.assignment.assigner import Assigner
+from ..scales.assignment.distributed import encode_result
 
 
 class AssignerTest(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of Mikado.py.
     """
+
+    def test_encode_result(self):
+        res = scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            0, "chr1:100..10000")
+        encoded = encode_result(res)
+        self.assertIsInstance(encoded, dict)
+        self.assertEqual(encoded["ref_id"], "t1")
+        self.assertEqual(encoded["distance"], "0")
+        self.assertEqual(encoded["location"], "chr1:100..10000")
+        encoded = encode_result(10)
+        self.assertEqual(encoded, 10)
 
     def test_get_f1(self):
 
@@ -1082,55 +1094,6 @@ class AssignerTest(unittest.TestCase):
                          keys, (5350,5500), distance=10000),
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
-
-    def test_false_fusion(self):
-
-        """
-        System test to verify that the false fusion is not called.
-        WARNING: this test is quite brittle as I am creating the namespace myself
-        instead of loading it from the subprograms.compare module.
-        :return:
-        """
-
-        master = os.path.dirname(os.path.abspath(__file__))
-        out = tempfile.mkdtemp()
-        os.makedirs(out, exist_ok=True)
-
-        args = argparse.Namespace()
-        args.no_save_index = True
-        args.reference = parsers.GFF.GFF3(
-            os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
-        args.prediction = parsers.GTF.GTF(
-            os.path.join(master, "fusion_test", "fusion_test_pred.gtf"))
-        args.log = os.path.join(out, "fusion_test", "fusion_test.log")
-        args.out = os.path.join(out, "fusion_test", "fusion_test")
-        args.distance = 2000
-        args.verbose = True
-        args.exclude_utr = False
-        args.protein_coding = False
-        args.index = False
-        args.self = False
-        args.extended_refmap = False
-        args.gzip = False
-        args.processes = 1
-
-        scales.compare.compare(args)
-
-        out_refmap = os.path.join(out, "fusion_test", "fusion_test.refmap")
-        self.assertTrue(os.path.exists(out_refmap))
-        self.assertGreater(os.stat(out_refmap).st_size, 0)
-        with open(out_refmap) as refmap:
-            for line in csv.DictReader(refmap, delimiter="\t"):
-                if line["ref_id"] not in ("AT1G78880.1", "AT1G78882.1"):
-                    continue
-                self.assertEqual(line["ccode"], "=", line)
-        args.reference.close()
-        args.prediction.close()
-        import shutil
-        try:
-            shutil.rmtree(out)
-        except PermissionError:
-            raise PermissionError(out)
 
     def test_monoexonic_contained(self):
         t1 = loci.Transcript()

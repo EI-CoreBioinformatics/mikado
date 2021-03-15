@@ -1,3 +1,7 @@
+import copy
+
+from typing import Union
+
 from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
@@ -9,10 +13,13 @@ from .utils import load_into_db
 from collections import defaultdict
 import logging
 import logging.handlers
+
+from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import connect as db_connect
-from . import Hit, Hsp
+from .hit import Hit
+from .hsp import Hsp
 import os
 import tempfile
 import msgpack
@@ -80,8 +87,9 @@ def get_queries(engine):
     queries = pd.read_sql_table("query", engine, index_col="query_name")
     queries.columns = ["qid", "qlength"]
     queries["qid"] = queries["qid"].astype(int)
-    queries.index = queries.index.str.replace(id_pattern, "\\1")
-    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0]
+    # queries.index = queries.index.str.replace(id_pattern, "\\1")
+    assert queries.qid.drop_duplicates().shape[0] == queries.shape[0], \
+        "Duplicated IDs found in the Mikado query database!"
     return queries
 
 
@@ -89,9 +97,9 @@ def get_targets(engine):
     targets = pd.read_sql_table("target", engine, index_col="target_name")
     targets.columns = ["sid", "slength"]
     targets["sid"] = targets["sid"].astype(int)
-    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0]
+    assert targets.sid.drop_duplicates().shape[0] == targets.shape[0], \
+        "Duplicated IDs found in the Mikado target database!"
 
-    targets.index = targets.index.str.replace(id_pattern, "\\1")
     if targets[targets.slength.isna()].shape[0] > 0:
         raise KeyError("Unbound targets!")
     return targets
@@ -122,14 +130,14 @@ def prepare_tab_hsp(key,
     # We must start from 1, otherwise MySQL crashes as its indices start from 1 not 0
     hsp_dict["query_id"], hsp_dict["target_id"] = key
     try:
-        query_array = np.zeros([3, int(hsp[columns["qlength"]])], dtype=np.int)
+        query_array = np.zeros([3, int(hsp[columns["qlength"]])], dtype=int)
     except (IndexError,TypeError):
         try:
             raise IndexError((hsp[columns["qlength"]], type(hsp[columns["qlength"]])))
         except IndexError:
             raise IndexError(columns)
 
-    target_array = np.zeros([3, int(hsp[columns["slength"]])], dtype=np.int)
+    target_array = np.zeros([3, int(hsp[columns["slength"]])], dtype=int)
     matrix = matrices.get(matrix_name, matrices["blosum62"])
     if hsp[columns["qstart"]] < 0:
         raise ValueError(hsp.qstart)
@@ -248,30 +256,40 @@ def prepare_tab_hit(key: tuple,
     return hit_list, hsps
 
 
-id_pattern = re.compile(r"^[^\|]*\|([^\|]*)\|.*")
-
-
 def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.DataFrame,
                         qmult=3, tmult=1):
 
     if data[data.btop.isna()].shape[0] > 0:
         raise ValueError(data.loc[0])
 
-    data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
-    data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
-
+    assert "qid" in queries.columns or "qid" == queries.index.name, queries.head()
+    assert "sid" in targets.columns or "sid" == targets.index.name, targets.head()
     data = data.join(queries, on=["qseqid"]).join(targets, on=["sseqid"]).join(
         data.groupby(["qseqid", "sseqid"]).agg(
             min_evalue=pd.NamedAgg("evalue", np.min),
             max_bitscore=pd.NamedAgg("bitscore", np.max)
         )[["min_evalue", "max_bitscore"]], on=["qseqid", "sseqid"])
 
+    # Check the joins were successful
+    if any(data.qid.isna()):
+        raise KeyError("The tabular file passed in and the queries in the database differ. Please rerun BLAST and "
+                       "Mikado serialise with the correct query file.")
+
+    if any(data.sid.isna()):
+        raise KeyError("The tabular file passed in and the targets in the database differ. Please rerun BLAST and "
+                       "Mikado serialise with the correct target file.")
+
     for col in ["qstart", "qend", "sstart", "send", "qlength", "slength"]:
         if col != "slength":
             err_val = (col, data[data[col].isna()].shape[0], data.shape[0])
         else:
             err_val = (col, data[["sseqid"]].head())
-        assert ~(data[col].isna().any()), err_val
+        if data[col].isna().any():
+            raise ValueError(
+            "Column {col} contains {nnan} NaN values out of {tot}. Head: {err_val}\
+Please make sure you have run BLAST asking for the following fields:\
+{blast_keys}".format(col=col, nnan=np.where(data[col].isna())[0].shape[0], tot=data.shape[0], err_val=err_val,
+         blast_keys=blast_keys))
         try:
             data[col] = data[col].astype(int).values
         except ValueError as exc:
@@ -313,7 +331,7 @@ class Preparer(mp.Process):
                  identifier: int,
                  params_file: str,
                  lock: mp.RLock,
-                 conf: dict,
+                 conf: Union[MikadoConfiguration,DaijinConfiguration],
                  maxobjects: int,
                  logging_queue=None,
                  log_level="DEBUG",
@@ -354,15 +372,18 @@ class Preparer(mp.Process):
         session = Session(bind=self.engine)
         self.session = session
         hits, hsps = [], []
+        done = 0
         with open(self.index_file, "rb") as index_handle:
             for key, rows in msgpack.Unpacker(index_handle, raw=False, strict_map_key=False):
+                done += 1
                 curr_hit, curr_hsps = prep_hit(key, rows)
                 hits.append(curr_hit)
                 hsps += curr_hsps
                 hits, hsps = load_into_db(self, hits, hsps, force=False, raw=True)
+
+        self.logger.debug("Finished %d hit entries", done)
         _, _ = load_into_db(self, hits, hsps, force=True, raw=True)
         self.logger.debug("Finished %s", self.identifier)
-        os.remove(self.index_file)  # Clean it up
         return True
 
 
@@ -383,11 +404,9 @@ def parse_tab_blast(self,
     if procs > 1:
         # We have to set up the processes before the forking.
         lock = mp.RLock()
-        conf = dict()
-        conf["db_settings"] = self.json_conf["db_settings"].copy()
-        params_file = tempfile.mktemp(suffix=".mgp")
-
-        index_files = dict((idx, tempfile.mktemp(suffix=".csv")) for idx in
+        conf = self.configuration.copy()
+        params_file = tempfile.NamedTemporaryFile(suffix=".mgp", delete=True)
+        index_files = dict((idx, tempfile.NamedTemporaryFile(suffix=".csv", delete=True)) for idx in
                            range(procs))
         kwargs = {"conf": conf,
                   "maxobjects": max(int(self.maxobjects / procs), 1),
@@ -395,11 +414,11 @@ def parse_tab_blast(self,
                   "matrix_name": matrix_name,
                   "qmult": qmult,
                   "tmult": tmult,
-                  "sql_level": self.json_conf["log_settings"]["sql_level"],
-                  "log_level": self.json_conf["log_settings"]["log_level"],
+                  "sql_level": self.configuration.log_settings.sql_level,
+                  "log_level": self.configuration.log_settings.log_level,
                   "logging_queue": self.logging_queue,
-                  "params_file": params_file}
-        processes = [Preparer(index_files[idx], idx, **kwargs) for idx in range(procs)]
+                  "params_file": params_file.name}
+        processes = [Preparer(index_files[idx].name, idx, **kwargs) for idx in range(procs)]
 
     self.logger.info("Reading %s data", bname)
     # Compatibility with ASN files
@@ -433,6 +452,7 @@ def parse_tab_blast(self,
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     groups = defaultdict(list)
+    # data.set_index(["qid", "sid"], drop=False, inplace=True)
     [groups[val].append(idx) for idx, val in enumerate(data.index)]
     values = data.values
 
@@ -454,26 +474,26 @@ def parse_tab_blast(self,
         # Now we have to write down everything inside the temporary files.
         # Params_name must contain: shape of the array, dtype of the array, columns
         params = {"columns": columns}
-        with open(params_file, "wb") as pfile:
-            pfile.write(msgpack.dumps(params))
-        assert os.path.exists(params_file)
+        params_file.write(msgpack.dumps(params))
+        params_file.flush()
         # Split the indices
+        tot = 0
         for idx, split in enumerate(np.array_split(np.array(list(groups.items()),
                                                             dtype=object), procs)):
-            with open(index_files[idx], "wb") as index:
-                for item in split:
-                    vals = (tuple(item[0]), values[item[1], :].tolist())
-                    msgpack.dump(vals, index)
-            assert os.path.exists(index_files[idx])
+            index = index_files[idx]
+            for item in split:
+                vals = (tuple(item[0]), values[item[1], :].tolist())
+                msgpack.dump(vals, index)
+                tot += 1
+            assert os.path.exists(index_files[idx].name)
+            index_files[idx].flush()
             processes[idx].start()
-
+        self.logger.debug("Sent %d entries", tot)
         try:
             res = [proc.join() for proc in processes]
         except KeyboardInterrupt:
             raise KeyboardInterrupt
         except Exception:
             raise
-        finally:
-            os.remove(params_file)
 
     return

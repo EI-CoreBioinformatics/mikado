@@ -2581,8 +2581,11 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             self.__five_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                                    utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_start)
         else:
-            self._three_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
-                                   utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
+            try:
+                self._three_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
+                                       utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
+            except (ValueError, TypeError, IndexError) as exc:
+                raise ValueError(self.selected_internal_orf, str(self.selected_cds_end))
             self.__five_utr = list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                                    utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_start)
 

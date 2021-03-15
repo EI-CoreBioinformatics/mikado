@@ -1294,15 +1294,17 @@ class FinalizeTests(unittest.TestCase):
             _basic_final_checks(transcript)
         self.assertIsNotNone(re.search(r"Overlapping exons found", str(exc.exception)))
 
-    @mark.triage
     def test_check_with_double_internal_orf(self):
         transcript = Transcript()
         transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
         transcript.add_exons([(101, 470), (499, 1000)])
         # Now add the internal ORFs
-        transcript.combined_cds = [(151, 450), (501, 560)]
-        transcript.internal_orfs.append([("CDS", (151, 450))])
-        transcript.internal_orfs.append([("CDS", (501, 560))])
+        transcript.internal_orfs.append(
+            [('UTR', (101, 150)), ('exon', (101, 470)), ('CDS', (151, 450), 0), ("UTR", (451, 470)),
+             ('exon', (499, 1000)), ('UTR', (499, 1000))])
+        transcript.internal_orfs.append(
+            [('UTR', (101, 470)), ('exon', (101, 470)), ('UTR', (499, 500)), ('exon', (499, 1000)),
+             ('CDS', (501, 560), 0), ('UTR', (561, 1000))])
         with self.assertLogs(transcript.logger, level="DEBUG") as cmo:
             transcript.finalize()
         self.assertTrue(transcript.is_coding, cmo.output)

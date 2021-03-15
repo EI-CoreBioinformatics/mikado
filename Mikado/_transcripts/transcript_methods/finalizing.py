@@ -530,9 +530,6 @@ def _check_phase_correctness(transcript, strip_faulty_cds=True):
     else:
         pass
 
-    assert (transcript.combined_cds and internal_orfs) or (not transcript.combined_cds and not internal_orfs), (
-        transcript.combined_cds, internal_orfs, transcript.segments, transcript.internal_orfs)
-
     transcript.segments, transcript.internal_orfs = segments, internal_orfs
 
     __orfs_to_remove = []
@@ -564,6 +561,20 @@ def _check_phase_correctness(transcript, strip_faulty_cds=True):
             transcript.internal_orfs = internal_orfs
     else:
         pass
+
+    combined_cds = []
+    for orf in transcript.internal_orfs:
+        for segment in orf:
+            if segment[0] != "CDS":
+                continue
+            combined_cds.append(segment[1])
+    combined_cds = sorted(combined_cds)
+    if any([overlap(p1, p2) > 0 for p1, p2 in zip(combined_cds, combined_cds[1:])]):
+        internal_orfs = '\n'.join([str(_) for _ in transcript.internal_orfs])
+        raise ValueError(f"The internal ORFs of {transcript.id} do overlap each other. This is an error!\n"
+                         f"{internal_orfs}\nCombined CDS:{combined_cds}")
+
+    transcript.combined_cds = combined_cds
 
     if len(transcript.internal_orfs) > 0:
         transcript.selected_internal_orf_index = 0

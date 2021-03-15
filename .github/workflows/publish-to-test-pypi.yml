@@ -5,7 +5,7 @@ on:
 jobs:
   build-and-publish:
     name: Build the Mikado release and publish to TestPyPI
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@master
       - name: Set up Python 3.8
@@ -23,11 +23,11 @@ jobs:
           path: ~/conda_pkgs_dir
           key:
             ${{ runner.os }}-conda-${{ hashFiles('./environment.yml') }}
-      - name: Install system development tools
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt update
-          sudo apt install -y build-essential zlib1g-dev zlib1g
+#      - name: Install system development tools
+#        run: |
+#          export DEBIAN_FRONTEND=noninteractive
+#          sudo apt update
+#          sudo apt install -y build-essential zlib1g-dev zlib1g
       - uses: conda-incubator/setup-miniconda@v2
         with:
           python-version: ${{ matrix.python-version }}

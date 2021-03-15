@@ -81,6 +81,20 @@ class Hsp(DBBASE):
     counter = Column(Integer)  # Indicates the number of the HSP inside the hit
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
+    query_hsp_start = Column(Integer)
+    query_hsp_end = Column(Integer)
+    query_frame = Column(Integer)
+    target_hsp_start = Column(Integer)
+    target_hsp_end = Column(Integer)
+    target_frame = Column(Integer)
+    match = Column(String(100000))
+    hsp_evalue = Column(Float)
+    hsp_bits = Column(Float)
+    hsp_identity = Column(Float)
+    hsp_positives = Column(Float)
+    hsp_length = Column(Integer)
+
+    # Indices and constraints
     pk_constraint = PrimaryKeyConstraint("counter",
                                          "query_id",
                                          "target_id",
@@ -93,25 +107,25 @@ class Hsp(DBBASE):
                            "target_id", unique=False)
     full_index = Index("hsp_full_idx",
                        "counter", "query_id", "target_id", unique=True)
-    query_hsp_start = Column(Integer)
-    query_hsp_end = Column(Integer)
-    query_frame = Column(Integer)
-    target_hsp_start = Column(Integer)
-    target_hsp_end = Column(Integer)
-    target_frame = Column(Integer)
     uni_constraint = UniqueConstraint("query_id", "target_id",
                                       "query_hsp_start", "query_hsp_end",
                                       "target_hsp_start", "target_hsp_end")
-    match = Column(String(10000))
-    hsp_evalue = Column(Float)
-    hsp_bits = Column(Float)
-    hsp_identity = Column(Float)
-    hsp_positives = Column(Float)
-    hsp_length = Column(Integer)
 
-    __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index)
+    __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index, uni_constraint)
 
-    def __init__(self, hsp, counter, query_id, target_id, qmultiplier=1, tmultiplier=1):
+    query_object = relationship(Query, uselist=False,
+                                lazy="select",
+                                innerjoin=True,
+                                backref=backref("hsps", cascade="all, delete-orphan"))
+    target_object = relationship(Target,
+                                 uselist=False,
+                                 lazy="select",
+                                 innerjoin=True,
+                                 backref=backref("hsps", cascade="all, delete-orphan"))
+
+    def __init__(self, counter, query_id, target_id, query_hsp_start, query_hsp_end, query_frame, target_hsp_start,
+                 target_hsp_end, target_frame,
+                 match, hsp_evalue, hsp_bits, hsp_identity, hsp_positives, hsp_length):
 
         """
 
@@ -129,13 +143,13 @@ class Hsp(DBBASE):
         """
 
         self.counter = counter
-        hsp_dict, _, _ = prepare_hsp(hsp, counter, qmultiplier=qmultiplier, tmultiplier=tmultiplier)
-
-        for key in hsp_dict:
-            setattr(self, key, hsp_dict[key])
-
         self.query_id = query_id
         self.target_id = target_id
+        self.query_hsp_start, self.query_hsp_end, self.query_frame = query_hsp_start, query_hsp_end, query_frame
+        self.target_hsp_start, self.target_hsp_end, self.target_frame = target_hsp_start, target_hsp_end, target_frame
+        self.match, self.hsp_length = match, hsp_length
+        self.hsp_evalue, self.hsp_bits, self.hsp_identity = hsp_evalue, hsp_bits, hsp_identity
+        self.hsp_positives = hsp_positives
 
     def __str__(self):
         """Simple printing function."""
@@ -144,7 +158,16 @@ class Hsp(DBBASE):
                 self.target_hsp_end, self.hsp_evalue]
         return "\t".join([str(x) for x in line])
 
-    # @profile
+    @classmethod
+    def from_dict(cls, counter, query_id, target_id, hsp_dict):
+
+        return Hsp(query_id=query_id, target_id=target_id, counter=counter,
+                   **hsp_dict)
+
+    @classmethod
+    def from_hsp(cls, counter, query_id, target_id, hsp, qmultiplier=1, tmultiplier=1):
+        hsp_dict, _, _ = prepare_hsp(hsp, counter, qmultiplier=qmultiplier, tmultiplier=tmultiplier)
+        return cls(query_id=query_id, target_id=target_id, counter=counter, **hsp_dict)
 
     @classmethod
     def as_dict_static(cls, state_obj):
@@ -195,6 +218,22 @@ class Hsp(DBBASE):
         state["match"] = self.match
 
         return state
+
+    @hybrid_property
+    def query(self):
+        return self.query_object.query_name
+
+    @hybrid_property
+    def query_length(self):
+        return self.query_object.query_length
+
+    @hybrid_property
+    def target(self):
+        return self.target_object.target_name
+
+    @hybrid_property
+    def target_length(self):
+        return self.target_object.target_length
 
     @hybrid_property
     def query_hsp_cov(self):

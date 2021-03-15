@@ -388,11 +388,7 @@ class Assigner:
                     results.extend(new_matches[gene])
                     del new_matches[gene]
 
-        if len(new_matches) == 0:
-            error = AssertionError("Filtered all results for %s. This is wrong!",
-                                   prediction.id)
-            self.logger.error(error)
-            raise error
+        assert len(new_matches) > 0, "Filtered all results for {}. This is wrong!".format(prediction.id)
 
         fused = collections.defaultdict(list)
         dubious = set()
@@ -761,8 +757,7 @@ class Assigner:
         file, and the final statistics into the stats file.
         """
 
-        self.logger.debug("Finished parsing, total: %d transcript%s.", self.done, "s" if self.done > 1 else "")
-
+        self.logger.debug(f"Finished parsing, total: {self.done} transcript{'s' if self.done > 1 else ''}.")
         self.print_refmap()
         self.stat_calculator.print_stats()
         self.logger.info("Finished printing final stats")

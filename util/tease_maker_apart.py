@@ -8,7 +8,7 @@ from copy import deepcopy
 def main():
 
     parser = argparse.ArgumentParser("Script to tease apart exons in the MAKER GFF files.")
-    parser.add_argument("maker", type=Mikado.parsers.to_gff, help="MAKER input GFF.")
+    parser.add_argument("maker", type=Mikado.parsers.parser_factory, help="MAKER input GFF.")
     parser.add_argument("out", nargs="?", default=sys.stdout, type=argparse.FileType("w"))
     args = parser.parse_args()
 

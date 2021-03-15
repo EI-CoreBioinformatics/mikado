@@ -4,13 +4,10 @@
 Generic parser for GTF files.
 """
 
-from . import Parser
+from .parser import Parser
 from .gfannotation import GFAnnotation
 import re
-
-
-# This class has exactly how many attributes I need it to have
-# pylint: disable=too-many-instance-attributes
+from ..exceptions import InvalidParsingFormat
 
 
 class GtfLine(GFAnnotation):
@@ -392,14 +389,15 @@ class GTF(Parser):
         self.__line_counter = 0
 
     def __next__(self):
-        line = next(self._handle)
-        self.__line_counter += 1
+        line = None
         try:
+            line = next(self._handle)
+            self.__line_counter += 1
             return GtfLine(line)
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError) as exc:
             error = "Invalid line for file {name}, line {counter}:\n{line}Error: {exc}\n".format(
                 name=self.name, counter=self.__line_counter, line=line, exc=exc)
-            raise ValueError(error)
+            raise InvalidParsingFormat(error)
 
     @property
     def file_format(self):

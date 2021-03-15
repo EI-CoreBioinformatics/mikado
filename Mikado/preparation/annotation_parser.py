@@ -1,5 +1,5 @@
 import multiprocessing
-from ..parsers import to_gff
+from ..parsers import parser_factory
 from ..parsers.bam_parser import BamParser
 from ..utilities.log_utils import create_queue_logger
 from ..utilities import overlap
@@ -739,7 +739,7 @@ class AnnotationParser(multiprocessing.Process):
                               strand_specific,
                               shelf_name)
             try:
-                gff_handle = to_gff(handle)
+                gff_handle = parser_factory(handle)
                 loader = loaders.get(gff_handle.__annot_type__, None)
                 if loader is None:
                     raise ValueError("Invalid file type: {}".format(gff_handle.name))
@@ -764,8 +764,12 @@ class AnnotationParser(multiprocessing.Process):
                 [self.return_queue.put_nowait((*row, shelf_index)) for row in new_rows]
                 self.logger.debug("Packed %d rows of %s", len(new_rows), label)
 
-            except exceptions.InvalidAssembly as exc:
+            except (exceptions.InvalidAssembly, exceptions.InvalidParsingFormat) as exc:
+                self.logger.exception("Invalid file: %s. Skipping it", handle)
                 self.logger.exception(exc)
+                load_into_storage(shelf_name, [], self.min_length, self.logger, strip_cds=True,
+                                                      max_intron=3 * 10 ** 5)
+                [self.return_queue.put_nowait((*row, shelf_index)) for row in []]
                 continue
             except Exception as exc:
                 self.logger.exception(exc)

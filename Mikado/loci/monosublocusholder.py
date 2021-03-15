@@ -5,7 +5,6 @@ This module defines a holder of Monosublocus instances. It is the last step
 before the definition of real loci.
 """
 
-import itertools
 from sys import version_info
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus

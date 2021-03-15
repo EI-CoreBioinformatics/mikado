@@ -6,6 +6,7 @@ Unit test for a transcript on the positive strand.
 
 import unittest
 import re
+import itertools
 import copy
 from .. import parsers, exceptions, loci
 from ..utilities.log_utils import create_null_logger, create_default_logger
@@ -151,7 +152,6 @@ Chr5\tStringTie\t3UTR\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\t3UTR\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";"""
 
-        import itertools
 
         for lines in itertools.zip_longest(self.tr.__str__(to_gtf=True).split("\n"),
                                            real_printed_gtf.split("\n")):
@@ -597,8 +597,12 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
+        self.assertTrue(self.tr.end != 625880 or self.tr.start != 625878)
         self.tr.exons += [(625878, 625880)]
-        self.assertRaises(exceptions.InvalidTranscript, self.tr.finalize)
+        with self.assertLogs(self.tr.logger, "DEBUG") as cmo:
+            self.tr.finalize()
+        self.assertTrue(self.tr.end == 625880 or self.tr.start == 625878, cmo.output)
+        self.assertTrue(any([re.search(r"Modifying it", _) is not None for _ in cmo.output]))
 
     def test_complete(self):
 

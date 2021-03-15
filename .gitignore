@@ -104,3 +104,4 @@ coverage.xml
 Mikado*img
 .vscode/
 docs/Library
+cov_html

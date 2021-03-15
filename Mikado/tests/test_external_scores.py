@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from .. import create_default_logger
@@ -6,6 +7,8 @@ from ..loci import Transcript, Superlocus
 import pkg_resources
 import os
 from ..configuration.configurator import load_and_validate_config
+from ..serializers.external import ExternalSerializer
+import pandas as pd
 
 
 class ExternalTester(unittest.TestCase):
@@ -40,6 +43,46 @@ class ExternalTester(unittest.TestCase):
         transcript = self.transcript.deepcopy()
         self.assertEqual(transcript.external_scores.test, 0)
         self.assertEqual(transcript.external_scores.test1, 1)
+
+    def test_no_handle(self):
+        logger = create_default_logger("test_no_handle", level="DEBUG")
+        with self.assertLogs(logger.name, level="WARNING") as cmo:
+            ExternalSerializer(logger=logger, configuration=load_and_validate_config(None),
+                               handle=None)
+        self.assertTrue(any([record.msg == "No input file specified. Exiting." for record in cmo.records]))
+
+    def test_no_fasta(self):
+        conf = load_and_validate_config(None)
+        conf.serialise.files.transcripts = "foo"
+        logger = create_default_logger("test_no_fasta", level="DEBUG")
+        with self.assertRaises(AssertionError), self.assertLogs(logger.name, level="CRITICAL") as cmo:
+            ExternalSerializer(logger=logger, configuration=load_and_validate_config(None),
+                               handle="trinity.bed12")  # TODO change
+        self.assertTrue(any([record.msg == """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
+Please run mikado serialise in the folder with the correct files, and/or modify the configuration or the command line options."""
+                             for record in cmo.records]))
+
+    def test_invalid_tsv(self):
+        conf = load_and_validate_config(None)
+        conf.serialise.files.transcripts = pkg_resources.resource_filename("Mikado.tests",
+                                                                           os.path.join("test_external",
+                                                                                        "mikado_prepared.fasta"))
+        self.assertTrue(os.path.exists(conf.serialise.files.transcripts),
+                        conf.serialise.files.transcripts)
+        logger = create_default_logger("test_no_fasta", level="DEBUG")
+        h5 = pkg_resources.resource_filename("Mikado.tests", os.path.join("test_external", "abundance.h5"))
+        with self.assertRaises((pd.errors.ParserError,)):
+            ExternalSerializer(logger=logger, configuration=conf, handle=h5)
+        wrong_tsv_one = pkg_resources.resource_filename("Mikado.tests", os.path.join("test_external", "wrong_1.tsv"))
+        with self.assertRaises((ValueError, pd.errors.ParserError)), \
+                self.assertLogs(logger.name, level="CRITICAL") as cmo:
+            ExternalSerializer(logger=logger, configuration=conf, handle=wrong_tsv_one)
+        self.assertTrue(any([re.search(r"Invalid input file", str(record.msg)) is not None for record in cmo.records]))
+        wrong_tsv_two = pkg_resources.resource_filename("Mikado.tests", os.path.join("test_external", "wrong_2.tsv"))
+        with self.assertRaises((ValueError, pd.errors.ParserError)), \
+                self.assertLogs(logger.name, level="CRITICAL") as cmo:
+            ExternalSerializer(logger=logger, configuration=conf, handle=wrong_tsv_two)
+        self.assertTrue(any([re.search(r"Invalid input file", str(record.msg)) is not None for record in cmo.records]))
 
     def test_real(self):
         self.transcript.attributes["tpm"] = 10

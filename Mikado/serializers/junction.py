@@ -9,6 +9,8 @@ before loading.
 
 import io
 import os
+from collections import namedtuple
+
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -75,7 +77,7 @@ class Junction(DBBASE):
     chrom_object = relationship(Chrom, uselist=False)
     chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id))
 
-    def __init__(self, bed12_object, chrom_id):
+    def __init__(self, junction_start, junction_end, name, strand, score, chrom_id):
         """
         Serialization initializer.
         :param bed12_object: a BED12-like class instance.
@@ -85,22 +87,31 @@ class Junction(DBBASE):
         :type chrom_id: int
         """
 
-        if not isinstance(bed12_object, bed12.BED12):
-            raise TypeError("Invalid data type!")
+        # if not isinstance(bed12_object, bed12.BED12):
+        #     raise TypeError("Invalid data type!")
         self.chrom_id = chrom_id
-        self.start = bed12_object.start
-        self.end = bed12_object.end
-        self.junction_start = bed12_object.thick_start
-        self.junction_end = bed12_object.thick_end
-        self.name = bed12_object.name
-        self.strand = bed12_object.strand
-        self.score = bed12_object.score
+        self.start = junction_start
+        self.end = junction_end
+        self.junction_start = junction_start
+        self.junction_end = junction_end
+        self.name = name
+        self.strand = strand
+        self.score = score
 
     def __str__(self):
-        return "{chrom}\t{start}\t{end}".format(
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
             chrom=self.chrom,
             start=self.start,
-            end=self.end
+            end=self.end,
+            strand=self.strand
+        )
+
+    def __repr__(self):
+        return "{chrom}\t{start}\t{end}\t{strand}".format(
+            chrom=self.chrom,
+            start=self.start,
+            end=self.end,
+            strand=self.strand
         )
 
     @hybrid_method
@@ -235,8 +246,8 @@ class JunctionSerializer:
                 sequences[current_chrom.name] = current_chrom.chrom_id
                 current_chrom = current_chrom.chrom_id
 
-            current_junction = Junction(row, current_chrom)
-            objects.append(current_junction)
+            self.generate_introns(current_chrom, objects, row)
+
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))
                 self.session.begin(subtransactions=True)
@@ -248,6 +259,17 @@ class JunctionSerializer:
         self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()
+
+    @staticmethod
+    def generate_introns(current_chrom, objects, row):
+        # Now generate as many junctions as block start/size are present in this bed row
+        # These are the exons
+        Exon = namedtuple('Exon', 'start end')
+        exons = [Exon(int(block[0]), int(block[1])) for block in row.blocks]
+        introns = [(e0.end + 1, e1.start - 1) for e0, e1 in zip(exons, exons[1:])]
+        for intron in introns:
+            current_junction = Junction(intron[0], intron[1], row.name, row.strand, row.score, current_chrom)
+            objects.append(current_junction)
 
     def __call__(self):
         """

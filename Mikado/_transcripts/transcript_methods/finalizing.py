@@ -2,6 +2,7 @@
 This module provides the functions needed to check a transcript for consinstency,
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
+import itertools
 
 from ...utilities import Interval, IntervalTree
 from ...utilities import overlap
@@ -12,7 +13,7 @@ from ...exceptions import InvalidCDS, InvalidTranscript
 __author__ = 'Luca Venturini'
 
 
-def __basic_final_checks(transcript):
+def _basic_final_checks(transcript):
 
     """
     Function that verifies minimal criteria of a transcript before finalising.
@@ -26,9 +27,7 @@ def __basic_final_checks(transcript):
     if not _exons:
         if transcript._possibly_without_exons is True:
             transcript.logger.debug("Inferring that %s is a single-exon transcript")
-            new_exon = (transcript.start, transcript.end)
-            transcript.add_exon(new_exon)
-
+            _exons = [(transcript.start, transcript.end)]
         elif len(transcript.combined_cds) == 0:
             exc=InvalidTranscript(
                 "No exon defined for the transcript {0}. Aborting".format(transcript.id))
@@ -36,7 +35,7 @@ def __basic_final_checks(transcript):
             raise exc
         else:
             # Let us try to derive exons from CDS ...
-            _exons = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_cds])
+            _exons = sorted([(int(exon[0]), int(exon[1])) for exon in transcript.combined_cds])
             if len(transcript.combined_utr) == 0:
                 # Enlarge the terminal exons to include the starts
                 if transcript.start is not None:
@@ -44,55 +43,44 @@ def __basic_final_checks(transcript):
                 if transcript.end is not None:
                     _exons[-1] = (_exons[-1][0], transcript.end)
             else:
-                __utr = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_utr])
-                try:
-                    __before = [_ for _ in __utr if _[1] < _exons[0][0]]
-                    if __before and __before[-1][1] == _exons[0][0] - 1:
-                        _exons[0] = (__before[-1][0], _exons[0][1])
-                        __before.pop()
-                    __after = [_ for _ in __utr if _[0] > _exons[-1][1]]
-                    if __after and __after[0][0] == _exons[-1][1] + 1:
-                        _exons[-1] = (_exons[-1][0], __after[0][1])
-                        __after = __after[1:]
-                    _exons = __before + _exons + __after
-                except IndexError:
+                utr = sorted([(int(exon[0]), int(exon[1])) for exon in transcript.combined_utr])
+                before = [_ for _ in utr if _[0] < _exons[0][0]]
+                after = [_ for _ in utr if _[1] > _exons[-1][1]]
+                if (before and before[-1][1] >= _exons[0][0]) or (after and after[0][0] <= _exons[-1][1]):
                     exc = InvalidTranscript("Transcript {} has a mangled CDS/UTR annotation. Please revise it.")
                     transcript.logger.exception(exc)
                     raise exc
+                if before and before[-1][1] == _exons[0][0] - 1:
+                    _exons[0] = (before[-1][0], _exons[0][1])
+                    before.pop()
+                if after and after[0][0] == _exons[-1][1] + 1:
+                    _exons[-1] = (_exons[-1][0], after[0][1])
+                    after = after[1:]
+                _exons = before + _exons + after
 
     transcript.logger.debug("Converting to tuples")
-    _exons = [tuple([int(exon[0]), int(exon[1])]) for exon in _exons]
-
-    new_exons = []
+    _exons = [(int(exon[0]), int(exon[1])) for exon in _exons]
 
     # Set the start and end automatically if none has been explicitly provided
-    if transcript.start is None:
-        transcript.start = min(_[0] for _ in _exons)
-    if transcript.end is None:
-        transcript.end = max(_[1] for _ in _exons)
-
-    for exon in _exons:
-        if exon[0] < transcript.start or exon[1] > transcript.end:
-            exc = InvalidTranscript("{} for {} is an invalid exon (start {}, end {})".format(
-                exon, transcript.id, transcript.start, transcript.end))
+    transcript._set_exons(sorted(_exons))
+    # Now check for overlapping exons
+    for exon_a, exon_b in zip(transcript.exons[:-1], transcript.exons[1:]):
+        if exon_a[1] >= exon_b[0]:
+            exc = InvalidTranscript(
+                "Overlapping exons found for\n{0} {1}/{2}\n{3}".format(
+                    transcript.id, exon_a, exon_b, transcript.exons))
             transcript.logger.debug(exc)
             raise exc
-        new_exons.append(exon)
 
-    transcript._set_exons(sorted(new_exons))
-
+    _verify_boundaries(transcript)
     if len(transcript.exons) > 1 and transcript.strand is None and transcript._accept_undefined_multi is False:
         exc = InvalidTranscript(
-            "Multiexonic transcripts must have a defined strand! Error for {0}".format(
-                transcript.id))
+            f"Multiexonic transcripts must have a defined strand! Error for {transcript.id}")
         transcript.logger.exception(exc)
         raise exc
 
     if transcript.combined_utr != [] and transcript.combined_cds == []:
-
-        exc = InvalidTranscript(
-            "Transcript {tid} has defined UTRs but no CDS feature!".format(
-                tid=transcript.id))
+        exc = InvalidTranscript(f"Transcript {transcript.id} has defined UTRs but no CDS feature!")
         transcript.logger.exception(exc)
         raise exc
 
@@ -209,31 +197,24 @@ UTR == {}""".format(transcript.id,
                     transcript.cdna_length, transcript.combined_cds_length, transcript.combined_utr_length))
 
 
-def __calculate_introns(transcript):
+def _calculate_introns(transcript):
 
     """Private method to create the stores of intron
     and splice sites positions.
     """
 
-    introns = []
-    cds_introns = []
-    splices = []
+    introns = set()
+    cds_introns = set()
+    splices = set()
 
     if len(transcript.exons) > 1:
-        for index in range(len(transcript.exons) - 1):
-            exona, exonb = transcript.exons[index:index + 2]
-            if exona[1] >= exonb[0]:
-                exc = InvalidTranscript(
-                    "Overlapping exons found for\n{0} {1}/{2}\n{3}".format(
-                        transcript.id, exona, exonb, transcript.exons))
-                transcript.logger.debug(exc)
-                raise exc
+        for exon_a, exon_b in zip(transcript.exons[:-1], transcript.exons[1:]):
             # Append the splice junction
-            introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
+            introns.add((exon_a[1] + 1, exon_b[0] - 1))
             # Append the splice locations
-            splices.extend([exona[1] + 1, exonb[0] - 1])
-    transcript.introns = set(introns)
-    transcript.splices = set(splices)
+            splices.update({exon_a[1] + 1, exon_b[0] - 1})
+    transcript.introns = introns
+    transcript.splices = splices
 
     if (transcript.number_internal_orfs == 0 or
             len(transcript.selected_cds) < 2 or
@@ -248,23 +229,21 @@ def __calculate_introns(transcript):
             intron = tuple([first[1] + 1, second[0] - 1])
             if intron not in transcript.introns:
                 continue
-            cds_introns.append(intron)
+            cds_introns.add(intron)
 
-        cintrons = set(cds_introns)
-        assert len(cintrons) > 0
-        transcript._selected_cds_introns = cintrons
+        assert len(cds_introns) > 0
+        transcript._selected_cds_introns = cds_introns
 
         if transcript.number_internal_orfs > 1:
-            cds_introns = []
+            cds_introns = set()
             for position in range(len(transcript.combined_cds) - 1):
                 former = transcript.combined_cds[position]
                 latter = transcript.combined_cds[position + 1]
                 junc = tuple([former[1] + 1, latter[0] - 1])
                 if junc in transcript.introns:
-                    cds_introns.append(junc)
-            cintrons = set(cds_introns)
-            assert len(cintrons) > 0
-            transcript._combined_cds_introns = cintrons
+                    cds_introns.add(junc)
+            assert len(cds_introns) > 0
+            transcript._combined_cds_introns = cds_introns
         else:
             transcript._combined_cds_introns = transcript._selected_cds_introns.copy()
 
@@ -272,7 +251,7 @@ def __calculate_introns(transcript):
     return transcript
 
 
-def __check_completeness(transcript):
+def _check_completeness(transcript):
 
     """Private method that checks whether a transcript is complete
     or not based solely on the presence of CDS/UTR information."""
@@ -290,7 +269,7 @@ def __check_completeness(transcript):
                 transcript.has_start_codon = True
 
 
-def __verify_boundaries(transcript):
+def _verify_boundaries(transcript):
 
     """
     Method to verify that the start/end of the transcripts are exactly where they should.
@@ -298,27 +277,22 @@ def __verify_boundaries(transcript):
     :return:
     """
 
-    try:
-        if transcript.exons[0][0] != transcript.start or transcript.exons[-1][1] != transcript.end:
-            transcript.logger.warning(
-                """The transcript {id} has coordinates {tstart}:{tend},
-            but its first and last exons define it up until {estart}:{eend}!
-            Exons: {exons}. Shrinking it""".format(
-                    id=transcript.id,
-                    tstart=transcript.start,
-                    tend=transcript.end,
-                    estart=transcript.exons[0][0],
-                    eend=transcript.exons[-1][1],
-                    exons=transcript.exons))
-            transcript.start = transcript.exons[0][0]
-            transcript.end = transcript.exons[-1][1]
-
-    except IndexError as err:
-        raise InvalidTranscript(
-            err, transcript.id, str(transcript.exons))
+    if transcript.exons[0][0] != transcript.start or transcript.exons[-1][1] != transcript.end:
+        transcript.logger.warning(
+            """The transcript {id} has coordinates {tstart}:{tend},
+        but its first and last exons define it up until {estart}:{eend}!
+        Exons: {exons}. Modifying it""".format(
+                id=transcript.id,
+                tstart=transcript.start,
+                tend=transcript.end,
+                estart=transcript.exons[0][0],
+                eend=transcript.exons[-1][1],
+                exons=transcript.exons))
+        transcript.start = transcript.exons[0][0]
+        transcript.end = transcript.exons[-1][1]
 
 
-def __calculate_phases(coding: list, previous: int) -> (int, dict):
+def _calculate_phases(coding: list, previous: int) -> (int, dict):
     """
 
     :param coding:
@@ -338,7 +312,7 @@ def __calculate_phases(coding: list, previous: int) -> (int, dict):
     return total_cds_length, __calculated_phases
 
 
-def __check_internal_orf(transcript, index):
+def _check_internal_orf(transcript, index):
 
     """
     Method that verifies that an internal ORF does not have any internal gap.
@@ -469,13 +443,11 @@ Coding_exons (recalculated): {}""".format(
             previous = 0
             phase_orf = []
 
-    total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
+    total_cds_length, __calculated_phases = _calculate_phases(coding, previous)
     new_phases_keys = sorted(__calculated_phases.keys(), reverse=(transcript.strand == "-"))
     new_phase_orf = [__calculated_phases[_] for _ in new_phases_keys]
 
-    if len(__calculated_phases) != len(coding):
-        # This is a mistake which should crash the program
-        raise ValueError("Error in calculating the phases!")
+    assert len(__calculated_phases) == len(coding)
 
     if phase_orf and new_phase_orf != phase_orf:
         transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
@@ -491,15 +463,14 @@ Coding_exons (recalculated): {}""".format(
 3' UTR: {}""".format(total_cds_length, total_cds_length % 3, transcript.id, five_utr, three_utr))
     elif total_cds_length % 3 != 0 and three_utr:
         for num in (0, 1, 2):
-            total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                       num)
+            total_cds_length, __calculated_phases = _calculate_phases(coding,
+                                                                      num)
             if total_cds_length % 3 == 0:
                 break
 
         if total_cds_length % 3 != 0:
             raise InvalidCDS("Persistently wrong ORF for %s at 5' end", transcript.id)
 
-    # new_phase_orf = [__calculated_phases[_] for _ in phases_keys]
     if ((__calculated_phases[sorted(__calculated_phases.keys(), reverse=(transcript.strand == "-"))[0]] != 0)
             and five_utr):
         raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for {}".format(
@@ -522,7 +493,7 @@ Coding_exons (recalculated): {}""".format(
     return transcript
 
 
-def __check_phase_correctness(transcript, strip_faulty_cds=True):
+def _check_phase_correctness(transcript, strip_faulty_cds=True):
 
     """
     This method verifies that the phases are assigned correctly in the case of a coding transcript.
@@ -535,18 +506,16 @@ def __check_phase_correctness(transcript, strip_faulty_cds=True):
 
     if min(len(segments), len(internal_orfs)) == 0:
         # transcript.logger.debug("Redefining segments for %s", transcript.id)
-        # Define exons
         segments = [("exon", tuple([e[0], e[1]])) for e in transcript.exons]
         # Define CDS
         if len(internal_orfs) > 0:
-            for orf in internal_orfs:
-                for segment in orf:
-                    if segment[0] == "exon":
-                        continue
-                    elif segment[0] == "UTR":
-                        segments.append(("UTR", (segment[1][0], segment[1][1])))
-                    elif segment[0] == "CDS":
-                        segments.append(("CDS", (segment[1][0], segment[1][1])))
+            for segment in itertools.chain(internal_orfs):
+                if segment[0] == "exon":
+                    continue
+                elif segment[0] == "UTR":
+                    segments.append(("UTR", (segment[1][0], segment[1][1])))
+                elif segment[0] == "CDS":
+                    segments.append(("CDS", (segment[1][0], segment[1][1])))
         else:
             segments.extend([("CDS", tuple([c[0], c[1]])) for c in transcript.combined_cds])
         # Define UTR segments
@@ -558,10 +527,6 @@ def __check_phase_correctness(transcript, strip_faulty_cds=True):
             internal_orfs = [segments]
         else:
             transcript.selected_internal_orf_index = None
-    elif len(internal_orfs) == 0:
-        exception = AssertionError("No internal ORF for {}".format(transcript.id))
-        transcript.logger.exception(exception)
-        raise exception
     else:
         pass
 
@@ -571,7 +536,7 @@ def __check_phase_correctness(transcript, strip_faulty_cds=True):
     orf_excs = []
     for orf_index in range(len(internal_orfs)):
         try:
-            transcript = __check_internal_orf(transcript, orf_index)
+            transcript = _check_internal_orf(transcript, orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
             transcript.logger.debug("ORF %s of %s is invalid. Exception: %s", orf_index, transcript.id, exc)
             __orfs_to_remove.append(orf_index)
@@ -596,6 +561,20 @@ def __check_phase_correctness(transcript, strip_faulty_cds=True):
             transcript.internal_orfs = internal_orfs
     else:
         pass
+
+    combined_cds = []
+    for orf in transcript.internal_orfs:
+        for segment in orf:
+            if segment[0] != "CDS":
+                continue
+            combined_cds.append(segment[1])
+    combined_cds = sorted(combined_cds)
+    if any([overlap(p1, p2) > 0 for p1, p2 in zip(combined_cds, combined_cds[1:])]):
+        internal_orfs = '\n'.join([str(_) for _ in transcript.internal_orfs])
+        raise ValueError(f"The internal ORFs of {transcript.id} do overlap each other. This is an error!\n"
+                         f"{internal_orfs}\nCombined CDS:{combined_cds}")
+
+    transcript.combined_cds = combined_cds
 
     if len(transcript.internal_orfs) > 0:
         transcript.selected_internal_orf_index = 0
@@ -670,6 +649,39 @@ def finalize(transcript):
 
     # Add the stop codon to the CDS
     strip_faulty_cds = getattr(transcript, "strip_faulty_cds", True)
+
+    transcript._cdna_length = None
+    _basic_final_checks(transcript)
+    # Sort the exons by start then stop
+
+    try:
+        _check_cdna_vs_utr(transcript)
+    except InvalidCDS as exc:
+        if transcript.combined_cds:
+            transcript.logger.debug(f"Possible faulty UTR annotation for {transcript.id}, trying to recalculate it.")
+            transcript.logger.debug(exc)
+            transcript.combined_utr = []
+            try:
+                _check_cdna_vs_utr(transcript)
+            except InvalidCDS as exc:
+                if strip_faulty_cds is True:
+                    transcript.logger.warning(f"CDS for {transcript.id} completely invalid. Removing it.")
+                    transcript.logger.exception(exc)
+                    transcript.combined_cds = []
+                    transcript.combined_utr = []
+                    transcript.segments = []
+                    transcript.internal_orfs = []
+                    _basic_final_checks(transcript)
+                    _check_cdna_vs_utr(transcript)
+                else:
+                    raise InvalidCDS(exc)
+
+    transcript.combined_cds = sorted(transcript.combined_cds,
+                                     key=operator.itemgetter(0, 1))
+
+    transcript.combined_utr = sorted(transcript.combined_utr,
+                                     key=operator.itemgetter(0, 1))
+
     if transcript.stop_codon:
         transcript.logger.debug("Adding the stop codon to %s", transcript.id)
         transcript.stop_codon = sorted(transcript.stop_codon)
@@ -690,50 +702,14 @@ def finalize(transcript):
                 else:
                     raise InvalidCDS(exc)
 
-    transcript._cdna_length = None
-    __basic_final_checks(transcript)
-    # Sort the exons by start then stop
-
     try:
-        _check_cdna_vs_utr(transcript)
-    except InvalidCDS as exc:
-        if transcript.combined_cds:
-            transcript.logger.debug(
-                "Possible faulty UTR annotation for %s, trying to recalculate it.",
-                transcript.id)
-            transcript.logger.debug(exc)
-            transcript.combined_utr = []
-            try:
-                _check_cdna_vs_utr(transcript)
-            except InvalidCDS as exc:
-                if strip_faulty_cds is True:
-                    transcript.logger.warning("CDS for %s completely invalid. Removing it.",
-                                              transcript.id)
-                    transcript.logger.exception(exc)
-                    transcript.combined_cds = []
-                    transcript.combined_utr = []
-                    transcript.segments = []
-                    transcript.internal_orfs = []
-                    __basic_final_checks(transcript)
-                    _check_cdna_vs_utr(transcript)
-                else:
-                    raise InvalidCDS(exc)
-
-    transcript.combined_cds = sorted(transcript.combined_cds,
-                                     key=operator.itemgetter(0, 1))
-
-    transcript.combined_utr = sorted(transcript.combined_utr,
-                                     key=operator.itemgetter(0, 1))
-
-    try:
-        __check_completeness(transcript)
-        __verify_boundaries(transcript)
+        _check_completeness(transcript)
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
         transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
-        __check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
+        _check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
-        __calculate_introns(transcript)
+        _calculate_introns(transcript)
     except InvalidCDS:
         if strip_faulty_cds is True:
             transcript.finalized = True
@@ -743,11 +719,8 @@ def finalize(transcript):
         else:
             raise
 
-    if transcript.feature == "transcript":
-        if len(transcript.combined_cds) > 0:
-            transcript.feature = "mRNA"
-        else:
-            transcript.feature = "transcript"
+    if transcript.feature == "transcript" and len(transcript.combined_cds) > 0:
+        transcript.feature = "mRNA"
 
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])
@@ -762,8 +735,6 @@ def finalize(transcript):
     transcript._calculate_segment_tree()
     transcript._calculate_cds_tree()
 
-    # BUG somewhere ... I am not sorting this properly before (why?)
-    # transcript.exons = sorted(transcript.exons)
     transcript.logger.debug("Checking various attributes")
     if transcript.has_start_codon is None:
         if "has_start_codon" in transcript.attributes:

@@ -34,7 +34,7 @@ from ..transcripts import Transcript
 from ..loci.superlocus import Superlocus
 from ..configuration.configurator import load_and_validate_config
 from ..utilities import dbutils
-from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
+from ..exceptions import UnsortedInput, InvalidConfiguration, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 from ._locus_single_printer import print_locus
 import multiprocessing.managers
@@ -120,7 +120,7 @@ class Picker:
                 self.procs = 1
 
         if self.locus_out is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
 
         # self.printer_process = Process(target=self.printer)
@@ -139,7 +139,7 @@ class Picker:
             parser = Bed12Parser
             fformat = "bed12"
         else:
-            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise InvalidConfiguration("Invalid input file: {0}".format(self.input_file))
 
         verified = False
         with parser(self.input_file) as testing:
@@ -148,7 +148,7 @@ class Picker:
                     verified = True
                     break
         if verified is False:
-            raise InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise InvalidConfiguration("Invalid input file: {0}".format(self.input_file))
 
         if multithreading:
             parser = Parser(self.input_file)
@@ -790,7 +790,7 @@ not available or not writable for this user. Leaving the DB where it is.")
 
         tid = self.transcript_gtf_pattern.search(fields[-1])
         if tid is None:
-            raise InvalidJson("Corrupt input GTF file, offending line:\n{}".format(line))
+            raise InvalidConfiguration("Corrupt input GTF file, offending line:\n{}".format(line))
         tid = tid.groups()[0]
         if fields[7] in (None, ".", "?"):
             phase = None

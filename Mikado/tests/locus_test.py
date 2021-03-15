@@ -3,20 +3,33 @@
 """
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
+import dataclasses
 import operator
 import random
+import re
 import unittest
 import os.path
 import logging
+from collections import namedtuple
+from copy import deepcopy
+
+import io
+import marshmallow
 import pkg_resources
-from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile
+import pytest
+from numpy import arange
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from Mikado._transcripts.scoring_configuration import NumBoolEqualityFilter, ScoringFile, SizeFilter, RangeFilter, \
+    InclusionFilter, MinMaxScore, TargetScore
+from Mikado._transcripts.transcript_base import Metric
 from Mikado.configuration import configurator, MikadoConfiguration, DaijinConfiguration
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.parsers.GTF import GtfLine
 from Mikado.transcripts.transcript import Transcript
 from Mikado.loci import Superlocus, Abstractlocus, Locus, Monosublocus, MonosublocusHolder, Sublocus, Excluded
-from Mikado.loci.locus import expand_transcript
+from Mikado.loci.locus import pad_transcript
 from Mikado.transcripts.reference_gene import Gene
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities.overlap import overlap
@@ -100,6 +113,248 @@ class ExcludedTester(unittest.TestCase):
             name="excluded_transcripts",
             chrom=excluded.chrom, start=26603003, end=26612891, strand="-",
             transcripts="AT5G66650.1,AT5G66670.1"))
+
+
+class SuperlocusTester(unittest.TestCase):
+
+    def test_find_lost_transcripts(self):
+        conf = MikadoConfiguration()
+        # With this scoring, we are giving a score of 10 to transcripts with a CDS and a cDNA length >= 300.
+        # We are giving a negative score to any transcript shorter than 300 bps, coding or not
+        conf.scoring.scoring = {
+            "cdna_length": MinMaxScore(rescaling="min", multiplier=-5,
+                                       filter=SizeFilter(value=300, operator="le")),
+            "combined_cds_length": MinMaxScore(rescaling="max", multiplier=10,
+                                               filter=SizeFilter(value=300, operator="ge"))
+        }
+        conf.scoring.requirements.expression = ["cdna_length"]
+        conf.scoring.requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.requirements._check_my_requirements()
+
+        conf.scoring.cds_requirements.expression = ["cdna_length"]
+        conf.scoring.cds_requirements.parameters = {"cdna_length": SizeFilter(value=1, operator="ge")}
+        conf.scoring.cds_requirements._check_my_requirements()
+
+        conf.pick.clustering.flank = 500
+
+        t1 = Transcript(configuration=conf)
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "valid"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+        self.assertGreater(t1.cdna_length, 300)
+        self.assertGreater(t1.combined_cds_length, 300)
+
+        t2 = Transcript(configuration=conf)
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 700, 900, "+", "invalid.1"
+        t2.add_exons([(700, 900)])
+        t2.finalize()
+
+        t3 = Transcript(configuration=conf)
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 2100, 2310, "+", "invalid.2"
+        t3.add_exons([(2100, 2310)])
+        t3.add_exons([(2100, 2310)], features="CDS")
+        t3.finalize()
+
+        logger = create_default_logger("test_find_lost_transcripts")
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        sl.filter_and_calculate_scores()
+        self.assertTrue(sorted(sl.transcripts.keys()), sorted([t1.id, t2.id, t3.id]))
+        self.assertGreater(sl.scores[t1.id]["score"], 0, sl.scores[t1.id])
+        self.assertLessEqual(sl.scores[t2.id]["score"], 0)
+        self.assertLessEqual(sl.scores[t3.id]["score"], 0)
+
+        locus = Locus(t1)
+        sl.loci[locus.id] = locus
+        sl._find_lost_transcripts()
+        self.assertEqual(sl.lost_transcripts, dict())
+        sl.configuration.pick.clustering.purge = False
+        sl.logger.setLevel("DEBUG")
+        sl._find_lost_transcripts()
+        self.assertEqual(sorted(list(sl.lost_transcripts.keys())), sorted([t2.id, t3.id]))
+        sl.loci = dict()
+        sl.configuration.pick.clustering.purge = True
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 1)
+        sl = Superlocus(t1, configuration=conf, flank=conf.pick.clustering.flank, logger=logger)
+        sl.add_transcript_to_locus(t2)
+        sl.add_transcript_to_locus(t3)
+        sl.logger.setLevel("DEBUG")
+        sl.configuration.pick.clustering.purge = False
+        sl.define_loci()
+        self.assertEqual(len(sl.loci), 3)
+
+    def test_sl_is_intersecting(self):
+        
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        for prod in itertools.chain(itertools.combinations([t1, t2, t3], 2), [(t3, t4)]):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        for prod in [(t1, t4), (t2, t4)]:
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+        
+        for mono in [t5, t6, t7]:
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(mono, t8, cds_only=True))
+
+        for prod in itertools.combinations([t5, t6, t7], 2):
+            self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=False))
+            # CDS-only is activated only when both are coding
+            if prod[0].is_coding and prod[1].is_coding:
+                self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+            else:
+                self.assertTrue(Superlocus.is_intersecting(*prod, cds_only=True))
+
+        # Now check that monoexonic and multi-exonic transcripts never intersect
+        for prod in itertools.product([t1, t2, t3, t4], [t5, t6, t7, t8]):
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=False))
+            self.assertFalse(Superlocus.is_intersecting(*prod, cds_only=True))
+
+    def test_define_graph(self):
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 1101, 2000, "+", "multi.1"
+        t1.add_exons([(1101, 1500), (1601, 2000)])
+        t1.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 1001, 2200, "+", "multi.2"
+        t2.add_exons([(1001, 1500), (1601, 2200)])
+        t2.add_exons([(1201, 1500), (1601, 1900)], features="CDS")
+        t2.finalize()
+
+        t3 = Transcript()
+        t3.chrom, t3.start, t3.end, t3.strand, t3.id = "Chr1", 901, 2200, "+", "multi.3"
+        t3.add_exons([(901, 1500), (1601, 2200)])
+        t3.finalize()
+        self.assertEqual(t3.selected_cds_introns, set())
+
+        t4 = Transcript()
+        t4.chrom, t4.start, t4.end, t4.strand, t4.id = "Chr1", 901, 2700, "+", "multi.4"
+        t4.add_exons([(901, 1500), (1601, 2100), (2201, 2700)])
+        t4.add_exons([(1801, 2100), (2201, 2500)], features="CDS")
+        t4.finalize()
+        self.assertEqual(t4.selected_cds_introns, {(2101, 2200)}, (t4.selected_cds_introns, t4.is_coding))
+
+        t5 = Transcript()
+        t5.chrom, t5.start, t5.end, t5.strand, t5.id = "Chr1", 1101, 1630, "+", "mono.1"
+        t5.add_exon((1101, 1630))
+        t5.add_exon((1101, 1530), feature="CDS")
+        t5.finalize()
+
+        t6 = Transcript()
+        t6.chrom, t6.start, t6.end, t6.strand, t6.id = "Chr1", 1101, 1530, "+", "mono.2"
+        t6.add_exon((1101, 1530))
+        t6.finalize()
+
+        t7 = Transcript()
+        t7.chrom, t7.start, t7.end, t7.strand, t7.id = "Chr1", 1400, 1800, "+", "mono.3"
+        t7.add_exon((1400, 1800))
+        t7.add_exon((1591, 1800), feature="CDS")
+        t7.finalize()
+
+        t8 = Transcript()
+        t8.chrom, t8.start, t8.end, t8.strand, t8.id = "Chr1", 1801, 2110, "+", "mono.4"
+        t8.add_exon((1801, 2110))
+        t8.add_exon((1801, 2100), feature="CDS")
+        t8.finalize()
+
+        # This is monoexonic for the CDS *but* Multiexonic for the cDNA
+        t9 = Transcript()
+        t9.chrom, t9.start, t9.end, t9.strand, t9.id = "Chr1", 1121, 2000, "+", "mono_multi"
+        t9.add_exons([(1121, 1500), (1601, 2000)])
+        t9.add_exons([(1121, 1490)], features="CDS")
+        t9.finalize()
+        self.assertTrue(t9.is_coding)
+
+        sl = Superlocus(t1, flank=2000)
+        sl.configuration.pick.clustering.cds_only = False
+        [sl.add_transcript_to_locus(t) for t in [t2, t3, t4, t5, t6, t7, t8, t9]]
+        self.assertEqual(len(sl.transcripts), 9)
+        graph = sl.define_graph()
+        multi_ids = [t.id for t in [t1, t2, t3, t4, t9]]
+        mono_ids = [t.id for t in [t5, t6, t7, t8]]
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+        self.assertTrue(all(edge in graph.edges() for edge in itertools.combinations(mono_ids[:3], 2)))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(mono_ids[:3], [t8.id])))
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product(multi_ids,
+                                                                                    mono_ids)))
+        sl.configuration.pick.clustering.cds_only = True
+        graph = sl.define_graph()
+        self.assertFalse(all(edge in graph.edges() for edge in itertools.combinations(multi_ids, 2)))
+
+        for comb in itertools.combinations(multi_ids, 2):
+            if set.issubset(set(comb), {t1.id, t2.id, t3.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.combinations(mono_ids, 2):
+            if t5.id in comb and t6.id in comb:
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        for comb in itertools.product(mono_ids, [t9.id]):
+            if set.issubset(set(comb), {t5.id, t6.id, t9.id}):
+                self.assertIn(comb, graph.edges())
+            else:
+                self.assertNotIn(comb, graph.edges())
+
+        self.assertTrue(not any(edge in graph.edges() for edge in itertools.product([t.id for t in [t1, t2, t3, t4]],
+                                                                                    [t9.id] + mono_ids)))
 
 
 class RefGeneTester(unittest.TestCase):
@@ -227,6 +482,10 @@ class RefGeneTester(unittest.TestCase):
 
 class AbstractLocusTester(unittest.TestCase):
 
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        self._caplog = caplog
+
     def setUp(self):
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t0
     Chr1\tfoo\texon\t101\t400\t.\t+\t.\tID=t0:exon1;Parent=t0
@@ -257,6 +516,50 @@ class AbstractLocusTester(unittest.TestCase):
         self.assertIsNotNone(self.configuration.scoring, self.configuration)
         self.transcript1.configuration = self.configuration
         self.transcript2.configuration = self.configuration
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
+
+    def test_create_metrics_row(self):
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        transcript.id = "foo"
+        transcript.finalize()
+        transcript.is_reference = True
+        for locus in [Locus, Sublocus, Superlocus]:
+            for score, tpm in itertools.product([None, 10, 1.56789], [None, 10, 2.5689]):
+                transcript.score = score
+                transcript.external_scores["tpm"] = [tpm]
+                instance = locus(transcript)
+                # locus.scores[transcript.id] = score
+                instance.get_metrics()
+                instance.scores_calculated = True
+                instance.scores[transcript.id] = {"score": score}
+                self.assertTrue(instance.scores_calculated)
+                self.assertEqual(transcript.score, score)
+                row = instance._create_metrics_row(transcript.id, instance._metrics[transcript.id],
+                                                   transcript)
+                self.assertEqual(transcript.score, score)
+                self.assertIsInstance(row, dict)
+                self.assertIn("tid", row.keys())
+                if locus == Locus:
+                    self.assertEqual(row["alias"], transcript.id)
+                else:
+                    self.assertEqual(row["tid"], transcript.id)
+                self.assertIn("external.tpm", row)
+                if tpm is None:
+                    self.assertEqual(row["external.tpm"], "NA")
+                elif tpm == 10:
+                    self.assertEqual(row["external.tpm"], 10)
+                elif tpm == 2.5689:
+                    self.assertEqual(row["external.tpm"], 2.57)
+                if score is None:
+                    self.assertEqual(row["score"], "NA", locus)
+                elif score == 10:
+                    self.assertEqual(row["score"], 10, locus)
+                else:
+                    self.assertEqual(row["score"], 1.57, locus)
 
     def test_removal(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
@@ -274,7 +577,7 @@ class AbstractLocusTester(unittest.TestCase):
     def test_invalid_conf(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
             for invalid in ([], ("hello",), 10, "I_do_not_exist.yaml"):
-                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidJson):
+                with self.subTest(cls=cls, invalid=invalid), self.assertRaises(exceptions.InvalidConfiguration):
                     cls(self.transcript1, configuration=invalid)
 
     def test_not_implemented(self):
@@ -303,14 +606,558 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertGreaterEqual(child2, child2)
             self.assertGreaterEqual(child1, child1)
 
+    def test_invalid_logger(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), "hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.logger = invalid
+            l.logger = None
+            self.assertIs(l.logger, create_null_logger())
+
+    def test_invalid_source(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(AssertionError):
+                        l.source = invalid
+            l.source = None
+            self.assertEqual(l.source, "Mikado")
+            l.source = "Test"
+            self.assertEqual(l.source, "Test")
+
+    def test_invalid_stranded(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(ValueError):
+                        l.stranded = invalid
+            l.stranded = False
+            self.assertFalse(l.stranded)
+            l.stranded = True
+            self.assertTrue(l.stranded)
+
+    def test_invalid_flank(self):
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None)
+            for invalid in [-10, dict(), b"hello", 5.0]:
+                with self.subTest(invalid=invalid):
+                    with self.assertRaises(TypeError):
+                        l.flank = invalid
+            for valid in [0, 100, 1000]:
+                l.flank = valid
+                self.assertEqual(l.flank, valid)
+
+    def test_calculate_score_empty_locus(self):
+        logger = create_default_logger("test_calculate_score_empty_locus", level="DEBUG")
+        for locus in [Locus, Sublocus, Superlocus, Monosublocus, MonosublocusHolder]:
+            l = locus(None, logger=logger)
+            for metric in l.available_metrics:
+                with self.assertLogs(logger, level="DEBUG") as cmo:
+                    l._calculate_score(metric)
+                self.assertTrue(any([re.search(r"No transcripts in.*\. Returning.", out) is not None for out in
+                                     cmo.output]))
+
+    def test_get_denominator(self):
+        # _get_denominator(param: Union[MinMaxScore, TargetScore],
+        #   use_raw: str, metrics: dict) -> (Union[float,int], Union[float, int, bool])
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        metrics = {"foo.1": .5, "foo.2": .1, "foo.3": 1}
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=dict()), (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=True, metrics=metrics),
+                         (-1, None))
+        self.assertEqual(Abstractlocus._get_denominator(min_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+        max_score = MinMaxScore(rescaling="max", filter=None)
+
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=dict()),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=True, metrics=metrics),
+                         (1, None))
+        self.assertEqual(Abstractlocus._get_denominator(max_score, use_raw=False, metrics=metrics),
+                         (.9, None))
+
+        target_score = TargetScore(value=.5, rescaling="target", filter=None)
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=dict()),
+                         (1, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=True, metrics=metrics),
+                         (.5, .5))
+        self.assertEqual(Abstractlocus._get_denominator(target_score, use_raw=False, metrics=metrics),
+                         (.5, .5))
+
+    def test_get_score_for_metric(self):
+
+        # _get_score_for_metric(tid_metric, use_raw, target, denominator, param, min_val, max_val)
+
+        for invalid in [10, b"10", dict(), 100.0]:
+            with self.assertRaises(ValueError):
+                Abstractlocus._get_score_for_metric(invalid, use_raw=True,
+                                                    target=None, denominator=1, param="fraction",
+                                                    min_val=0, max_val=1)
+
+        max_score = MinMaxScore(rescaling="max", filter=None)
+        min_score = MinMaxScore(rescaling="min", filter=None)
+        target_score = TargetScore(rescaling="target", value=5, filter=None)
+
+        for num, denominator, rescaling in itertools.product(
+                arange(0, 1.05, .05), arange(.5, 10, .5), [max_score, min_score, target_score]):
+            if rescaling.rescaling == "target":
+                with self.assertRaises(ValueError) as exc:
+                    Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                                        target=None, denominator=denominator, param=rescaling,
+                                                        min_val=0, max_val=1)
+            else:
+                self.assertEqual(Abstractlocus._get_score_for_metric(num, use_raw=True,
+                                            target=None, denominator=denominator, param=rescaling,
+                                            min_val=0, max_val=1), round(num / denominator, 2))
+
+        min_val = 0
+        max_val = 1.05
+        for num, denominator, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False], arange(.5, 10, .5),
+                arange(.5, 10, .5)):
+            max_score = MinMaxScore(rescaling="max", filter=None, multiplier=multiplier)
+            min_score = MinMaxScore(rescaling="min", filter=None, multiplier=multiplier)
+            max_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                            target=None, denominator=denominator, param=max_score,
+                                            min_val=min_val, max_val=max_val)
+            self.assertEqual(max_result, round(multiplier * abs((num - min_val) / denominator), 2))
+            min_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                             target=None, denominator=denominator, param=min_score,
+                                                             min_val=min_val, max_val=max_val)
+            self.assertEqual(min_result, round(multiplier * abs(1 - (num - min_val) / denominator), 2),
+                             (num, denominator, multiplier))
+
+        for num, denominator, target, multiplier in itertools.product(
+                list(arange(0, 1.05, .05)) + [True, False],
+                arange(.5, 10, .5), arange(.05, 1.05, .5), arange(.5, 10, .5)):
+            num, denominator, target, multiplier = float(num), float(denominator), float(target), float(multiplier)
+            target_score = TargetScore(rescaling="target", filter=None, multiplier=multiplier, value=target)
+            target_result = Abstractlocus._get_score_for_metric(num, use_raw=False,
+                                                                target=target, denominator=denominator,
+                                                                param=target_score,
+                                                                min_val=min_val, max_val=max_val)
+            # score = 1 - abs(tid_metric - target) / denominator
+            expected = round(multiplier * (1 - abs((num - target) / denominator)), 2)
+            self.assertEqual(target_result, expected, (num, denominator, multiplier, target))
+
+    def test_check_usable_raw(self):
+        # _check_usable_raw(transcript, param, use_raw, rescaling, logger=create_null_logger())
+        for invalid in [b"cdna_length", 10, None, dict()]:
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(None, invalid, False, "max")
+            self.assertIsNotNone(re.search(r"Invalid type of parameter", str(exc.exception)))
+            with self.assertRaises(TypeError) as exc:
+                Abstractlocus._check_usable_raw(invalid, "cdna_length", False, "max")
+            self.assertIsNotNone(re.search(r"Invalid transcript type", str(exc.exception)))
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo"
+        t.add_exons([(101, 500), (601, 1000)])
+        t.add_exons([(201, 500), (601, 900)], features="CDS")
+        t.finalize()
+        t.external_scores.tpm = [10, False]
+        t.external_scores.fraction = [.5, True]
+        t.attributes["FPKM"] = 10
+        logger = create_default_logger("test_check_usable_raw", level="WARNING")
+        for param in t.get_available_metrics():
+            for use_raw, rescaling in itertools.product([False, True], ["min", "max", "target"]):
+                metr = getattr(Transcript, param)
+                if not isinstance(metr, Metric):
+                    continue
+                usable_raw = metr.usable_raw
+                if use_raw is True and (usable_raw is False or rescaling == "target"):
+                    with self.assertLogs(logger, level="WARNING") as cmo:
+                        found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                  logger=logger)
+                    self.assertTrue(any(re.search(r"Switching to False", out) for out in cmo.output))
+                    self.assertFalse(found_use_raw)
+                else:
+                    found_use_raw = Abstractlocus._check_usable_raw(t, param, use_raw=use_raw, rescaling=rescaling,
+                                                                    logger=logger)
+                    self.assertEqual(use_raw, found_use_raw)
+
+        # Now external things
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.tpm",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "external.fraction",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        # Now attributes. Attributes are just returning use_raw
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="max", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="max", logger=logger)
+        self.assertTrue(found_use_raw)
+
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=False, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+        found_use_raw = Abstractlocus._check_usable_raw(t, "attributes.FPKM",
+                                                        use_raw=True, rescaling="target", logger=logger)
+        self.assertFalse(found_use_raw)
+
+    def test_get_param_metrics(self):
+        """"""
+        
+        param = "combined_cds_length"
+
+        t1 = Transcript()
+        t1.chrom, t1.start, t1.end, t1.strand, t1.id = "Chr1", 101, 1000, "+", "foo"
+        # cDNA 800 bps, CDS 60 bps
+        t1.add_exons([(101, 500), (601, 1000)])
+        t1.add_exons([(471, 500), (601, 630)], features="CDS")
+        t1.finalize()
+
+        # cDNA 210 bps, CDS 210 bps
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.strand, t2.id = "Chr1", 451, 710, "+", "bar"
+        t2.add_exons([(451, 500), (551, 710)])
+        t2.add_exons([(451, 500), (551, 710)], features="CDS")
+        t2.finalize()
+
+        self.assertEqual(operator.attrgetter(param)(t1), t1.combined_cds_length)
+        self.assertEqual(operator.attrgetter(param)(t2), t2.combined_cds_length)
+        self.assertEqual(t1.combined_cds_length, 60)
+        self.assertEqual(t2.combined_cds_length, 210)
+
+        transcripts = {"foo": t1, "bar": t2}
+        metrics = {t1.id: {param: t1.combined_cds_length},
+                   t2.id: {param: t2.combined_cds_length}}
+
+        param_conf = MinMaxScore(rescaling="max", filter=None)
+
+        # First case: raise errors if the dictionary is not a dictionary ...
+        for invalid in [None, 10, b"20", list()]:
+            with self.assertRaises(AttributeError):
+                Abstractlocus._get_param_metrics(invalid, metrics, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, invalid, param, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, invalid, param_conf)
+            with self.assertRaises((AttributeError, TypeError)):
+                Abstractlocus._get_param_metrics(transcripts, metrics, param, invalid)
+
+        # Second case: no filter. Presume that the metrics come back.
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, dict(), param, param_conf)
+        self.assertEqual(restored_metrics, metrics)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length}, param_metrics)
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        # Third case. Now we have a filter but without a name, so we are presuming that it applies to
+        # combined_cds_length.
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=150))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {t2.id: t2.combined_cds_length})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    value=300))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual(param_metrics, {})
+
+        # Fourth case, now we are filtering on a different parameter, cdna_length
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=10))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length, t2.id: t2.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=300))
+        self.assertEqual(param_conf.filter.metric, "cdna_length")
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({t1.id: t1.combined_cds_length},
+                         param_metrics)
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="cdna_length",
+                                                                    value=2000))
+        param_metrics, _ = Abstractlocus._get_param_metrics(transcripts, metrics, param, param_conf)
+        self.assertEqual({}, param_metrics)
+
+        # Fifth case. Considering external and attributes
+
+        t1.external_scores["tpm"] = [10, False]
+        t1.external_scores["fraction"] = [.5, True]
+        t1.attributes["FPKM"] = 10
+        t2.external_scores["tpm"] = [5, False]
+        t2.external_scores["fraction"] = [1, True]
+        t2.attributes["FPKM"] = 50
+
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=5))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0],
+                                         t2.id: t2.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric="attributes.FPKM",
+                                                                    value=50))
+
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="gt",
+                                                                    metric=None,
+                                                                    value=5))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+        param_conf = MinMaxScore(rescaling="max", filter=SizeFilter(operator="lt",
+                                                                    metric="external.fraction",
+                                                                    value=.6))
+        param_metrics, restored_metrics = Abstractlocus._get_param_metrics(transcripts, metrics,
+                                                                           "external.tpm", param_conf)
+        self.assertEqual(param_metrics, {t1.id: t1.external_scores.tpm[0]})
+
+    def test_score(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.id, t.score = "Chr1", 101, 1000, "foo", None
+        t.add_exons([(101, 1000)])
+        t2 = Transcript()
+        t2.chrom, t2.start, t2.end, t2.id, t2.score = "Chr1", 101, 1000, "foo2", 100
+        t2.add_exons([(101, 1000)])
+        for locus in [Locus, Sublocus, Superlocus]:
+            l = locus(None)
+            self.assertIsNone(l.score)
+            l = locus(t)
+            self.assertEqual(l.score, 0)
+            l.add_transcript_to_locus(t2, check_in_locus=False)
+            self.assertEqual(l.score, 100)
+
+            for invalid in [10, -5, dict(), None]:
+                with self.assertRaises(ValueError):
+                    l._use_transcript_scores = invalid
+
+            for valid in [False, True]:
+                l._use_transcript_scores = valid
+                self.assertEqual(valid, l._use_transcript_scores)
+                self.assertEqual(valid, l.scores_calculated)
+
     def test_serialisation(self):
-        for child in [Superlocus, Sublocus, Monosublocus, Locus]:
-            child1 = child(self.transcript1)
-            # Check compiled in dictionary
-            self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
-            obj = pickle.dumps(child1)
-            nobj = pickle.loads(obj)
-            self.assertEqual(child1, nobj)
+        engine = create_engine("sqlite://")
+        maker = sessionmaker(bind=engine)
+        session = maker()
+        for child in [Superlocus, Sublocus, Monosublocus, Locus, Excluded]:
+            with self.subTest(child=child):
+                child1 = child(self.transcript1)
+                child1.session = session
+                child1.sessionmaker = sessionmaker
+                # Check compiled in dictionary
+                self.assertIsInstance(child1.configuration, (MikadoConfiguration, DaijinConfiguration))
+                obj = pickle.dumps(child1)
+                nobj = pickle.loads(obj)
+                self.assertEqual(child1, nobj)
+                obj2 = child1.as_dict()
+                self.assertIsInstance(obj2, dict)
+                obj3 = child1.as_dict()
+                self.assertEqual(obj2, obj3)
+                nobj2 = child(None)
+                nobj2.load_dict(obj2)
+                self.assertEqual(child1, nobj2)
+                # Now try to inject a daijin configuration
+                d = DaijinConfiguration()
+                obj2["json_conf"] = dataclasses.asdict(d)
+                assert isinstance(obj2["json_conf"], dict)
+                nobj2b = child(None)
+                nobj2b.load_dict(obj2, load_configuration=True)
+                self.assertIsInstance(nobj2b.configuration, DaijinConfiguration)
+                # Now avoid loading the configuration altogether
+                nobj2b = child(None, configuration=MikadoConfiguration())
+                seed = nobj2b.configuration.seed = child1.configuration.seed + 1
+                obj2["json_conf"] = dataclasses.asdict(d)
+                nobj2b.load_dict(obj2, load_configuration=False)
+                self.assertEqual(nobj2b.configuration.seed, seed)
+                self.assertIsInstance(nobj2b.configuration, MikadoConfiguration)
+                # Finally let's validate that an invalid configuration would be found out
+                obj2["json_conf"] = {"I am an invalid": "dictionary"}
+                with self.assertRaises(marshmallow.exceptions.MarshmallowError):
+                    nobj2b = child(None)
+                    nobj2b.load_dict(obj2, load_configuration=True)
+
+    def test_slocus_dicts(self):
+
+        self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
+        locus = Superlocus(self.transcript1)
+        locus.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+        locus.subloci = [Sublocus(self.transcript1)]
+        l = Locus(self.transcript1)
+        locus.loci = {l.id: l}
+        ml = MonosublocusHolder(Monosublocus(self.transcript1))
+        locus.monoholders = [ml]
+        locus.excluded = Excluded(self.transcript2, configuration=locus.configuration)
+        conf = locus.configuration.copy()
+        _without = locus.as_dict(with_subloci=False, with_monoholders=False)
+        self.assertEqual(_without["subloci"], [])
+        self.assertEqual(_without["monoholders"], [])
+        self.assertEqual(_without["excluded"], locus.excluded.as_dict())
+        self.assertEqual(_without["loci"], {l.id: l.as_dict()})
+        _with = locus.as_dict(with_subloci=True, with_monoholders=True)
+        self.assertIsNotNone(_with["json_conf"]["seed"])
+        self.assertEqual(_with["json_conf"]["seed"], conf.seed)
+        self.assertEqual(_with["subloci"], [locus.subloci[0].as_dict()])
+        self.assertEqual(_with["monoholders"], [ml.as_dict()])
+        self.assertEqual(conf.seed, locus.configuration.seed)
+        self.assertEqual(conf.seed, self.transcript2.configuration.seed)
+        excl = Excluded(self.transcript2, configuration=conf)
+        self.assertEqual(excl.configuration.seed, locus.configuration.seed)
+        self.assertEqual(_with["excluded"], Excluded(self.transcript2, configuration=conf).as_dict())
+        self.assertEqual(_with["loci"], {l.id: l.as_dict()})
+        self.assertIsInstance(_with["json_conf"], dict)
+        # Now test the reloading
+        # def load_dict(self, state, print_subloci=True, print_monoloci=True, load_transcripts=True,
+        #                   load_configuration=True):
+        conf.threads = 10
+        self.assertNotEqual(conf, locus.configuration)
+        num = 0
+        for print_subloci in (True, False):
+            for print_monoloci in (True, False):
+                for load_transcripts in (True, False):
+                    for load_configuration in (True, False):
+                        with self.subTest(
+                            print_subloci=print_subloci,
+                            print_monoloci=print_monoloci,
+                            load_transcripts=load_transcripts,
+                            load_configuration=load_configuration
+                        ):
+                            num += 1
+                            test = Superlocus(None, configuration=conf)
+                            self.assertIsInstance(_with["json_conf"], dict, num)
+                            test.load_dict(
+                                deepcopy(_with), print_subloci=print_subloci, print_monoloci=print_monoloci,
+                                load_transcripts=load_transcripts, load_configuration=load_configuration)
+                            if load_configuration is False:
+                                self.assertEqual(conf, test.configuration)
+                            else:
+                                self.assertEqual(locus.configuration, test.configuration)
+                            if load_transcripts is True:
+                                self.assertEqual(locus.transcripts, test.transcripts)
+                            else:
+                                self.assertEqual(test.transcripts, dict((tid, transcript.as_dict())
+                                                                        for tid, transcript in
+                                                                        locus.transcripts.items()))
+                            if print_subloci is True:
+                                self.assertEqual(locus.excluded, test.excluded)
+                                self.assertEqual(locus.subloci, test.subloci)
+                            else:
+                                self.assertEqual(test.subloci, [])
+                            if print_monoloci is True:
+                                self.assertEqual(test.monoholders, locus.monoholders)
+                            else:
+                                self.assertEqual(test.monoholders, [])
+
+    def test_evaluate(self):
+        """Test to verify the abstractlocus.evaluate static method"""
+        # param: Union[str, int, bool, float],
+        #                  conf: Union[SizeFilter, InclusionFilter, NumBoolEqualityFilter, RangeFilter]
+
+        # Params: eq, ne, gt, ge, lt, le, in, not in, within, not within
+
+        # eq, ne
+        for val in (2, 3.0, True):
+            for oval in (2, 3.0, True, 4.0, 5, False):
+                for op in ["ne", "eq"]:
+                    filt = NumBoolEqualityFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if (val == oval and op == "eq") or (val != oval and op == "ne"):
+                            self.assertTrue(result)
+                        else:
+                            self.assertFalse(result)
+        # ge, lt, le, gt
+        for val in (2, 3.0, 4):
+            for oval in (2, 3, 4, 5):
+                for op in ["gt", "ge", "lt", "le"]:
+                    filt = SizeFilter.Schema().load({"value": val, "operator": op})
+                    for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+                        result = obj.evaluate(oval, filt)
+                        if op == "lt":
+                            self.assertEqual(oval < val, result, (oval, val, op))
+                        elif op == "le":
+                            self.assertEqual(oval <= val, result, (oval, val, op))
+                        elif op == "ge":
+                            self.assertEqual(oval >= val, result, (oval, val, op))
+                        else:  # "gt"
+                            self.assertEqual(oval > val, result, (oval, val, op))
+
+        # within, not within
+        within = RangeFilter.Schema().load({"operator": "within", "value": [20, 10]})
+        without = RangeFilter.Schema().load({"operator": "not within", "value": [20, 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate(15, within))
+            self.assertTrue(obj.evaluate(5, without))
+            self.assertFalse(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate(5, within))
+
+        # in, not in
+        within = InclusionFilter.Schema().load({"operator": "in", "value": ["valid_one", "valid_two", 10]})
+        without = InclusionFilter.Schema().load({"operator": "not in", "value": ["valid_one", "valid_two", 10]})
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            self.assertTrue(obj.evaluate("valid_one", within))
+            self.assertTrue(obj.evaluate("valid_three", without))
+            self.assertTrue(obj.evaluate(10, within))
+            self.assertTrue(obj.evaluate(15, without))
+            self.assertFalse(obj.evaluate("valid_one", without))
+            self.assertFalse(obj.evaluate("valid_three", within))
+            self.assertFalse(obj.evaluate(10, without))
+            self.assertFalse(obj.evaluate(15, within))
+
+        # Mock to demonstrate that ValueError is raised
+        _mock = namedtuple("mock", ["operator", "value"])
+        mock = _mock("foo", "hello")
+        for obj in [Superlocus, Locus, Sublocus, Monosublocus, MonosublocusHolder]:
+            with self.assertRaises(ValueError):
+                obj.evaluate(10, mock)
+
+    def test_calculate_metrics(self):
+        logger = create_default_logger("test_calculate_metrics", level="DEBUG")
+        stream = io.StringIO()
+        logger.addHandler(logging.StreamHandler(stream))
+        for locus_class in [Locus, Sublocus, Superlocus, Monosublocus]:
+            locus = locus_class(self.transcript1, logger=logger)
+            self.assertFalse(locus.metrics_calculated)
+            with self.assertLogs(logger, level="DEBUG"):
+                locus.calculate_metrics(self.transcript1.id)
+            self.assertFalse(locus.metrics_calculated)
+            _ = stream.getvalue()
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name):
+                locus.get_metrics()
+            self.assertGreater(len(stream.getvalue()), 0, self._caplog.text)
+            self._caplog.clear()
+            self.assertTrue(locus.metrics_calculated)
+            stream.close()
+            locus.logger.removeHandler(stream)
+            stream = io.StringIO()
+            locus.logger.addHandler(logging.StreamHandler(stream))
+            with self._caplog.at_level(logging.DEBUG, logger=logger.name) as cmo:
+                locus.get_metrics()
+            logged = stream.getvalue()
+            self.assertEqual(len(logged), 0, logged)
+            self._caplog.clear()
+        stream.close()
 
     def test_in_locus(self):
 
@@ -360,7 +1207,7 @@ class AbstractLocusTester(unittest.TestCase):
 
     def test_invalid_sublocus(self):
 
-        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidJson)):
+        with self.assertRaises((OSError, FileNotFoundError, exceptions.InvalidConfiguration)):
             _ = Sublocus(self.transcript1, configuration="test")
 
     def test_sublocus_from_sublocus(self):
@@ -861,7 +1708,107 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
                 self.assertIn("t2", locus)
                 self.assertNotIn("t3", locus)
 
-    # def test_reducing_methods_two(self):
+    def test_choose_best(self):
+        conf = MikadoConfiguration()
+        conf.seed = 10
+        conf.prepare.files.labels = ["Foo", "Bar", "Baz"]
+        conf.prepare.files.reference = [False, True, True]
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Bar")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr1", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Baz")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 101, 1000, "Foo.3"
+        t3.add_exons([(101, 1000)])
+        t3.source = "Baz"
+        t3.finalize()
+
+        reference_sources = {source for source, is_reference in
+                             zip(conf.prepare.files.labels,
+                                 conf.prepare.files.reference) if is_reference is True}
+        self.assertEqual(reference_sources, {"Bar", "Baz"})
+        self.assertEqual(t1.original_source, "Foo")
+        self.assertEqual(t2.original_source, "Bar")
+        self.assertEqual(t3.original_source, "Baz")
+        self.assertTrue(t3.original_source in reference_sources and
+                        t2.original_source in reference_sources)
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            locus = locus_type(t1, configuration=conf)
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = False
+            locus.configuration.prepare.files.reference = [False, True, True]
+            locus.add_transcript_to_locus(t2, check_in_locus=False)
+            locus.add_transcript_to_locus(t3, check_in_locus=False)
+            locus["Foo.1"].score = 10
+            locus["Foo.2"].score = 5
+            locus["Foo.3"].score = 1
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+            locus.configuration.pick.run_options.reference_update = True
+            self.assertTrue(locus.reference_update)
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.pick.run_options.reference_update = False
+            locus.configuration.pick.run_options.only_reference_update = True
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.2")
+            locus.configuration.prepare.files.reference = [False, False, True]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.3")
+            locus.configuration.prepare.files.reference = [False, False, False]
+            self.assertEqual(locus.choose_best(locus.transcripts), "Foo.1")
+
+    def test_find_retained_introns_monoexonic(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t1.retained_introns = []
+            locus = locus_type(t1)
+            locus.find_retained_introns(locus[t1.id])
+            self.assertEqual(locus[t1.id].retained_introns, tuple([]))
+
+    def test_skip_evaluate_overlap(self):
+        t1 = Transcript(source="Foo")
+        t1.chrom, t1.strand, t1.start, t1.end, t1.id = "Chr1", "+", 101, 1000, "Foo.1"
+        t1.add_exons([(101, 1000)])
+        t1.finalize()
+
+        t2 = Transcript(source="Foo")
+        t2.chrom, t2.strand, t2.start, t2.end, t2.id = "Chr2", "+", 101, 1000, "Foo.2"
+        t2.add_exons([(101, 1000)])
+        t2.finalize()
+
+        t3 = Transcript(source="Foo")
+        t3.chrom, t3.strand, t3.start, t3.end, t3.id = "Chr1", "+", 1101, 2000, "Foo.3"
+        t3.add_exons([(1101, 2000)])
+        t3.finalize()
+
+        t4 = Transcript(source="Foo")
+        t4.chrom, t4.strand, t4.start, t4.end, t4.id = "Chr1", "+", 999, 2000, "Foo.4"
+        t4.add_exons([(999, 2000)])
+        t4.finalize()
+
+        t1.is_reference = True
+        t2.is_reference = True
+        t3.is_reference = True
+
+        for locus_type in [Sublocus, Superlocus, Locus]:
+            t4.is_reference = False
+            for t in (t2, t3, t4):
+                intersecting, reason = locus_type._evaluate_transcript_overlap(
+                    t1, t, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+                )
+                self.assertFalse(intersecting, reason)
+            t4.is_reference = True
+            intersecting, reason = locus_type._evaluate_transcript_overlap(
+                t1, t4, min_cdna_overlap=1, min_cds_overlap=1, check_references=False
+            )
+            self.assertTrue(intersecting, reason)
 
 
 class ASeventsTester(unittest.TestCase):
@@ -1757,7 +2704,10 @@ class TestLocus(unittest.TestCase):
         for obj in Superlocus, Sublocus, Locus:
             with self.subTest(obj=obj):
                 locus = obj(candidate, configuration=configuration)
-                pickle.dumps(locus)
+                dumped = pickle.dumps(locus)
+                recovered = pickle.loads(dumped)
+                self.assertIsInstance(recovered, obj)
+                self.assertEqual(recovered, locus)
 
     def test_double_orf(self):
 
@@ -2159,7 +3109,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = [Transcript(bed) for bed in beds]
         [transcript.finalize() for transcript in transcripts]
 
-        sstart = 0  # min(_.start for _ in transcripts)
+        sstart = 0
         for transcript in transcripts:
             print(transcript.id, end="\t")
             print(transcript.start - sstart, transcript.end - sstart, transcript.combined_cds_start - sstart,
@@ -2608,7 +3558,6 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         conf.pick.alternative_splicing.pad = False
         logger = create_default_logger("test_issue_255", level="WARNING")
 
-        import operator
         scores = dict((tid, transcripts[tid].score) for tid in transcripts)
         scores = list(sorted(scores.items(), key=operator.itemgetter(1), reverse=True))
         self.assertEqual(len(scores), 5)
@@ -3079,6 +4028,95 @@ class PaddingTester(unittest.TestCase):
         for tid in locus:
             self.assertEqual(locus[tid].end, locus.end, tid)
 
+    def test_remove_redundant(self):
+        """Test to verify that the routine to remove redundant transcripts after padding functions as desired"""
+        tmult = Transcript()
+        tmult.chrom, tmult.start, tmult.end, tmult.strand, tmult.id = "Chr1", 101, 2000, "+", "foo.1"
+        tmult.add_exons([(101, 500), (801, 1200), (1501, 2000)])
+        tmult.add_exons([(201, 500), (801, 1200), (1501, 1700)], features="CDS")
+        tmult.finalize()
+        tmult_a = tmult.copy()
+        tmult_a.id = "foo.1a"
+
+        tmono = Transcript()
+        tmono.chrom, tmono.start, tmono.end, tmono.strand, tmono.id = "Chr1", 601, 1800, "+", "bar.1"
+        tmono.add_exons([(601, 1800)])
+        # Note that the CDS *must be in-frame* with tmult
+        tmono.add_exons([(711, 1580)], features="CDS")
+        tmono.finalize()
+        tmono_a = tmono.copy()
+        tmono_a.id = "bar.1a"
+
+        conf = MikadoConfiguration()
+        comp = Assigner.compare(tmono, tmult)
+        rev_comp = Assigner.compare(tmult, tmono)
+
+        # Make sure that the transcripts can coexist
+        conf.pick.alternative_splicing.valid_ccodes.extend([comp[0].ccode[0], rev_comp[0].ccode[0]])
+        conf.pick.alternative_splicing.min_cds_overlap = 0.1
+        conf.pick.alternative_splicing.min_cdna_overlap = 0.1
+        conf.pick.alternative_splicing.min_score_perc = 0.01
+        conf.seed = 10
+
+        # Now for the real tests
+        logger = create_default_logger("test_remove_redundant", level="DEBUG")
+        for primary, is_reference, score in itertools.product([tmult.id, tmono.id], [False, True], [5, 10, 1]):
+            with self.subTest():
+                if primary == tmult.id:
+                    locus = Locus(tmult, configuration=conf)
+                    secondary = tmono.id
+                    alt_secondary = tmono_a.id
+                    locus.add_transcript_to_locus(tmono, check_in_locus=False)
+                else:
+                    locus = Locus(tmono, configuration=conf)
+                    secondary = tmult.id
+                    alt_secondary = tmult_a.id
+                    locus.add_transcript_to_locus(tmult, check_in_locus=False)
+
+                locus.primary_transcript_id = primary
+                random.seed(conf.seed)
+                locus.add_transcript_to_locus(tmono_a, check_in_locus=False)
+                locus.add_transcript_to_locus(tmult_a, check_in_locus=False)
+                self.assertIn(tmult.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono.id, locus, (primary, is_reference, score))
+                self.assertIn(tmult_a.id, locus, (primary, is_reference, score))
+                self.assertIn(tmono_a.id, locus, (primary, is_reference, score))
+
+                locus[tmono.id].score = score
+                locus[tmono_a.id].score = 5
+                locus[tmult.id].score = score
+                locus[tmult_a.id].score = 5
+                locus[tmult.id].is_reference = locus[tmono.id].is_reference = is_reference
+
+                locus.logger = logger
+                locus._remove_redundant_after_padding()
+                self.assertTrue(len(locus.transcripts), 2)
+                if is_reference is False:
+                    if score == 5:
+                        self.assertEqual(locus.primary_transcript_id, primary)
+                        self.assertTrue(secondary in locus or alt_secondary in locus)
+                    elif score == 10:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([tmult.id, tmono.id]),
+                                         (primary, is_reference, score))
+                    elif score == 1:
+                        self.assertEqual(sorted(locus.transcripts.keys()), sorted([alt_secondary, primary]),
+                                         (primary, is_reference, score))
+                else:
+                    self.assertEqual(sorted(locus.transcripts.keys()), sorted([primary, secondary]),
+                                     (primary, is_reference, score))
+                # Check that calling again does nothing
+                current = list(sorted(locus.transcripts.keys()))[:]
+                locus._remove_redundant_after_padding()
+                self.assertTrue(current == list(sorted(locus.transcripts.keys())))
+
+        # Now check that a single transcript in a locus causes the function to return immediately
+        locus = Locus(tmult, configuration=conf, logger=logger)
+        with self.assertLogs(logger.name, level="DEBUG") as cmo:
+            locus._remove_redundant_after_padding()
+
+        self.assertTrue(any([re.search(r"only has one transcript, no redundancy removal needed.", output) is not None
+                             for output in cmo.output]))
+
     def test_ad_three_prime(self):
         logger = create_default_logger(inspect.getframeinfo(inspect.currentframe())[2], level="WARNING")
         transcripts = self.load_from_bed("Mikado.tests", "pad_three_neg.bed12")
@@ -3204,11 +4242,11 @@ class PaddingTester(unittest.TestCase):
                 locus.logger = logger
                 locus.configuration.pick.alternative_splicing.ts_distance = pad_distance
                 locus.configuration.pick.alternative_splicing.ts_max_splices = max_splice
-                # locus.logger.setLevel("DEBUG")
+                locus.logger.setLevel("DEBUG")
                 locus.pad_transcripts()
                 locus.logger.setLevel("WARNING")
-
-                self.assertEqual(locus[best].start, transcripts["AT5G01030.2"].start)
+                self.assertEqual(transcripts["AT5G01030.2"].start, 9869)
+                self.assertEqual(locus[best].start, 9869)
                 self.assertIn(best, locus)
                 if max_splice < 2 or pad_distance <= 250:
                     with self.assertLogs(logger, "DEBUG") as cm:
@@ -3467,8 +4505,9 @@ class PaddingTester(unittest.TestCase):
                 other.remove_exon((10644, 12665))
                 other.add_exon((other.start, 12665))
                 other.add_exon((other.start, 12665), feature="CDS", phase=phase)
-                other.finalize()
-                self.assertTrue(other.is_coding)
+                with self.assertLogs(other.logger, level="DEBUG") as cmo:
+                    other.finalize()
+                self.assertTrue(other.is_coding, cmo.output)
                 self.assertEqual(other.phases[(other.start, 12665)], phase)
                 self.assertEqual(other.combined_cds_start, other.start)
                 locus.add_transcript_to_locus(other)
@@ -3499,9 +4538,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -3523,9 +4562,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -3547,9 +4586,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -3583,9 +4622,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_one if case % 2 == 0 else False
                 end = template_one if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_one.start)
                 else:
@@ -3607,9 +4646,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_two if case % 2 == 0 else False
                 end = template_two if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, template_two.start)
                 else:
@@ -3631,9 +4670,9 @@ class PaddingTester(unittest.TestCase):
                 start = template_three if case % 2 == 0 else False
                 end = template_three if case > 0 else False
 
-                expanded_one = expand_transcript(transcript,
-                                                 transcript.deepcopy(),
-                                                 start, end, self.fai, logger=logger)
+                expanded_one = pad_transcript(transcript,
+                                              transcript.deepcopy(),
+                                              start, end, self.fai, logger=logger)
                 if start:
                     self.assertEqual(expanded_one.start, start.start)
                     self.assertIn((1501, 1700), expanded_one.exons)
@@ -3673,8 +4712,8 @@ class PaddingTester(unittest.TestCase):
         # Now let us expand on both ends
 
         with self.subTest():
-            expanded = expand_transcript(transcript, transcript.deepcopy(), template, template,
-                                         fai=self.fai, logger=logger)
+            expanded = pad_transcript(transcript, transcript.deepcopy(), template, template,
+                                      fai=self.fai, logger=logger)
             self.assertEqual(expanded.exons,
                              [(12751151, 12751579),
                               (12751669, 12751808), (12751895, 12752032),
@@ -3695,7 +4734,7 @@ class PaddingTester(unittest.TestCase):
         with self.subTest():
             backup = transcript.deepcopy()
             logger = create_null_logger()
-            expand_transcript(transcript, transcript.deepcopy(), template, template, self.fai, logger=logger)
+            pad_transcript(transcript, transcript.deepcopy(), template, template, self.fai, logger=logger)
             self.assertEqual(
                 transcript.exons,
                 [(99726, 100220), (100640, 102000)]
@@ -3711,7 +4750,7 @@ class PaddingTester(unittest.TestCase):
         logger = create_null_logger(level="DEBUG")
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
 
-            expand_transcript(transcript, backup, None, None, self.fai, logger)
+            pad_transcript(transcript, backup, None, None, self.fai, logger)
             self.assertEqual(transcript, backup)
 
         self.assertIn("DEBUG:null:test does not need to be expanded, exiting", cm.output)
@@ -3737,7 +4776,7 @@ class PaddingTester(unittest.TestCase):
 
         logger = create_null_logger()
         with self.assertLogs(logger=logger, level="DEBUG"):
-            expand_transcript(transcript, backup, start_transcript, False, self.fai, logger)
+            pad_transcript(transcript, backup, start_transcript, False, self.fai, logger)
             self.assertNotEqual(transcript, backup)
             self.assertEqual(transcript.exons,
                              [(194741, 195337), (195406, 195511),

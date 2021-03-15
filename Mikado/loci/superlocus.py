@@ -33,7 +33,7 @@ import functools
 from collections import OrderedDict as SortedDict
 from .locus import Locus
 from .excluded import Excluded
-from typing import Union
+from typing import Union, List, Dict
 from ..utilities import Interval, IntervalTree
 from itertools import combinations
 import random
@@ -160,7 +160,6 @@ class Superlocus(Abstractlocus):
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
         self.excluded = Excluded(configuration=self.configuration)
-        self.__retained_sources = set()
         self.__data_loaded = False
         self.__lost = dict()
         if transcript_instance is not None:
@@ -224,33 +223,6 @@ class Superlocus(Abstractlocus):
 
         return lines
 
-    def __create_monolocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
-
-        """
-        Private method to prepare the lines for printing out monosubloci
-        into GFF/GTF files.
-        """
-
-        lines = []
-        self.define_monosubloci()
-        if len(self.monosubloci) > 0:
-            source = "{0}_monosubloci".format(self.source)
-            superlocus_line.source = source
-            lines.append(str(superlocus_line))
-            found = dict()
-            for monosublocus_instance in self.monosubloci:
-                monosublocus_instance.source = source
-                monosublocus_instance.parent = new_id
-                if monosublocus_instance.id in found:
-                    found[monosublocus_instance.id] += 1
-                    monosublocus_instance.counter = found[monosublocus_instance.id]
-                else:
-                    found[monosublocus_instance.id] = 0
-
-                lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
-
-        return lines
-
     def __create_sublocus_lines(self, superlocus_line: GffLine, new_id: str, print_cds=True):
         """
         Private method to prepare the lines for printing out subloci
@@ -263,10 +235,8 @@ class Superlocus(Abstractlocus):
         self.define_subloci()
         found = dict()
         for sublocus_instance in self.subloci:
-            try:
-                sublocus_instance.source = source
-            except AttributeError:
-                raise AttributeError(sublocus_instance)
+            assert hasattr(sublocus_instance, "source"), sublocus_instance
+            sublocus_instance.source = source
             sublocus_instance.parent = new_id
             if sublocus_instance.id in found:
                 found[sublocus_instance.id] += 1
@@ -287,8 +257,7 @@ class Superlocus(Abstractlocus):
         :param level: level which we wish to print for. Can be "loci", "subloci", "monosubloci"
         :return: formatted GFF strings
         """
-        return self.__str__(print_cds=print_cds,
-                            level=level)
+        return self.__str__(print_cds=print_cds, level=level)
 
     def __str__(self, level=None, print_cds=True):
 
@@ -311,6 +280,8 @@ class Superlocus(Abstractlocus):
         if abs(self.start) == float("inf") or abs(self.start) == maxsize:
             return ''
 
+        assert level in (None, "loci", "subloci", "monosubloci"), f"Unrecognized level: {level}"
+
         superlocus_line = GffLine('')
         superlocus_line.chrom = self.chrom
         superlocus_line.feature = self.__name__
@@ -323,16 +294,10 @@ class Superlocus(Abstractlocus):
         superlocus_line.id, superlocus_line.name = new_id, self.name
         if self.approximation_level > 0:
             superlocus_line.attributes["approximation_level"] = self.approximation_level
-        if len(self.__retained_sources) > 0:
-            superlocus_line.attributes["retained_sources"] = ",".join(
-                sorted(list(self.__retained_sources))
-            )
 
         lines = []
-        if level not in (None, "loci", "subloci", "monosubloci"):
-            raise ValueError("Unrecognized level: {0}".format(level))
 
-        elif level == "loci" or (level is None and self.loci_defined is True):
+        if level == "loci" or (level is None and self.loci_defined is True):
             lines = self.__create_locus_lines(
                 superlocus_line,
                 new_id,
@@ -342,9 +307,6 @@ class Superlocus(Abstractlocus):
             lines = self.__create_monolocus_holder_lines(superlocus_line,
                                                          new_id,
                                                          print_cds=print_cds)
-            # lines = self.__create_monolocus_lines(superlocus_line,
-            #                                       new_id,
-            #                                       print_cds=print_cds)
         elif level == "subloci" or (level is None and self.monosubloci_defined is False):
             lines = self.__create_sublocus_lines(superlocus_line,
                                                  new_id,
@@ -398,23 +360,27 @@ class Superlocus(Abstractlocus):
             locus.load_dict(stat)
             self.loci[lid] = locus
 
-        if print_subloci is True or print_monoloci is True:
+        if print_subloci is True:
+            self.excluded = Excluded(configuration=self.configuration)
+            self.excluded.load_dict(state["excluded"])
+            self.subloci = []
+            for stat in state["subloci"]:
+                sub = Sublocus(configuration=self.configuration)
+                sub.load_dict(stat)
+                assert isinstance(sub, Sublocus)
+                self.subloci.append(sub)
+        else:
+            self.subloci = []
+            self.excluded = Excluded(configuration=self.configuration)
 
-            if print_subloci is True:
-                self.excluded = Excluded(configuration=self.configuration)
-                self.excluded.load_dict(state["excluded"])
-                self.subloci = []
-                for stat in state["subloci"]:
-                    sub = Sublocus(configuration=self.configuration)
-                    sub.load_dict(stat)
-                    assert isinstance(sub, Sublocus)
-                    self.subloci.append(sub)
-            if print_monoloci is True:
-                self.monoholders = []
-                for stat in state["monoholders"]:
-                    sub = MonosublocusHolder()
-                    sub.load_dict(stat)
-                    self.monoholders.append(sub)
+        if print_monoloci is True:
+            self.monoholders = []
+            for stat in state["monoholders"]:
+                sub = MonosublocusHolder()
+                sub.load_dict(stat)
+                self.monoholders.append(sub)
+        else:
+            self.monoholders = []
         self.chrom, self.strand, self.start, self.end = state["chrom"], state["strand"], state["start"], state["end"]
         if len(self.loci) > 0 or len(self.transcripts) > 0:
             assert self.start != maxsize
@@ -550,9 +516,7 @@ class Superlocus(Abstractlocus):
         """
 
         if len(self.introns) == 0:
-            if self.monoexonic is False:
-                raise ValueError("%s is multiexonic but has no introns defined!",
-                                 self.id)
+            assert self.monoexonic is True, f"{self.id} is multiexonic but has no introns defined!"
             self.logger.debug("No introns for %s", self.id)
             return
 
@@ -560,10 +524,10 @@ class Superlocus(Abstractlocus):
         if not self.configuration.db_settings.db:
             return  # No data to load
 
-        ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
-                             for junc in junction_baked(self.session).params(
-            chrom=self.chrom, junctionStart=self.start, junctionEnd=self.end
-        ))
+        ver_introns = collections.defaultdict(set)
+        for junc in junction_baked(self.session).params(chrom=self.chrom,
+                                                        junctionStart=self.start, junctionEnd=self.end):
+            ver_introns[(junc.junction_start, junc.junction_end)].add(junc.strand)
 
         self.logger.debug("Found %d verifiable introns for %s",
                           len(ver_introns), self.id)
@@ -572,11 +536,15 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Checking %s%s:%d-%d",
                               self.chrom, self.strand, intron[0], intron[1])
             if (intron[0], intron[1]) in ver_introns:
-                self.logger.debug("Verified intron %s:%d-%d",
-                                  self.chrom, intron[0], intron[1])
-                self.locus_verified_introns.add((intron[0],
-                                                 intron[1],
-                                                 ver_introns[(intron[0], intron[1])]))
+                if self.stranded is False:
+                    for strand in ver_introns[(intron[0], intron[1])]:
+                        self.locus_verified_introns.add((intron[0],
+                                                         intron[1],
+                                                         strand))
+                elif self.strand in ver_introns[(intron[0], intron[1])]:
+                    self.locus_verified_introns.add((intron[0],
+                                                     intron[1],
+                                                     self.strand))
 
     async def get_sources(self):
         if self.configuration.pick.output_format.report_all_external_metrics is True:
@@ -589,7 +557,7 @@ class Superlocus(Abstractlocus):
                             if param.startswith("external")})
             sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
                             if param.startswith("external")})
-            sources.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+            sources.update({param for param in self.configuration.scoring.as_requirements.parameters.keys()
                             if param.startswith("external")})
             sources.update({param for param in self.configuration.scoring.scoring.keys()
                             if param.startswith("external")})
@@ -605,17 +573,15 @@ class Superlocus(Abstractlocus):
                                                        External.query_id.in_(qids)))
         for ext in self.session.execute(baked):
             source_id, query_id, score = ext.source_id, ext.query_id, ext.score
-            if source_id not in sources or query_id not in qids:
-                continue
+            assert source_id in sources and query_id in qids
             rtype = sources[source_id].rtype
+            assert rtype in ("int", "float", "bool"), f"Invalid rtype: {rtype}"
             if rtype == "int":
                 score = int(score)
             elif rtype == "float":
                 score = float(score)
             elif rtype == "bool":
                 score = bool(int(score))
-            else:
-                raise ValueError("Invalid rtype: {}".format(sources[ext.source_id].rtype))
             external[query_ids[ext.query_id].query_name][
                 sources[ext.source_id].source] = (score, sources[ext.source_id].valid_raw)
         return external
@@ -658,7 +624,7 @@ class Superlocus(Abstractlocus):
             )
         return hits
 
-    async def get_orfs(self, qids):
+    async def get_orfs(self, qids) -> Dict[str, List]:
         orfs = collections.defaultdict(list)
         for orf in orfs_baked(self.session).params(queries=qids):
             orfs[orf.query].append(orf.as_bed12())
@@ -1034,33 +1000,7 @@ class Superlocus(Abstractlocus):
                                     use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
-            for ttt in subl[1:]:
-                try:
-                    new_sublocus.add_transcript_to_locus(ttt)
-                except NotInLocusError as orig_exc:
-                    exc_text = """Sublocus: {0}
-                    Offending transcript:{1}
-                    In locus manual check: {2}
-                    Original exception: {3}""".format(
-                        "{0} {1}:{2}-{3} {4}".format(
-                            subl[0].id, subl[0].chrom, subl[0].start,
-                            subl[0].end, subl[0].exons),
-                        "{0} {1}:{2}-{3} {4}".format(ttt.id, ttt.chrom,
-                                                     ttt.start, ttt.end, ttt.exons),
-                        "Chrom {0} Strand {1} overlap {2}".format(
-                            new_sublocus.chrom == ttt.chrom,
-                            "{0}/{1}/{2}".format(
-                                new_sublocus.strand,
-                                ttt.strand,
-                                new_sublocus.strand == ttt.strand
-                            ),
-                            self.overlap((subl[0].start, subl[1].end),
-                                         (ttt.start, ttt.end)) > 0
-                        ),
-                        orig_exc
-                    )
-                    raise NotInLocusError(exc_text)
-
+            [new_sublocus.add_transcript_to_locus(ttt) for ttt in subl[1:]]
             new_sublocus.parent = self.id
             new_sublocus.metrics_calculated = False
             new_sublocus.get_metrics()
@@ -1183,7 +1123,7 @@ class Superlocus(Abstractlocus):
             for row in self.loci[locus].print_scores():
                 yield row
 
-    def define_loci(self, check_requirements=True, depth=0):
+    def define_loci(self, check_requirements=True):
         """This is the final method in the pipeline. It creates a container
         for all the monosubloci (an instance of the class MonosublocusHolder)
         and retrieves the loci it calculates internally."""
@@ -1210,7 +1150,7 @@ class Superlocus(Abstractlocus):
 
         loci = []
         for monoholder in self.monoholders:
-            monoholder.define_loci(purge=self.purge, check_requirements=check_requirements)
+            monoholder.define_loci(check_requirements=check_requirements)
             for locus_instance in monoholder.loci:
                 monoholder.loci[locus_instance].parent = self.id
                 loci.append(monoholder.loci[locus_instance])
@@ -1227,10 +1167,8 @@ class Superlocus(Abstractlocus):
         if self.configuration.pick.alternative_splicing.report is True:
             self.define_alternative_splicing()
 
-        self.__find_lost_transcripts()
-        loops = 0
-        while len(self.lost_transcripts) > 0 and depth < 5 and loops < 5:
-            loops += 1
+        self._find_lost_transcripts()
+        while len(self.lost_transcripts):
             new_locus = None
             for transcript in self.lost_transcripts.values():
                 if new_locus is None:
@@ -1245,7 +1183,7 @@ class Superlocus(Abstractlocus):
                 else:
                     new_locus.add_transcript_to_locus(transcript,
                                                       check_in_locus=False)
-            new_locus.define_loci(check_requirements=check_requirements, depth=depth+1)
+            new_locus.define_loci(check_requirements=check_requirements)
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts
 
@@ -1260,13 +1198,16 @@ class Superlocus(Abstractlocus):
 
         return
 
-    def __find_lost_transcripts(self):
+    def _find_lost_transcripts(self):
 
         """Private method to identify, after defining loci, all transcripts that are not intersecting any
         of the resulting genes and that therefore could constitute "lost" genes.
         This could happen if e.g. a valid transcript is deselected in the first stage ("sublocus") as it intersects a
         longer transcript, which will itself be subsequently deselected in comparison with another shorter one. This
         would leave the first transcript stranded.
+        WARNING: if a transcript's score has fallen at or below 0, and self.purge is False, transcripts will *not*
+        be recovered by this method. Mikado will presume that excluding them was the correct thing to do and ignore
+        them henceforth.
         """
 
         self.__lost = dict()
@@ -1305,7 +1246,8 @@ class Superlocus(Abstractlocus):
                     to_remove.add(tid)
             not_loci_transcripts = set.difference(not_loci_transcripts, to_remove)
 
-        self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts})
+        self.__lost.update({tid: self.transcripts[tid] for tid in not_loci_transcripts
+                            if (self.purge is False or self.transcripts[tid].score > 0)})
 
         if len(self.__lost):
             self.logger.debug("Lost %s transcripts from %s; starting the recovery process: TIDs: %s",
@@ -1344,15 +1286,8 @@ class Superlocus(Abstractlocus):
 
         loci_cliques = dict()
         for lid, locus_instance in self.loci.items():
-            try:
-                neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
-            except networkx.exception.NetworkXError:
-                raise networkx.exception.NetworkXError(
-                    "{} {}".format(
-                    # locus_instance.primary_transcript.attributes["Alias"],
-                    locus_instance.primary_transcript_id,
-                    list(t_graph.nodes)
-                ))
+            assert locus_instance.primary_transcript_id in t_graph.nodes()
+            neighbors = set(t_graph.neighbors(locus_instance.primary_transcript_id))
             loci_cliques[lid] = neighbors
             self.logger.debug("Neighbours for %s: %s", lid, neighbors)
 
@@ -1571,23 +1506,22 @@ class Superlocus(Abstractlocus):
             return False  # We do not want intersection with oneself
 
         if transcript.monoexonic is False and other.monoexonic is False:
-            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
-                intersection = set.intersection(transcript.introns, other.introns)
-            else:
+            if all([cds_only, transcript.is_coding, other.is_coding]):
                 intersection = set.intersection(transcript.selected_cds_introns,
                                                 other.selected_cds_introns)
-            intersecting = (len(intersection) > 0)
-
-        elif transcript.monoexonic is True and other.monoexonic is True:
-
-            if cds_only is False or transcript.is_coding is False or other.is_coding is False:
-                intersecting = (cls.overlap(
-                    (transcript.start, transcript.end),
-                    (other.start, other.end), positive=False) > 0)
             else:
+                intersection = set.intersection(transcript.introns, other.introns)
+
+            intersecting = (len(intersection) > 0)
+        elif transcript.monoexonic is True and other.monoexonic is True:
+            if all([cds_only, transcript.is_coding, other.is_coding]):
                 intersecting = (cls.overlap(
                     (transcript.selected_cds_start, transcript.selected_cds_end),
                     (other.selected_cds_start, other.selected_cds_end), positive=False) > 0)
+            else:
+                intersecting = (cls.overlap(
+                    (transcript.start, transcript.end),
+                    (other.start, other.end), positive=False) > 0)
         else:
             intersecting = False
 

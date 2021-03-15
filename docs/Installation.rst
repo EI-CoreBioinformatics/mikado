@@ -6,7 +6,7 @@ Installation
 System requirements
 -------------------
 
-Mikado requires CPython 3.4 or later to function (Python2 is not supported). Additionally, it requires a functioning installation of one among SQLite, PostgreSQL and MySQL. Mikado has additionally the following python dependencies:
+Mikado requires CPython 3.6 or later to function (Python2 is not supported). Additionally, it requires a functioning installation of one among SQLite, PostgreSQL and MySQL. Mikado has additionally the following python dependencies:
 
 .. literalinclude:: ../requirements.txt
 
@@ -46,10 +46,9 @@ Install using containers
 
 We support both Docker and Singularity as container technologies. On GitHub, we currently provide:
 
-* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 18.04 guest
-* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Dockerfile.centos>`_ tracking the "master" github branch, with a Centos 7 guest
-* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 18.04 guest
-* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity.centos>`_ tracking the "master" github branch, with a Centos 7 guest
+* A `Docker file <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Docker/Dockerfile.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 20.04 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity/Singularity.ubuntu>`_ tracking the "master" github branch, with a Ubuntu 20.04 guest
+* A `Singularity recipe <https://github.com/EI-CoreBioinformatics/mikado/blob/master/Singularity/Singularity.centos>`_ tracking the "master" github branch, with a Centos 7 guest
 
 We plan to release them in the Docker and Singularity hubs.
 
@@ -58,15 +57,9 @@ Building and installing from source
 
 If you desire to install Mikado from source, this can be achieved with
 
-``python3 setup.py bdist_wheel``
-
-Followed by
-
-``pip3 install dist/*whl``
-
-..note:
-    If you want to update your installation of Mikado, the command to be executed is
-    ``pip install -U dist/*whl``
+```bash
+pip install -U .
+```
 
 Testing the installed module
 ----------------------------

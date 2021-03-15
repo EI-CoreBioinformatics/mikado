@@ -1,4 +1,6 @@
 import unittest
+import msgpack
+import zlib
 from ..preparation import checking
 from .. import utilities
 from .. import transcripts
@@ -71,7 +73,6 @@ class MiscTest(unittest.TestCase):
                               seed=None,
                               tmpdir=tempfile.gettempdir(),
                               log_level="DEBUG")
-            import msgpack
             msgpack.dump([], batch_file)
             batch_file.flush()
             proc.start()
@@ -210,8 +211,6 @@ class MiscTest(unittest.TestCase):
                 tempfile.NamedTemporaryFile(delete=True, mode="wb") as batch:
             # FASTA out and GTF out are just the file names, without the temporary directory
             # Moreover they will be complemented by the identifier!
-            import msgpack
-            import zlib
             lines = dict()
             lines["chrom"] = "Chr5"
             lines["strand"] = "+"

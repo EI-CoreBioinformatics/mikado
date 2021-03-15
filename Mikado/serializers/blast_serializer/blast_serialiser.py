@@ -100,8 +100,8 @@ class BlastSerializer:
 
         self.engine = connect(configuration)
 
-        self._xml_debug = self.configuration.serialise.files.blast_loading_debug
-        if self._xml_debug:
+        self._blast_loading_debug = self.configuration.serialise.files.blast_loading_debug
+        if self._blast_loading_debug:
             self.logger.warning("Activating the XML debug mode")
             self.single_thread = True
             self.procs = 1

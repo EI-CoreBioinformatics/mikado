@@ -72,8 +72,8 @@ rule daijin_assemble:
     output:
         conf="daijin_test/mikado.yaml"
     threads: 4
-    message: "daijin assemble --nolock --threads 2 --cores 4 --jobs 2 daijin.toml"
-    shell: "daijin assemble --nolock --threads 2 --cores 4 --jobs 2 {input.conf}"
+    message: "daijin assemble -nd --nolock --threads 2 --cores 4 --jobs 2 daijin.toml"
+    shell: "daijin assemble -nd --nolock --threads 2 --cores 4 --jobs 2 {input.conf}"
 
 rule test_json:
     input: db=swissprot, config=configname

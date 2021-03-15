@@ -55,7 +55,7 @@ jobs:
         pytest -m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs
     - name: Test full
       run: |
-        pytest --cov=./ --cov-report=xml --cov-config=.coveragerc -m '(slow or not slow) and not triage';
+        pytest --cov=Mikado --cov-report=xml --cov-config=.coveragerc -m '(slow or not slow) and not triage';
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
     - name: Test daijin
@@ -67,6 +67,7 @@ jobs:
     - name: Test seed
       run: |
         # Check that the seed is set properly
+        mikado serialise --junctions sample_data/junctions.bed --genome Mikado/tests/chr5.fas.gz --transcripts Mikado/tests/check_seed.fa --configuration Mikado/tests/check_seed.yaml
         mikado pick --log $(pwd)/pick.20a.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20a Mikado/tests/check_seed.gtf
         mikado pick --log $(pwd)/pick.20b.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20b Mikado/tests/check_seed.gtf
         mikado pick --log $(pwd)/pick.20c.log --procs 2 --seed 20 --fasta Mikado/tests/chr5.fas.gz  --json-conf Mikado/tests/check_seed.yaml -od 20c Mikado/tests/check_seed.gtf

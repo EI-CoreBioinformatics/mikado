@@ -6,11 +6,11 @@ import os
 import toml
 import yaml
 from pkg_resources import resource_stream
-from .configurator import create_cluster_config
+from .configurator import create_cluster_config, load_and_validate_config
 from . import print_config
 from .daijin_configuration import DaijinConfiguration
 from .._transcripts.scoring_configuration import ScoringFile
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from ..utilities.log_utils import create_default_logger
 import sys
 import pysam
@@ -86,13 +86,13 @@ def _parse_reads_from_cli(args, config: DaijinConfiguration, logger) -> DaijinCo
     """
 
     if len(args.r1) != len(args.r2):
-        exc = InvalidJson(
+        exc = InvalidConfiguration(
             """An invalid number of reads has been specified; there are {} left reads and {} right reads.
             Please correct the issue.""".format(len(args.r1), len(args.r2)))
         logger.exception(exc)
         sys.exit(1)
     elif len(args.r1) != len(args.samples):
-        exc = InvalidJson(
+        exc = InvalidConfiguration(
             """An invalid number of samples has been specified; there are {} left reads and {} samples.
             Please correct the issue.""".format(len(args.r1), len(args.samples)))
         logger.exception(exc)
@@ -106,7 +106,7 @@ def _parse_reads_from_cli(args, config: DaijinConfiguration, logger) -> DaijinCo
         logger.warning("No strand specific option specified, so I will assume all the samples are non-strand specific.")
         args.strandedness = ["fr-unstranded"] * len(args.r1)
     elif len(args.strandedness) != len(args.r1):
-        exc = InvalidJson(
+        exc = InvalidConfiguration(
             """An invalid number of strand-specific options has been specified; there are {} left reads and {} samples.
             Please correct the issue.""".format(len(args.r1), len(args.strandedness)))
         logger.exception(exc)
@@ -253,6 +253,8 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
     config.mikado.use_prodigal = (not args.use_transdecoder)
 
     final_config = config.copy()
+
+    final_config = load_and_validate_config(final_config)
 
     if args.exe:
         with open(args.exe, "wt") as out:

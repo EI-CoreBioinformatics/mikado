@@ -31,13 +31,6 @@ def load_index(args, queue_logger):
     :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
     """
 
-    # genes, positions = None, None
-
-    # New: now we are going to use SQLite for a faster experience
-    if filetype("{0}.midx".format(args.reference.name)) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
-
     try:
         conn = sqlite3.connect("{0}.midx".format(args.reference.name))
         cursor = conn.cursor()
@@ -74,7 +67,7 @@ def load_index(args, queue_logger):
                 genes[gid] = gene
             else:
                 queue_logger.warning("No transcripts for %s", gid)
-        except (EOFError, json.decoder.JSONDecodeError) as exc:
+        except (EOFError, json.JSONDecodeError) as exc:
             queue_logger.exception(exc)
             raise CorruptIndex("Invalid index file")
         except (TypeError, ValueError) as exc:
@@ -90,10 +83,6 @@ def check_index(reference, queue_logger):
         reference = reference
     else:
         reference = "{}.midx".format(reference)
-
-    if filetype(reference) == b"application/gzip":
-        queue_logger.warning("Old index format detected. Starting to generate a new one.")
-        raise CorruptIndex("Invalid index file")
 
     try:
         conn = sqlite3.connect(reference)

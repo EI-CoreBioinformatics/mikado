@@ -17,7 +17,7 @@ db_settings:
   #  dbuser: DB user. Default: 
   #  dbpasswd: DB password for the user. Default: 
   #  dbport: Integer. It indicates the default port for the DB.
-  db: /tmp/mikado.db
+  db: mikado_check_seed.db
   dbtype: sqlite
 mikado:
   modes:

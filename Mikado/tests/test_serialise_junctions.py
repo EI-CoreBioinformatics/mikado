@@ -3,7 +3,7 @@
 import logging
 import os
 import unittest
-# import Mikado
+import sqlite3
 from .. import utilities, configuration, parsers, serializers
 import tempfile
 import sqlalchemy.orm
@@ -67,6 +67,25 @@ class TestLoadJunction(unittest.TestCase):
         session = sessionmaker()
         return session
 
+    def test_zero_one_many(self):
+        from Mikado.transcripts import Transcript
+        junctions = []
+        transcripts = []
+        with parsers.bed12.Bed12Parser(os.path.join(
+                os.path.dirname(__file__), "zom_junctions.bed")) as parser:
+            for line in parser:
+                serializers.junction.JunctionSerializer.generate_introns(0, junctions, line)
+                transcripts.append(Transcript(line))
+
+        bed_introns = []
+        for junction in junctions:
+            bed_introns.append((junction.junction_start, junction.junction_end))
+        transcript_introns = []
+        for transcript in transcripts:
+            for intron in transcript.introns:
+                transcript_introns.append(intron)
+
+        assert set(bed_introns) == set(transcript_introns), (set(bed_introns), set(transcript_introns))
     def test_serialise(self):
 
         session = self.__create_session()
@@ -92,13 +111,41 @@ class TestLoadJunction(unittest.TestCase):
                     serializers.junction.Junction.chrom == "Chr5",
                     serializers.junction.Junction.start == 26510619,
                 )
-            ).count(), 1,
+            ).count(), 0,
             [str(_) for _ in
                 session.query(serializers.junction.Junction).filter(
                     and_(
                         serializers.junction.Junction.name == "portcullis_junc_0",
                     )
             )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 2,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 1,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.chrom == "Chr5",
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
 
     def test_serialise_low_maxobject(self):
 
@@ -232,7 +279,6 @@ class TestLoadJunction(unittest.TestCase):
                 seri()
                 genome_file.close()
             # Now check that there are junctions in the temp database
-            import sqlite3
             with sqlite3.connect(db) as conn:
                 try:
                     result = conn.execute("select count(*) from junctions").fetchone()[0]

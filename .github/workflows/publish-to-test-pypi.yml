@@ -5,7 +5,7 @@ on:
 jobs:
   build-and-publish:
     name: Build the Mikado release and publish to TestPyPI
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@master
       - name: Set up Python 3.8

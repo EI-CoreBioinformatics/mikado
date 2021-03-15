@@ -24,11 +24,6 @@ class TestDbConnect(unittest.TestCase):
         self.json = configurator.load_and_validate_config(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
         self.json.db_settings.db = pkg_resources.resource_filename("Mikado.tests", "mikado.db")
-        #
-        # self.assertEqual(self.json.db_settings.db,
-        #                  os.path.join(
-        #                      os.path.dirname(__file__),
-        #                      self.json.db_settings.db,))
 
     def test_connector(self):
         connector = dbutils.create_connector(self.json)
@@ -69,7 +64,7 @@ class TestDbConnect(unittest.TestCase):
         self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
         self.assertIsInstance(astup.target_id, int)
         self.assertIsInstance(astup.target_length, int)
-        self.assertIsInstance(astup.target_name, str)        
+        self.assertIsInstance(astup.target_name, str)
 
     def test_query_init(self):
 
@@ -118,8 +113,8 @@ class TestDbConnect(unittest.TestCase):
         os.remove(os.path.join("/dev/shm/", os.path.basename(self.json.db_settings.db)))
 
     def test_to_memory(self):
-        connector = dbutils.connect(None)
-        self.assertEqual(str(connector.url), "sqlite:///:memory:")
+        engine = dbutils.connect(None)
+        self.assertEqual(str(engine.url), "sqlite:///:memory:")
 
 
 if __name__ == "__main__":

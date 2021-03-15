@@ -2,11 +2,11 @@ import os
 import tempfile
 import gc
 from .checking import create_transcript, CheckingProcess
-from .annotation_parser import AnnotationParser, loaders
+from .annotation_parser import AnnotationParser, loaders, load_into_storage
 from ..configuration import MikadoConfiguration
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration, InvalidParsingFormat
 from ..utilities import Interval, IntervalTree
-from ..parsers import to_gff
+from ..parsers import parser_factory
 import operator
 import collections
 from .. import exceptions
@@ -20,6 +20,7 @@ from collections import defaultdict
 import logging
 from ..utilities import path_join, merge_partial, overlap
 import sqlite3
+import sys
 import pysam
 import numpy as np
 import random
@@ -359,6 +360,11 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
 row_columns = ["chrom", "start", "end", "strand", "tid", "write_start", "write_length", "shelf"]
 
 
+def _get_strand_specific_assemblies_boolean_vector(mikado_config):
+    return [(member in mikado_config.prepare.files.strand_specific_assemblies)
+            for member in mikado_config.prepare.files.gff]
+
+
 def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_length, strip_cds, max_intron):
 
     logger.info("Starting to load lines from %d files (single-threaded)",
@@ -372,7 +378,7 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
     to_do = list(zip(
             shelve_names,
             mikado_config.prepare.files.labels,
-            mikado_config.prepare.files.strand_specific_assemblies,
+            _get_strand_specific_assemblies_boolean_vector(mikado_config),
             mikado_config.prepare.files.reference,
             mikado_config.prepare.files.exclude_redundant,
             mikado_config.prepare.files.strip_cds,
@@ -383,7 +389,7 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
             (
                 shelve_names,
                 mikado_config.prepare.files.labels,
-                mikado_config.prepare.files.strand_specific_assemblies,
+                _get_strand_specific_assemblies_boolean_vector(mikado_config),
                 mikado_config.prepare.files.reference,
                 mikado_config.prepare.files.exclude_redundant,
                 mikado_config.prepare.files.strip_cds,
@@ -402,7 +408,15 @@ def _load_exon_lines_single_thread(mikado_config, shelve_names, logger, min_leng
             file_strip_cds = strip_cds
 
         logger.info("Starting with %s", gff_name)
-        gff_handle = to_gff(gff_name)
+        try:
+            gff_handle = parser_factory(gff_name)
+        except InvalidParsingFormat as exc:
+            logger.exception("Invalid file: %s. Skipping it", gff_name)
+            logger.exception(exc)
+            previous_file_ids[gff_name] = set()
+            load_into_storage(new_shelf, [], min_length, logger, strip_cds=True,
+                              max_intron=3 * 10 ** 5)
+            continue
         found_ids = set.union(set(), *previous_file_ids.values())
         loader = loaders.get(gff_handle.__annot_type__, None)
         if loader is None:
@@ -450,7 +464,7 @@ def _load_exon_lines_multi(mikado_config, shelve_names, logger, min_length, stri
                       exclude_redundant, file_strip_cds, gff_name) in enumerate(zip(
             shelve_names,
             mikado_config.prepare.files.labels,
-            mikado_config.prepare.files.strand_specific_assemblies,
+            _get_strand_specific_assemblies_boolean_vector(mikado_config),
             mikado_config.prepare.files.reference,
             mikado_config.prepare.files.exclude_redundant,
             mikado_config.prepare.files.strip_cds,
@@ -465,7 +479,6 @@ def _load_exon_lines_multi(mikado_config, shelve_names, logger, min_length, stri
     rows = []
 
     retrieved = 0
-    import sys
     while retrieved < len(working_processes):
         if return_queue.empty():
             continue
@@ -546,7 +559,7 @@ def prepare(mikado_config: MikadoConfiguration, logger):
     """
 
     if not hasattr(mikado_config.reference, "genome"):
-        raise InvalidJson("Invalid configuration; reference: {}".format(mikado_config))
+        raise InvalidConfiguration("Invalid configuration; reference: {}".format(mikado_config))
 
     if hasattr(mikado_config.reference.genome, "close"):
         mikado_config.reference.genome.close()
@@ -573,12 +586,7 @@ def prepare(mikado_config: MikadoConfiguration, logger):
     )
 
     if mikado_config.prepare.strand_specific is True:
-        mikado_config.prepare.files.strand_specific_assemblies = [True] * len(
-            mikado_config.prepare.files.gff)
-    else:
-        mikado_config.prepare.files.strand_specific_assemblies = [
-            (member in mikado_config.prepare.files.strand_specific_assemblies)
-            for member in mikado_config.prepare.files.gff]
+        mikado_config.prepare.files.strand_specific_assemblies = mikado_config.prepare.files.gff[:]
 
     ref_len = len(mikado_config.prepare.files.reference)
     file_len = len(mikado_config.prepare.files.gff)
@@ -689,8 +697,8 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
     logger.addHandler(logging.StreamHandler())
     if errored is False:
-        logger.info("""Mikado prepare has finished correctly with seed %s. The output %s FASTA file can now be used for BLASTX \
-    and/or ORF calling before the next step in the pipeline, `mikado serialise`.""",
+        logger.info("Mikado prepare has finished correctly with seed %s. The output %s FASTA file can now be "
+                    "used for BLASTX and/or ORF calling before the next step in the pipeline, `mikado serialise`.",
                     mikado_config.seed, mikado_config.prepare.files.out_fasta)
         logging.shutdown()
     else:

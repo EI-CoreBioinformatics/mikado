@@ -1,6 +1,7 @@
 """
 This module implements the Hit serialisation class.
 """
+from typing import Dict, List
 
 from ...exceptions import InvalidHit
 from sqlalchemy import Column, Integer, Float, ForeignKey, Index
@@ -32,11 +33,6 @@ class Hit(DBBASE):
     __tablename__ = "hit"
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
-    qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
-    qt_index = Index("qt_index", "query_id", "target_id", unique=True)
-    query_index = Index("hit_query_idx", "query_id", unique=False)
-    target_index = Index("hit_target_idx", "target_id", unique=False)
-    evalue_index = Index('hit_evalue_idx', 'evalue', unique=False)
     evalue = Column(Float)
     bits = Column(Float)
     global_identity = Column(Float)
@@ -50,6 +46,16 @@ class Hit(DBBASE):
     target_multiplier = Column(Float)
     query_aligned_length = Column(Integer)
     target_aligned_length = Column(Integer)
+
+    # query_id, target_id, evalue, bits, global_identity, global_positives, query_start, query_end, target_start,
+    # target_end, hit_number, query_multiplier, target_multiplier, query_aligned_length, target_aligned_length
+
+    # Indices and constraints
+    qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
+    qt_index = Index("qt_index", "query_id", "target_id", unique=True)
+    query_index = Index("hit_query_idx", "query_id", unique=False)
+    target_index = Index("hit_target_idx", "target_id", unique=False)
+    evalue_index = Index('hit_evalue_idx', 'evalue', unique=False)
 
     query_object = relationship(Query, uselist=False,
                                 lazy="select",
@@ -79,7 +85,6 @@ class Hit(DBBASE):
 
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
-                        # lazy="immediate",
                         lazy="subquery",
                         backref=backref("hit_object", uselist=False),
                         cascade="all, delete-orphan",
@@ -92,8 +97,12 @@ class Hit(DBBASE):
     # All arguments are necessary and it is more convenient to have them here
     # rather than in a struct/dict/whatever
     # pylint: disable=too-many-arguments
-    def __init__(self, query_id, target_id, query_length, alignment,
-                 evalue, bits, hit_number=1, query_multiplier=1,
+    def __init__(self, query_id, target_id,
+                 evalue, bits, global_identity, global_positives, query_start, query_end, target_start,
+                 target_end, query_aligned_length,
+                 target_aligned_length,
+                 query_length, alignment,
+                 hit_number=1, query_multiplier=1,
                  target_multiplier=1):
         """This function takes as input the id of a target, the id of the query,
         and a hit-object from the XML. The multiplier keyword is used to calculate
@@ -124,25 +133,19 @@ class Hit(DBBASE):
         :type target_multiplier: int
         """
 
-        self.query_id = query_id
-        self.target_id = target_id
+        self.query_id, self.query_start, self.query_end = query_id, query_start, query_end
+        self.query_aligned_length = query_aligned_length
+
+        self.target_id, self.target_start, self.target_end = target_id, target_start, target_end
+        self.target_aligned_length = target_aligned_length
+
+        self.hit_number = hit_number
+        self.evalue, self.bits = evalue, bits
+
+        self.global_identity, self.global_positives = global_identity, global_positives
         self.query_multiplier = query_multiplier
         self.target_multiplier = target_multiplier
-        self.hit_number = hit_number
-        self.evalue = evalue
-        self.bits = bits
 
-        #qmulti = kwargs["query_multiplier"]
-        # tmulti = kwargs["target_multiplier"]
-        # qlength = kwargs["query_length"]
-        prepared_hit, _ = prepare_hit(alignment, query_id, target_id,
-                                      query_multiplier=query_multiplier,
-                                      target_multiplier=target_multiplier,
-                                      query_length=query_length)
-        for key in ["global_identity", "global_positives", "query_aligned_length",
-                    "query_start", "query_end", "target_aligned_length",
-                    "target_start", "target_end"]:
-            setattr(self, key, prepared_hit[key])
     # pylint: enable=too-many-arguments
 
     def __str__(self):
@@ -152,6 +155,25 @@ class Hit(DBBASE):
                 self.query_length, self.target_length]
 
         return "\t".join(str(x) for x in line)
+
+    @classmethod
+    def from_hit(cls, query_id, target_id, query_length, alignment, query_multiplier=1, target_multiplier=1,
+                 hit_number=1) -> (object, List[Hsp]):
+        """"""
+
+        prepared_hit, prepared_hsps = prepare_hit(alignment, query_id, target_id,
+                                                  query_multiplier=query_multiplier,
+                                                  target_multiplier=target_multiplier,
+                                                  query_length=query_length)
+        hsps = []
+        for counter, hsp in enumerate(prepared_hsps, start=1):
+            hsps.append(Hsp.from_dict(counter=counter, query_id=query_id, target_id=target_id,
+                                      hsp_dict=hsp))
+
+        new = Hit(query_id=query_id, target_id=target_id, query_multiplier=query_multiplier,
+                  hit_number=hit_number, target_multiplier=target_multiplier, **prepared_hit)
+
+        return new, hsps
 
     @classmethod
     def as_dict_static(cls, state_obj):
@@ -293,7 +315,8 @@ hit_cols = [col.name for col in Hit.__table__.columns]
 hsp_cols = [col.name for col in Hsp.__table__.columns]
 
 
-def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwargs):
+def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False,
+                **kwargs) -> (Dict, List[Dict]):
     """Prepare the dictionary for fast loading of Hit and Hsp objects.
     global_positives: the similarity rate for the global hit *using the query perspective*
     global_identity: the identity rate for the global hit *using the query perspective*
@@ -307,8 +330,10 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwa
     :param target_id: the numeric ID of the target in the database. Necessary for serialisation.
     :type target_id: int
 
+    :param query_multiplier: the multiplier used for the query (usually either 1 or 3)
+    :param target_multiplier: the multiplier used for the query (usually either 1 or 3)
+
     :param kwargs: additional properties to give to the hit_dict. Retrieved e.g. from descriptions.
-    :type kwargs: dict
     """
 
     hit_dict = dict()
@@ -318,7 +343,7 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwa
 
     qmulti = kwargs["query_multiplier"]
     tmulti = kwargs["target_multiplier"]
-    qlength = kwargs["query_length"]
+    qlength = int(kwargs["query_length"])
     assert isinstance(qmulti, (int, float)), type(qmulti)
     assert isinstance(tmulti, (int, float)), type(tmulti)
     hit_dict.update(kwargs)
@@ -333,6 +358,8 @@ def prepare_hit(hit, query_id, target_id, off_by_one=False, as_list=False, **kwa
 
         hsp_dict, ident, posit = prepare_hsp(hsp, counter, qmultiplier=qmulti, tmultiplier=tmulti,
                                              off_by_one=off_by_one)
+        assert isinstance(ident, np.ndarray)
+        assert isinstance(posit, np.ndarray)
         if ident.max() > query_array.shape[1] or ident.min() < 0:
             raise IndexError("Invalid indexing values (max {}; frame {}; hsp: {})!"\
 "Too low: {}\nToo high: {}".format(

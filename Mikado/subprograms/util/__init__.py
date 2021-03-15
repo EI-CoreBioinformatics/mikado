@@ -14,6 +14,7 @@ from . import trim
 from . import grep
 from . import convert
 from . import class_codes
+from . import collapse_compare_stats
 import argparse
 
 __author__ = 'Luca Venturini'
@@ -42,11 +43,18 @@ def util_parser():
     utils.choices["class_codes"].prog = "mikado util class_codes"
     utils.choices["class_codes"].description = "Script to print out the class codes."
 
+    utils.add_parser("collect_compare",
+                     description="Script to collect and collapse multiple `mikado compare` summary statistics.")
+    utils.choices["collect_compare"] = collapse_compare_stats.parser()
+    utils.choices["collect_compare"].prog = "mikado util collect_compare"
+    utils.choices["collect_compare"].description = "Script to collect and collapse multiple `mikado compare` "\
+                                                   "summary statistics."
+
     utils.add_parser("convert",
-                     description="Script to do GTF <-> GFF3 > BED12 conversions.")
+                     description="Script to do BAM -> GTF <-> GFF3 -> BED12 conversions.")
     utils.choices["convert"] = convert.convert_parser()
     utils.choices["convert"].prog = "mikado util convert"
-    utils.choices["convert"].description = "Script to do GTF <-> GFF3 > BED12 conversions."
+    utils.choices["convert"].description = "Script to do BAM -> GTF <-> GFF3 -> BED12 conversions."
 
     utils.add_parser("grep",
                      description="Script to extract specific models from GFF/GTF files.")

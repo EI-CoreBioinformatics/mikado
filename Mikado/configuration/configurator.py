@@ -15,7 +15,7 @@ from multiprocessing import get_start_method
 from logging import Logger
 import yaml
 from pkg_resources import resource_stream
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from ..utilities.log_utils import create_default_logger
 import random
 import toml
@@ -70,11 +70,11 @@ def check_db(configuration: Union[MikadoConfiguration, DaijinConfiguration]) -> 
 
     if configuration.db_settings.dbtype in ("mysql", "postgresql"):
         if configuration.db_settings.dbhost is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No host specified for the {0} database!".format(
                     configuration.db_settings.dbtype))
         if configuration.db_settings.dbuser is None:
-            raise InvalidJson(
+            raise InvalidConfiguration(
                 "No user specified for the {0} database!".format(
                     configuration.db_settings.dbtype))
         if configuration.db_settings.dbport == 0:
@@ -83,18 +83,19 @@ def check_db(configuration: Union[MikadoConfiguration, DaijinConfiguration]) -> 
             else:
                 configuration.db_settings.dbport = 5432
     else:
-        if (configuration.db_settings.db is not None and
-                not os.path.isabs(configuration.db_settings.db)):
-            if os.path.exists(os.path.join(os.getcwd(),
-                                           configuration.db_settings.db)):
+        if configuration.db_settings.db is not None and not os.path.isabs(configuration.db_settings.db):
+            if os.path.exists(os.path.join(os.getcwd(), configuration.db_settings.db)):
+                configuration.db_settings.db = os.path.join(os.getcwd(), configuration.db_settings.db)
+            elif os.path.exists(
+                    os.path.join(os.path.dirname(configuration.filename or ""), configuration.db_settings.db)):
                 configuration.db_settings.db = os.path.join(
-                    os.getcwd(), configuration.db_settings.db)
-            elif os.path.exists(os.path.join(os.path.dirname(configuration.filename or ""), configuration.db_settings.db)):
+                    os.path.dirname(configuration.filename or ""), configuration.db_settings.db)
+            elif os.path.exists(os.path.join(os.path.dirname(configuration.filename or ""),
+                                             configuration.db_settings.db)):
                 configuration.db_settings.db = os.path.join(os.path.dirname(configuration.filename or ""),
-                                                        configuration.db_settings.db)
+                                                            configuration.db_settings.db)
             else:
-                configuration.db_settings.db = os.path.join(os.path.dirname(configuration.filename or ""),
-                                                        configuration.db_settings.db)
+                pass
 
     return configuration
 
@@ -117,24 +118,16 @@ def check_and_load_scoring(configuration: Union[DaijinConfiguration, MikadoConfi
 
     try:
         configuration.load_scoring(logger=logger)
-        configuration.check()
+        configuration.check(logger=logger)
         configuration = check_db(configuration)
         if not configuration.multiprocessing_method:
             configuration.multiprocessing_method = get_start_method()
-
-    except Exception as exc:
+    except InvalidConfiguration as exc:
         logger.exception(exc)
         raise
 
-    seed = configuration.seed
-
-    if seed != 0:
-        # numpy.random.seed(seed % (2 ** 32 - 1))
-        random.seed(seed % (2 ** 32 - 1))
-    else:
-        # numpy.random.seed(None)
-        random.seed(None)
-
+    assert configuration.seed is not None
+    random.seed(configuration.seed % (2 ** 32 - 1))
     return configuration
 
 
@@ -173,7 +166,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
             assert isinstance(raw_configuration, str), raw_configuration
             raw_configuration = os.path.abspath(raw_configuration)
             if not os.path.exists(raw_configuration) or os.stat(raw_configuration).st_size == 0:
-                raise InvalidJson("JSON file {} not found!".format(raw_configuration))
+                raise InvalidConfiguration("JSON file {} not found!".format(raw_configuration))
             with open(raw_configuration) as json_file:
                 # YAML *might* try to load up the file as the proper object
                 if raw_configuration.endswith(".yaml"):
@@ -209,11 +202,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
         raise
     except Exception as exc:
         logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
-        raise InvalidJson("The configuration file passed is invalid. Please double check.")
-
-    if config.seed == 0 or config.seed is None:
-        config.seed = random.randint(1, 2 ** 32 - 1)
-        logger.info("Random seed: {}", config.seed)
+        raise InvalidConfiguration("The configuration file passed is invalid. Please double check.")
 
     random.seed(config.seed % (2 ** 32 - 1))
 

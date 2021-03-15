@@ -6,6 +6,9 @@ and log creation.
 
 import os
 import functools
+import re
+from typing import Union
+
 from . import dbutils
 from . import log_utils
 import collections
@@ -23,6 +26,8 @@ __author__ = 'Luca Venturini'
 
 # Diamond default: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
 # BLASTX default: qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore
+from ..exceptions import InvalidConfiguration
+
 blast_keys = "qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore ppos btop".split()
 
 
@@ -211,7 +216,10 @@ def merge_ranges(ranges):
     yield current_start, current_stop
 
 
-def to_region(string):
+_reg_pat = re.compile(r"^([^:]*):(\d*)(?:-|\.\.)(\d*)$")
+
+
+def to_region(string: Union[str, bytes]) -> [str, int, int]:
 
     """
     Snippet to convert from Apollo-style region to a tuple of chrom, start, end
@@ -219,21 +227,18 @@ def to_region(string):
     :return:
     """
 
-    fields = string.split(":")
-    if len(fields) != 2:
-        raise ValueError("Invalid string!")
-    chrom, rest = fields
-    if ".." in rest:
-        separator = ".."
-    elif "-" in rest:
-        separator = "-"
-    else:
-        raise ValueError("Invalid string!")
-
-    start, end = [int(_) for _ in rest.split(separator)]
+    if not isinstance(string, (str, bytes)):
+        raise ValueError("Invalid region: {} (type {})".format(string, type(string)))
+    elif isinstance(string, bytes):
+        string = string.decode()
+    string = string.strip()
+    try:
+        chrom, start, end = _reg_pat.search(string).groups()
+        start, end = int(start), int(end)
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError("Invalid string specified: {}".format(string))
     if end < start:
         raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
-
     return chrom, start, end
 
 
@@ -253,3 +258,25 @@ def default_for_serialisation(obj):
         return tuple(obj)
     elif obj == float("inf"):
         return sys.maxsize
+
+
+def to_bool(param: Union[str, bool, int, float]):
+    """Function to convert a items to booleans."""
+
+    if isinstance(param, bool):
+        return param
+    elif isinstance(param, (int, float)):
+        if param == 1:
+            return True
+        elif param == 0:
+            return False
+    elif isinstance(param, (str, bytes)):
+        if isinstance(param, bytes):
+            param = param.decode()
+        lparam = param.lower()
+        if lparam == 'true' or lparam == "1":
+            return True
+        elif lparam == 'false' or lparam == "0":
+            return False
+
+    raise ValueError(f"Invalid boolean parameter: {param}")

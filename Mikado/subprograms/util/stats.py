@@ -20,8 +20,8 @@ def launch(args):
     """
 
     from ...scales.calculator import Calculator
-    from ...parsers import to_gff
-    args.gff = to_gff(args.gff)
+    from ...parsers import parser_factory
+    args.gff = parser_factory(args.gff)
     calculator = Calculator(args)
     calculator()
 

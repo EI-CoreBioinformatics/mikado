@@ -9,12 +9,29 @@ import unittest
 from .. import loci, utilities
 from .. import scales
 from ..scales.assignment.assigner import Assigner
+from ..scales.assignment.distributed import encode_result
 
 
 class AssignerTest(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of Mikado.py.
     """
+
+    def test_encode_result(self):
+        res = scales.resultstorer.ResultStorer(
+            "t1", "g1", "=",
+            "p1", "pg1", "2", "2",
+            100, 100, 100,
+            100, 100, 100,
+            100, 100, 100,
+            0, "chr1:100..10000")
+        encoded = encode_result(res)
+        self.assertIsInstance(encoded, dict)
+        self.assertEqual(encoded["ref_id"], "t1")
+        self.assertEqual(encoded["distance"], "0")
+        self.assertEqual(encoded["location"], "chr1:100..10000")
+        encoded = encode_result(10)
+        self.assertEqual(encoded, 10)
 
     def test_get_f1(self):
 

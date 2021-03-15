@@ -50,22 +50,3 @@ class TranscriptComputer(Transcript):
         self.cds_intron_lengths = [i[1] - i[0] for i in self.selected_cds_introns]
         self.utr_intron_lengths = [i[1] - i[0] for i in self.introns if
                                    i not in self.selected_cds_introns]
-
-    def as_tuple(self):
-        """Method to build a namedtuple containing only the basic information for stat building.
-
-        We want to analyze the following:
-        - cDNA length
-        - CDS length
-        - Exons (number and length)
-        - CDS Exons (number and length)
-        - Introns (number and length)
-        - CDS Introns (number and length)
-        """
-
-        self.finalize()
-        constructor = dict()
-        for field in self.data_fields:
-            constructor[field] = getattr(self, field)
-
-        return self.data_tuple(**constructor)

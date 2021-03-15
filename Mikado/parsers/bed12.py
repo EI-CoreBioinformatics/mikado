@@ -9,9 +9,10 @@ from time import sleep
 import os
 from Bio import Seq
 import Bio.SeqRecord
-from . import Parser
+from .parser import Parser
 from sys import intern
 import copy
+from ..exceptions import InvalidParsingFormat
 from ..parsers.GFF import GffLine
 from typing import Union
 import re
@@ -26,21 +27,39 @@ import multiprocessing as mp
 import msgpack
 import logging
 import logging.handlers as logging_handlers
+from ..utilities import to_bool
 from ..utilities.log_utils import create_null_logger
 import pyfaidx
 import zlib
 import numpy as np
 import random
 import pprint as pp
+from math import modf
+from Bio.Data import IUPACData
 
 
-backup_valid_letters = set(_ambiguous_dna_letters.upper() + _ambiguous_rna_letters.upper())
-standard = CodonTable.ambiguous_dna_by_id[1]
-standard.start_codons = ["ATG"]
+codons = copy.deepcopy(CodonTable.ambiguous_dna_by_id[1]._codon_table)
+codons.start_codons = ["ATG"]
+standard = CodonTable.AmbiguousCodonTable(codons,
+                                          IUPACData.ambiguous_dna_letters,
+                                          IUPACData.ambiguous_dna_values,
+                                          IUPACData.extended_protein_letters,
+                                          IUPACData.extended_protein_values)
+assert standard.start_codons == ["ATG"]
+assert CodonTable.ambiguous_dna_by_id[1].start_codons != ["ATG"]
+
+ambiguous_dna_by_id = dict()
+ambiguous_dna_by_name = dict()
+for key, table in CodonTable.ambiguous_dna_by_name.items():
+    ambiguous_dna_by_name[key] = table
+
+for key, table in CodonTable.ambiguous_dna_by_id.items():
+    ambiguous_dna_by_id[key] = table
+ambiguous_dna_by_id[0] = standard
 
 
 @functools.lru_cache(typed=True, maxsize=2**10)
-def get_tables(table, to_stop=False, gap=None):
+def get_tables(table, to_stop=False, gap=None, stop_symbol="*"):
     forward_table = table.forward_table.forward_table.copy()
     stop_codons = set(table.stop_codons)
     dual_coding = [c for c in stop_codons if c in forward_table]
@@ -59,18 +78,13 @@ def get_tables(table, to_stop=False, gap=None):
                       BiopythonWarning)
 
     for stop in stop_codons:
-        forward_table[stop] = "*"
+        forward_table[stop] = stop_symbol
     if gap is not None:
-        forward_table[gap * 3] = "*"
+        forward_table[gap * 3] = stop_symbol
 
-    if table.nucleotide_alphabet is not None:
-        valid_letters = set(table.nucleotide_alphabet.upper())
-    else:
-        # Assume the worst case, ambiguous DNA or RNA:
-        valid_letters = backup_valid_letters
+    valid_letters = set(table.nucleotide_alphabet.upper())
 
     getter = np.vectorize(forward_table.get, otypes=["<U"])
-
     return forward_table, getter, valid_letters
 
 
@@ -136,50 +150,49 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     Bio.Data.CodonTable.TranslationError: Extra in frame stop codon found.
     """
 
+    # Check that the pos_stop is a single character
+    # By default this is the "X" character (equivalent to "N" for nucleotides)
+    if not (isinstance(pos_stop, (bytes, str)) and len(pos_stop) == 1):
+        raise ValueError("Pos_stop must be a single character, not {pos_stop}".format(pos_stop=pos_stop))
+    if isinstance(pos_stop, bytes):
+        pos_stop = pos_stop.decode()
+
     if cds and len(sequence) % 3 != 0:
         raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(
             len(sequence)
         ))
     elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
-        raise TypeError("Gap character should be a single character string.")
+        raise ValueError("Gap character should be a single character string.")
 
-    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap)
+    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap, stop_symbol=stop_symbol)
 
     sequence = sequence.upper()
     if not valid_letters.issuperset(set(sequence)):
         raise CodonTable.TranslationError("Invalid letters in the sequence: {}".format(
-            set.difference(set(*sequence), valid_letters)
+            set.difference(set(sequence), valid_letters)
         ))
 
     amino_acids = getter(np.array(
         [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)], dtype="<U"))
 
     if cds and amino_acids[0] != "M":
-        raise CodonTable.TranslationError(
-            "First codon '{0}' is not a start codon".format(sequence[:3]))
+        if sequence[0:3] in table.start_codons:
+            amino_acids[0] = "M"
+        else:
+            raise CodonTable.TranslationError("First codon '{0}' is not a start codon".format(sequence[:3]))
 
-    nones = np.where(amino_acids == None)[0]
-
-    if nones.shape[0] > 0:
-        # Check that the pos_stop is a single character
-        # By default this is the "X" character (equivalent to "N" for nucleotides)
-        if not (isinstance(pos_stop, (bytes, str)) and len(pos_stop) == 1):
-            raise ValueError("Pos_stop must be a single character, not {pos_stop}".format(pos_stop=pos_stop))
-        if isinstance(pos_stop, bytes):
-            pos_stop = pos_stop.decode()
-        # Change all the positions where the aminoacid is undefined to the default "pos_stop" character
-        amino_acids[nones] = pos_stop
-
+    nones = np.where((amino_acids == "None") | (amino_acids is None))[0]
+    amino_acids[nones] = pos_stop
     _stop_locations = np.where(amino_acids == stop_symbol)[0]
     found_stops = _stop_locations.shape[0]
 
     if cds and found_stops > 1:
         raise CodonTable.TranslationError(
-            "Extra in frame stop codon found. Sequence: {sequence}".format(sequence=sequence))
+            "Extra in-frame stop codon found. Sequence: {sequence}".format(sequence=sequence))
     elif cds and found_stops and _stop_locations[0] < len(amino_acids) - 1:
         raise CodonTable.TranslationError(
-            "Extra in frame stop codon. Sequence:\n{sequence}\n{spaces}^".format(
-            sequence=sequence, spaces=" " * _stop_locations[0]))
+            "Extra in-frame stop codon. Sequence:\n{sequence}\n{spaces}^^^".format(
+            sequence=sequence, spaces=" " * _stop_locations[0] * 3))
     if to_stop and found_stops > 0:
         amino_acids = amino_acids[:_stop_locations[0]]
 
@@ -356,7 +369,7 @@ class BED12:
             elif self.transcriptomic is False:
                 error = "GFF lines can be used as BED12-equivalents only in a transcriptomic context."
                 self.logger.error(error)
-                raise TypeError(error)
+                raise InvalidParsingFormat(error)
             else:
                 self.header = False
                 if sequence:
@@ -374,7 +387,7 @@ class BED12:
                 self.__set_values_from_gff(fasta_length)
 
         elif not (isinstance(self._line, list) or isinstance(self._line, tuple)):
-            raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
+            raise InvalidParsingFormat("I need an ordered array, not {0}".format(type(self._line)))
         else:
             self._fields = self._line
             self.__set_values_from_fields()
@@ -417,29 +430,41 @@ class BED12:
 
     @table.setter
     def table(self, table):
-        # We are going to receive a string, so we need first to convert to integer
-        try:
+        if isinstance(table, bool):  # Boolean can be considered as int so this requires special handling
+            raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
+        elif table is not None and not isinstance(table, (int, float, bytes, str)):
+            raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
+        elif isinstance(table, (str, bytes)):
+            table = table.decode() if isinstance(table, bytes) else table
+            if table.isdigit() is True:
+                table = int(table)
+            elif re.search(r"^[0-9]*\.[0-9]$", table):
+                table = float(table)
+                if modf(table) != 0:
+                    raise ValueError(f"Invalid table specified: {table}")
+                table = int(table)
+        elif isinstance(table, float):
+            if modf(table) != 0:
+                raise ValueError(f"Invalid table specified: {table}")
             table = int(table)
-        except (ValueError, TypeError):
-            pass
+
         if table is None:
             self.__table = standard
             self.__table_index = 0
         elif isinstance(table, int):
-            if table == 0:
-                self.__table = standard
-            else:
-                self.__table = CodonTable.ambiguous_dna_by_id[table]
-            self.__table_index = 0
+            if table not in ambiguous_dna_by_id.keys():
+                raise ValueError(f"Invalid table code specified: {table}. Available codes: "
+                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_id.keys()])}")
+            self.__table = ambiguous_dna_by_id[table]
+            assert self.__table.start_codons == ["ATG"] if table == 0 else True, f"Invalid codons for table 0: " \
+                                                                                 f"{self.__table.start_codons}"
+            self.__table_index = table
         elif isinstance(table, str):
-            self.__table = CodonTable.ambiguous_dna_by_name[table]
-            self.__table_index = self.__table._codon_table.id
-        elif isinstance(table, bytes):
-            self.__table = CodonTable.ambiguous_dna_by_name[table.decode()]
-            self.__table_index = self.__table._codon_table.id
-        else:
-            raise ValueError("Invalid table: {} (type: {})".format(
-                    table, type(table)))
+            if table not in ambiguous_dna_by_name.keys():
+                raise ValueError(f"Invalid table name specified: {table}. Available table: "
+                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_name.keys()])}")
+            self.__table = ambiguous_dna_by_name[table]
+            self.__table_index = ambiguous_dna_by_name[table].id
         return
 
     @parent.setter
@@ -524,8 +549,8 @@ class BED12:
         self._parse_attributes(self.name)
         if len(self._fields) == 13:
             self._parse_attributes(self._fields[-1])
-        self.has_start_codon = None
-        self.has_stop_codon = None
+        self.has_start_codon = False
+        self.has_stop_codon = False
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = len(self)
@@ -548,7 +573,7 @@ class BED12:
                                                     self._line.end, self._line.strand, self._line.id)
         intern(self.chrom)
         if self.name is None:
-            raise ValueError("{self} should have the name property defined".format(repr(self)))
+            raise InvalidParsingFormat("{self} should have the name property defined".format(self=repr(self)))
         self.start = 1
         self.end = fasta_length
         self.score = self._line.score
@@ -556,8 +581,8 @@ class BED12:
         self.block_count = 1
         self.block_sizes = [self.thick_end - self.thick_start +1]
         self.block_starts = [self.thick_start]
-        self.has_start_codon = None
-        self.has_stop_codon = None
+        self.has_start_codon = False
+        self.has_stop_codon = False
         self.start_codon = None
         self.stop_codon = None
         self.fasta_length = fasta_length
@@ -797,6 +822,9 @@ class BED12:
     def __repr__(self):
         return pp.saferepr(self.__dict__)
 
+    def __hash__(self):
+        return hash(frozenset(self.__getstate__()))
+
     def __str__(self):
 
         if self.header is True:
@@ -923,9 +951,7 @@ class BED12:
         :type value: None
         """
 
-        if value not in (None, True, False):
-            raise ValueError()
-        self.__has_start = value
+        self.__has_start = to_bool(value)
 
     @property
     def has_stop_codon(self):
@@ -944,9 +970,7 @@ class BED12:
         :type value: bool
         :type value: None
         """
-        if value not in (None, True, False):
-            raise ValueError()
-        self.__has_stop = value
+        self.__has_stop = to_bool(value)
 
     @property
     def full_orf(self):
@@ -1351,8 +1375,6 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
                 # Only get a multiple of three
                 coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
             prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
-            # print(coding_seq, prot_seq, self.table, sep="\n")
-            # raise ValueError()
             if "*" in prot_seq:
                 self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
                 self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
@@ -1404,19 +1426,11 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
             seen += block[1] - block[0] + 1
 
         # Check thick start and end are defined
-        error = ""
-        if tStart is None:
-            error += """The thick start of {self.id} ({self.chrom}:{self.start}-{self.end}) is invalid as it is outside of the defined exons.
-Thick start: {self.thick_start}
-Exons: {self.blocks}\n""".format(self=self)
 
-        if tStart is None or tEnd is None:
-            error += """The thick end of {self.id} ({self.chrom}:{self.start}-{self.end}) is invalid as it is outside of the defined exons.
-Thick end: {self.thick_end}
-Exons: {self.blocks}\n""".format(self=self)
-
-        if error:
-            raise ValueError(error)
+        assert tStart is not None and tEnd is not None, f"The thick start, thick end of {self.id} are invalid " \
+                                                        f"as they are outside of the defined exons.\nThick start: " \
+                                                        f"{self.thick_start}\nThick end: {self.thick_end}\n" \
+                                                        f"Exons: {self.blocks}"
 
         if self.strand == "+":
             bsizes = self.block_sizes[:]
@@ -1467,9 +1481,7 @@ This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes),
                     transcriptomic=True,
                     lenient=lenient,
                     start_adjustment=start_adjustment)
-        if not isinstance(new, type(self)):
-            raise TypeError("The new object is of type {tnew} instead of {tself}!".format(tnew=type(new),
-                                                                                          tself=type(self)))
+        assert isinstance(new, type(self)), f"The new object is of type {type(new)} instead of {type(self)}!"
         return new
 
     @property
@@ -1569,10 +1581,13 @@ class Bed12Parser(Parser):
 
     def __next__(self, seq=None):
 
-        if self._is_bed12 is True:
-            return self.bed_next()
-        else:
-            return self.gff_next()
+        try:
+            if self._is_bed12 is True:
+                return self.bed_next()
+            else:
+                return self.gff_next()
+        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError, InvalidParsingFormat) as exc:
+            raise InvalidParsingFormat(f"This is not a valid BED12 file! Exception: {exc}")
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -1607,10 +1622,10 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               logger=self.logger,
                               start_adjustment=self.start_adjustment)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
         return bed12
 
     def gff_next(self):
@@ -1625,10 +1640,10 @@ class Bed12Parser(Parser):
             self.__line_counter += 1
             try:
                 gff_line = GffLine(line)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
 
             if gff_line.feature != "CDS":
                 continue
@@ -1641,10 +1656,10 @@ class Bed12Parser(Parser):
                               table=self.__table,
                               start_adjustment=self.start_adjustment,
                               logger=self.logger)
-            except Exception as exc:
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
                     name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
-                raise ValueError(error)
+                raise InvalidParsingFormat(error)
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1757,8 +1772,8 @@ class Bed12ParseWrapper(mp.Process):
                           start_adjustment=self.start_adjustment,
                           coding=self.coding,
                           table=self.__table)
-        except Exception:
-            raise ValueError("Invalid line: {}".format(line))
+        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+            raise InvalidParsingFormat("Invalid line: {}".format(line))
         return bed12
 
     def gff_next(self, line, sequence):
@@ -1769,9 +1784,9 @@ class Bed12ParseWrapper(mp.Process):
 
         try:
             line = GffLine(line)
-        except Exception:
+        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
             error = "Invalid line:\n{}".format(line)
-            raise ValueError(error)
+            raise InvalidParsingFormat(error)
 
         if line.feature != "CDS":
             return None
@@ -1826,5 +1841,5 @@ class Bed12ParseWrapper(mp.Process):
                 self.return_queue.put((num, msgpack.dumps(row.as_simple_dict())))
             except AttributeError:
                 pass
-            except ValueError:
-                raise ValueError(line)
+            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+                raise InvalidParsingFormat(line)

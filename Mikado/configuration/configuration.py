@@ -1,19 +1,20 @@
 import copy
 import dataclasses
 from dataclasses import field
+import random
 from marshmallow import validate, ValidationError
 from marshmallow_dataclass import dataclass, Optional
 from .picking_config import PickConfiguration
 from .prepare_config import PrepareConfiguration
 from .serialise_config import SerialiseConfiguration
 from ..utilities.dbutils import DBConfiguration
-from ..utilities.log_utils import LoggingConfiguration, create_null_logger
+from ..utilities.log_utils import LoggingConfiguration, create_null_logger, create_default_logger
 from Mikado._transcripts.scoring_configuration import ScoringFile
 import os
 import yaml
 import toml
 import json
-from ..exceptions import InvalidJson
+from ..exceptions import InvalidConfiguration
 from pkg_resources import resource_filename
 try:
     from yaml import CSafeLoader as yLoader
@@ -41,8 +42,10 @@ class MikadoConfiguration:
         "required": True
     })
     seed: int = field(default=0, metadata={
-        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs"},
-        "validate": validate.Range(min=0, max=2 ** 32 - 1)
+        "metadata": {"description": "Random number generator seed, to ensure reproducibility across runs. Set to None"
+                     "('null' in YAML/JSON/TOML files) to let Mikado select a random seed every time."},
+        "validate": validate.Range(min=0, max=2 ** 32 - 1),
+        "allow_none": True, "required": True
     })
     multiprocessing_method: Optional[str] = field(default="spawn", metadata={
         "metadata": {"description": "Which method (fork, spawn, forkserver) Mikado should use for multiprocessing"},
@@ -75,11 +78,18 @@ class MikadoConfiguration:
     def copy(self):
         return copy.copy(self)
 
-    def check(self):
+    def check(self, logger=create_null_logger()):
+        if self.seed is None:
+            self.seed = random.randint(0, 2 ** 32 - 1)
+            logger.info(f"Random seed: {self.seed}")
         if self.scoring is None or not hasattr(self.scoring.requirements, "parameters"):
-            self.load_scoring()
+            self.load_scoring(logger=logger)
         self.scoring.check(minimal_orf_length=self.pick.orf_loading.minimal_orf_length)
-        self.Schema().validate(dataclasses.asdict(self))
+        errors = self.Schema().validate(dataclasses.asdict(self))
+        if len(errors) > 0:
+            exc = InvalidConfiguration(f"The configuration is invalid, please double check. Errors:\n{errors}")
+            logger.critical(exc)
+            raise exc
 
     def load_scoring(self, logger=None):
         """
@@ -94,11 +104,11 @@ class MikadoConfiguration:
         """
 
         if logger is None:
-            logger = create_null_logger("check_scoring")
+            logger = create_default_logger("check_scoring", level="WARNING")
         if self.pick.scoring_file is None:
             if self._loaded_scoring != self.pick.scoring_file:            
-                logger.debug("Resetting the scoring to its previous value")
-                self.pick.scoring_file = self._loaded_scoring
+                logger.warning(f"Resetting the scoring to its previous value ({self._loaded_scoring})")
+                self.pick.scoring_file = self._loaded_scoring = os.path.abspath(self._loaded_scoring)
         elif self._loaded_scoring != self.pick.scoring_file:
             logger.debug("Overwriting the scoring self using '%s' as scoring file", self.pick.scoring_file)
             self.scoring_file = None
@@ -137,20 +147,19 @@ class MikadoConfiguration:
                         checked = ScoringFile.Schema().load(scoring)
                         checked.check(minimal_orf_length=self.pick.orf_loading.minimal_orf_length)
                         self._loaded_scoring = self.pick.scoring_file
-                        # self = check_scoring(self)
-                        # self = check_all_requirements(self)
-                    except (InvalidJson, ValidationError) as exc:
-                        logger.debug("Invalid option: %s", option)
-                        logger.warning(exc)
-                        continue
-                    # self.scoring = dataclasses.asdict(checked.scoring)
+                    except (InvalidConfiguration, ValidationError) as exc:
+                        msg = f"The configuration file {option} is invalid:\n"
+                        msg += str(exc)
+                        logger.critical(msg)
+                        raise InvalidConfiguration(msg)
                     self.scoring = checked
                     found = True
                     self.pick.scoring_file = option
             if found is True:
                 logger.info("Found the correct option: %s", option)
-                self.pick.scoring_file = option
+                self.pick.scoring_file = os.path.abspath(option)
+                self._loaded_scoring = os.path.abspath(option)
                 break
         if not found:
-            raise InvalidJson("No scoring configuration file found. Options: {}".format(",".join(options)))
+            raise InvalidConfiguration("No scoring configuration file found. Options: {}".format(",".join(options)))
         return

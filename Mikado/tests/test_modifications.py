@@ -1,9 +1,10 @@
 from Mikado._transcripts.scoring_configuration import SizeFilter
-
-from .. import utilities, exceptions
-from ..parsers.GFF import GffLine
-from ..loci import Transcript
-from ..loci.locus import Locus, expand_transcript
+from Mikado.scales.assignment import Assigner
+import itertools
+from Mikado import utilities
+from Mikado.parsers.GFF import GffLine
+from Mikado.loci import Transcript
+from ..loci.locus import Locus, pad_transcript
 from ..parsers.bed12 import BED12
 from ..subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
@@ -11,7 +12,6 @@ import pysam
 import pkg_resources
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from ..configuration.configurator import load_and_validate_config
-from pytest import mark
 
 
 __author__ = 'Luca Venturini'
@@ -159,19 +159,19 @@ class TestPadding(unittest.TestCase):
         template.finalize()
         fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
 
-        new5 = expand_transcript(self.reference, self.reference.deepcopy(), None, template, fai, logger)
+        new5 = pad_transcript(self.reference, self.reference.deepcopy(), None, template, fai, logger)
         self.assertIn((26574970, 26575410), new5.exons)
         self.assertIn((26574650, 26574820), new5.exons)
         self.assertEqual(template.start, new5.start)
         self.assertEqual(self.reference.end, new5.end)
 
-        new3 = expand_transcript(self.reference, self.reference.deepcopy(), template, None, fai, logger)
+        new3 = pad_transcript(self.reference, self.reference.deepcopy(), template, None, fai, logger)
         self.assertIn((26578519, 26578725), new3.exons)
         self.assertIn((26579325, 26579700), new3.exons)
         self.assertEqual(self.reference.start, new3.start)
         self.assertEqual(template.end, new5.end)
 
-        new53 = expand_transcript(self.reference, self.reference.deepcopy(), template, template, fai, logger)
+        new53 = pad_transcript(self.reference, self.reference.deepcopy(), template, template, fai, logger)
         self.assertIn((26574970, 26575410), new53.exons)
         self.assertIn((26574650, 26574820), new53.exons)
         self.assertIn((26578519, 26578725), new53.exons)
@@ -276,8 +276,6 @@ class TestPadding(unittest.TestCase):
         locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
         self.assertIn(t1.id, locus.transcripts)
         if t2_1.id in locus.transcripts:
-            from ..scales import Assigner
-            import itertools
             for tid1, tid2 in itertools.combinations(locus.transcripts.keys(), 2):
                 res, _ = Assigner.compare(locus[tid1], locus[tid2])
                 print(tid1, tid2, res.ccode)

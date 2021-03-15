@@ -204,22 +204,39 @@ class Calculator:
 
         derived_features = set()
 
-        current_gene = None
+        genes = dict()
+        orphaned = set()
+        orphan_counter = 0
 
         for record in self.gff:
             if self.atype == "bed12":
-                self.__store_gene(current_gene)
                 if not record.parent:
                     record.parent = "{}.gene".format(record.id)
                 current_gene = Gene(record, gid=record.parent[0], only_coding=self.only_coding,
                                     logger=self.__logger, use_computer=True)
                 transcript2gene[record.id] = record.parent[0]
                 current_gene.transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
+                assert current_gene.id not in genes, f"Duplicated ID found: {current_gene.id}"
+                genes[current_gene.id] = current_gene
+            elif self.atype == "bam":
+                transcript = TranscriptComputer(record, logger=self.__logger)
+                transcript.parent = transcript.id + "_gene"
+                gcounter = 0
+                while transcript.parent[0] in genes:
+                    gcounter += 1
+                    transcript.parent = transcript.id + f"_gene.{gcounter}"
+
+                genes[transcript.parent[0]] = Gene(transcript, gid=transcript.parent[0],
+                                                   only_coding=self.only_coding, logger=self.__logger,
+                                                   use_computer=True)
             elif record.is_gene is True:
-                self.__store_gene(current_gene)
-                current_gene = Gene(record,
-                                    only_coding=self.only_coding,
-                                    logger=self.__logger, use_computer=True)
+                if record.id in genes:  # Necessary for unsorted inputs
+                    genes[record.id].attributes.update(record.attributes)
+                    genes[record.id].start, genes[record.id].end = record.start, record.end
+                    assert (genes[record.id].strand, genes[record.id].chrom) == record.strand, record.chrom
+                else:
+                    gene = Gene(record, only_coding=self.only_coding, logger=self.__logger, use_computer=True)
+                    genes[gene.id] = gene
             elif record.is_transcript is True or (self.atype == GFF3.__annot_type__ and record.feature == "match"):
                 if record.parent is None and record.feature != "match":
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
@@ -230,79 +247,101 @@ class Calculator:
                     gid = record.id + ".gene"
                 else:
                     gid = record.parent[0]
-                if current_gene is None or gid != current_gene.id:
-                    # Create a gene record
-                    self.__store_gene(current_gene)
-                    current_gene = Gene(
+                if gid not in genes:
+                    gene = Gene(
                         record,
                         gid=gid,
                         only_coding=self.only_coding,
                         logger=self.__logger,
                         use_computer=True)
+                    genes[gid] = gene
+
                 transcript2gene[record.id] = gid
-                current_gene.transcripts[record.id] = TranscriptComputer(record,
-                                                                         logger=self.__logger)
+                if record.id not in genes[gid]:
+                    genes[gid].transcripts[record.id] = TranscriptComputer(record, logger=self.__logger)
+                else:
+                    genes[gid].transcripts[record.id].start, genes[gid].transcripts[record.id].end = (record.start,
+                                                                                                      record.end)
+                    genes[gid].transcripts[record.id].attributes.update(record.attributes)
 
             elif record.is_derived is True and record.is_exon is False:
                 derived_features.add(record.id)
             elif record.is_exon is True:
                 if self.atype != GFF3.__annot_type__:
-                    if "transcript_id" not in record.attributes:
-                        # Probably truncated record!
-                        record.header = True
-                        continue
-                    if current_gene is None or record.gene != current_gene.id:
-                        self.__store_gene(current_gene)
-                        # new_record = record.copy()
-                        # new_record.feature = "gene"
-                        # new_record.id = new_record.gene
-                        current_gene = Gene(
+                    if record.gene not in genes:
+                        gene = Gene(
                             record,
                             only_coding=self.only_coding,
                             logger=self.__logger,
                             use_computer=True)
-                        record.id = record.transcript
+                        genes[record.gene] = gene
                         transcript2gene[record.transcript] = record.gene
-                        current_gene.transcripts[record.transcript] = TranscriptComputer(record,
-                                                                                         logger=self.__logger)
-                    elif record.transcript not in current_gene:
-                        assert record.transcript not in transcript2gene, record.transcript
-                        transcript2gene[record.transcript] = record.gene
-                        current_gene.transcripts[record.transcript] = TranscriptComputer(record,
+
+                    transcript2gene[record.transcript] = record.gene
+                    if record.transcript not in genes[record.gene].transcripts:
+                        genes[record.gene].transcripts[record.transcript] = TranscriptComputer(record,
                                                                                          logger=self.__logger)
                     else:
-                        current_gene.transcripts[record.transcript].add_exon(record)
+                        genes[record.gene].transcripts[record.transcript].add_exon(record)
+
                 elif self.atype == GFF3.__annot_type__ and "cDNA_match" in record.feature:
                     # Here we assume that we only have "cDNA_match" lines, with no parents
                     record.parent = record.id
-                    if current_gene is None or record.id != current_gene.id:
-                        self.__store_gene(current_gene)
-                        # new_record = record.copy()
-                        current_gene = Gene(
+                    if record.id not in genes:
+                        genes[record.id] = Gene(
                             record,
                             gid=record.id,
                             only_coding=self.only_coding,
                             logger=self.__logger,
                             use_computer=True)
-                        transcript2gene[record.id] = record.id
-                        current_gene.transcripts[record.id] = TranscriptComputer(record,
-                                                                                 logger=self.__logger,
-                                                                                 )
-                    elif record.id not in current_gene:
-                        raise ValueError(
-                            "cDNA_match instances should not have more than one transcript per \"gene\"!")
+                    transcript2gene[record.id] = record.id
+                    if record.id not in genes[record.id]:
+                        genes[record.id].transcripts[record.id] = TranscriptComputer(record,
+                                                                                     logger=self.__logger)
                     else:
-                        current_gene.transcripts[record.id].add_exon(record)
-
+                        genes[record.id].add_exon(record)
                 elif self.atype == GFF3.__annot_type__:
-                    current_gene.add_exon(record)
-
+                    found = False
+                    for parent in record.parent:
+                        if parent in transcript2gene:
+                            gene_id = transcript2gene[parent]
+                            genes[gene_id].add_exon(record)
+                            found = True
+                            break
+                    if found is False:
+                        orphan_counter += 1
+                        self.__logger.debug(f"Storing orphan line {record.parent}, {record.start}, {record.end}")
+                        orphaned.add(record)
             elif record.header is True:
                 continue
             else:
                 continue
 
-        self.__store_gene(current_gene)
+        assert orphan_counter == len(orphaned), f"We have lost lines! Expected {orphan_counter}, found {len(orphaned)}"
+        self.__logger.debug(f"{len(orphaned)} orphan lines.")
+        for orphan in orphaned:
+            found = False
+            for parent in orphan.parent:
+                if found is True:
+                    continue
+                if parent in transcript2gene:
+                    gene_id = transcript2gene[parent]
+                    genes[gene_id].add_exon(orphan)
+                    found = True
+                    self.__logger.debug(f"Found the gene for the record of {parent} (start {orphan.start}, "
+                                        f"end {orphan.end})")
+            if found is False:  # Create a mock gene
+                self.__logger.debug(f"Line for record {orphan.parent} ({orphan.start}, {orphan.end}) is still "
+                                    f"orphaned")
+                transcript = TranscriptComputer(orphan, logger=self.__logger)
+                transcript.parent = transcript.id + "_gene"
+                gene = Gene(transcript, only_coding=self.only_coding,
+                            logger=self.__logger,
+                            use_computer=True)
+                genes[gene.id] = gene
+
+        for gene_id, gene in genes.items():
+            self.__store_gene(gene)
 
     def __call__(self):
 

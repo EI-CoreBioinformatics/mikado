@@ -1,15 +1,19 @@
 import operator
 import os
 import pickle
+import re
 import unittest
 import random
+import pandas as pd
+from pytest import mark
 
 from Mikado.exceptions import InvalidTranscript, InvalidCDS
-
+from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
+    _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
+    _check_cdna_vs_utr, _fix_stop_codon
 from Mikado.configuration import MikadoConfiguration
 from sqlalchemy.engine import reflection
 import itertools
-
 from Mikado.utilities import Interval, IntervalTree
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
@@ -718,7 +722,7 @@ Chr1\tMikado\texon\t1701\t1999\t.\t-\t.\tID=test1.exon2;Parent=test1"""
         self.assertEqual(gff3, gff3_res)
 
         gff3_cds = [GffLine(_) for _ in gff3.split("\n") if GffLine(_).feature == "CDS"]
-        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GffLine(_).feature == "CDS"]
+        gtf_cds = [GtfLine(_) for _ in gtf.split("\n") if GtfLine(_).feature == "CDS"]
         gff3_cds = dict(((_.start, _.end), _) for _ in gff3_cds)
         gtf_cds = dict(((_.start, _.end), _) for _ in gtf_cds)
 
@@ -806,6 +810,27 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.t1.finalize()
         self.assertIs(self.t1.is_coding, True)
 
+    def test_exon_intron_lengths(self):
+
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        self.assertEqual(t.max_exon_length, 0)
+        self.assertEqual(t.min_exon_length, 0)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+        t.add_exons([(101, 1000)])
+        self.assertEqual(t.max_exon_length, 900)
+        self.assertEqual(t.min_exon_length, 900)
+        self.assertEqual(t.max_intron_length, 0)
+        self.assertEqual(t.min_intron_length, 0)
+
+    def test_suspicious_splicing(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.attributes["canonical_on_reverse_strand"] = "True"
+        t.attributes["mixed_splices"] = False
+        self.assertTrue(t.suspicious_splicing)
+
     def test_frames(self):
 
         self.assertIsInstance(self.t1.frames, dict)
@@ -828,6 +853,46 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
 
         self.assertEqual(len(correct_frames), int(self.t1.combined_cds_length / 3), correct_frames)
         self.assertEqual(self.t1.framed_codons, correct_frames)
+
+    def test_wrong_proportions(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.finalize()
+        for invalid in (10, -0.1, "a"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(TypeError):
+                    t.proportion_verified_introns_inlocus = invalid
+                t.proportion_verified_introns_inlocus = 1
+                with self.assertRaises(TypeError):
+                    t.cds_disrupted_by_ri = invalid
+                t.cds_disrupted_by_ri = True
+                with self.assertRaises(TypeError):
+                    t.selected_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.combined_cds_intron_fraction = invalid
+                with self.assertRaises(TypeError):
+                    t.selected_cds_locus_fraction = invalid
+                with self.assertRaises(ValueError):
+                    # t is non-coding
+                    t.selected_cds_locus_fraction = .4
+
+    def test_set_codons(self):
+        t = Transcript()
+        t.chrom, t.start, t.end, t.strand, t.id = "Chr1", 101, 1000, "+", "foo.1"
+        t.add_exons([(101, 1000)])
+        t.add_exons([(101, 1000)], features=["CDS"])
+        t.finalize()
+        for valid in (0, "0", "false", False):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertFalse(t.has_start_codon)
+            self.assertFalse(t.has_stop_codon)
+        for valid in (1, "1", "true", "True"):
+            t.has_start_codon = valid
+            t.has_stop_codon = valid
+            self.assertTrue(t.has_start_codon)
+            self.assertTrue(t.has_stop_codon)
 
     def test_conversion(self):
 
@@ -964,7 +1029,6 @@ Chr5	TAIR10	exon	5256	5576	.	-	.	Parent=AT5G01015.1"""
         self.assertTrue(new_t.is_coding)
         self.assertEqual(new_t.number_internal_orfs, 2)
         self.assertNotIn(("CDS", (900, 1200), 0), new_t.as_dict()["orfs"].get(2, []))
-        import pandas as pd
         s = pd.Series(cmo.output)
         self.assertTrue(any(s.str.contains(
             "ORF 2 of test.1 is invalid. Exception:")), cmo.output)
@@ -1107,6 +1171,144 @@ class TestPicklingAndToFromDict(unittest.TestCase):
         self.assertEqual(len(missed_keys), 0, "Missed keys: {}".format(", ".join([str(_) for _ in missed_keys])))
         self.assertEqual(len(new_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in new_keys])))
         self.assertEqual(len(different_keys), 0, "New keys: {}".format(", ".join([str(_) for _ in different_keys])))
+
+
+class FinalizeTests(unittest.TestCase):
+
+    # from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
+    #     _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
+    #     _check_cdna_vs_utr, _fix_stop_codon
+
+    def test_calculate_introns(self):
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exon((101, 1000))
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, set())
+        self.assertEqual(transcript.splices, set())
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, {(501, 600)})
+        self.assertEqual(transcript.splices, {501, 600})
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        transcript = Transcript()
+        transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        transcript.add_exons([(101, 500), (601, 1000)])
+        transcript.add_exons([(201, 500)], features="CDS")
+        transcript = _calculate_introns(transcript)
+        self.assertEqual(transcript.introns, {(501, 600)})
+        self.assertEqual(transcript.splices, {501, 600})
+        self.assertEqual(transcript.combined_cds_introns, set())
+        self.assertEqual(transcript.selected_cds_introns, set())
+
+        # transcript = Transcript()
+        # transcript.chrom, transcript.start, transcript.end, transcript.strand = "Chr1", 101, 1000, "+"
+        # transcript.add_exons([(101, 500), (601, 1000)])
+        # transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        # self.assertGreater(len(transcript.combined_cds), 0)
+        # self.assertGreater(transcript.number_internal_orfs, 0)
+        # transcript = _calculate_introns(transcript)
+        # self.assertEqual(transcript.introns, {(501, 600)})
+        # self.assertEqual(transcript.splices, {501, 600})
+        # self.assertEqual(transcript.combined_cds_introns, {(501, 600)}, transcript.combined_cds_introns)
+        # self.assertEqual(transcript.selected_cds_introns, {(501, 600)}, transcript.selected_cds_introns)
+
+    def test_basic_final_checks(self):
+        transcript = Transcript()
+        transcript.start, transcript.end = 101, 1000
+        transcript.id = "foo"
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"No exon defined for the transcript foo. Aborting",
+                             str(exc.exception)))
+
+        transcript = Transcript()
+        transcript.start, transcript.end = 101, 1000
+        transcript.id = "foo"
+        transcript._possibly_without_exons = True
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.exons, [(101, 1000)])
+
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id = 101, 1000, "foo"
+        transcript.exons = [(91, 1000)]
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.start, 91)
+        self.assertEqual(transcript.end, 1000)
+
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id = 101, 1000, "foo"
+        transcript.exons = [(101, 5000)]
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.start, 101)
+        self.assertEqual(transcript.end, 5000)
+
+        # Infer exons from CDS + UTR
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        utr = [(101, 200), (201, 400), (801, 900), (950, 1000)]
+        cds = [(401, 600), (701, 800)]
+        exons = [(101, 200), (201, 600), (701, 900), (950, 1000)]
+        transcript.add_exons(cds, features="CDS")
+        transcript.add_exons(utr, features="UTR")
+        self.assertEqual(transcript.combined_utr, utr)
+        self.assertEqual(transcript.combined_cds, cds)
+        _basic_final_checks(transcript)
+        self.assertEqual(transcript.exons, exons)
+
+        # Mangled UTR/CDS
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(201, 500), (601, 900)], features="CDS")
+        transcript.add_exons([(101, 210), (850, 1000)], features="UTR")
+        self.assertEqual(transcript.combined_utr, [(101, 210), (850, 1000)])
+        self.assertEqual(transcript.combined_cds, [(201, 500), (601, 900)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Transcript.* has a mangled CDS/UTR", str(exc.exception)),
+                             str(exc.exception))
+
+        # CDS absent, UTR present
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 1000)])
+        transcript.add_exons([(101, 210), (850, 1000)], features="UTR")
+        self.assertEqual(transcript.combined_utr, [(101, 210), (850, 1000)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Transcript.* has defined UTRs but no CDS.*", str(exc.exception)),
+                             str(exc.exception))
+
+        # Overlapping exons
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 500), (499, 1000)])
+        with self.assertRaises(InvalidTranscript) as exc:
+            _basic_final_checks(transcript)
+        self.assertIsNotNone(re.search(r"Overlapping exons found", str(exc.exception)))
+
+    def test_check_with_double_internal_orf(self):
+        transcript = Transcript()
+        transcript.start, transcript.end, transcript.id, transcript.strand = 101, 1000, "foo", "+"
+        transcript.add_exons([(101, 470), (499, 1000)])
+        # Now add the internal ORFs
+        transcript.internal_orfs.append(
+            [('UTR', (101, 150)), ('exon', (101, 470)), ('CDS', (151, 450), 0), ("UTR", (451, 470)),
+             ('exon', (499, 1000)), ('UTR', (499, 1000))])
+        transcript.internal_orfs.append(
+            [('UTR', (101, 470)), ('exon', (101, 470)), ('UTR', (499, 500)), ('exon', (499, 1000)),
+             ('CDS', (501, 560), 0), ('UTR', (561, 1000))])
+        with self.assertLogs(transcript.logger, level="DEBUG") as cmo:
+            transcript.finalize()
+        self.assertTrue(transcript.is_coding, cmo.output)
+        self.assertEqual(transcript.combined_cds, [(151, 450), (501, 560)])
 
 
 if __name__ == '__main__':

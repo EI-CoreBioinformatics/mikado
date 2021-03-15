@@ -13,6 +13,8 @@ import re
 
 __author__ = 'Luca Venturini'
 
+from Mikado.exceptions import InvalidParsingFormat
+
 [intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
 
 
@@ -49,7 +51,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
     def __init__(self, line, my_line='', header=False):
         self.attributes = dict()
         self.__strand = None
-        self.header = True
+        self.header = header
         self.chrom, self.source, self.feature = None, None, None
         # pylint: disable=invalid-name
         self.id = None
@@ -63,14 +65,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self.__gene = None
         self._transcript = None
         self.__feature = None
-
         self.attribute_order = []
-        if line is None:  # Empty constructor
+        if line is None or (line == '' and my_line == ''):  # Empty constructor
+            self._fields = []
+            self._line = ""
             return
-        if line == '' and my_line == '':
-            return
-
-        if line == '' and my_line != "":
+        elif line == '' and my_line != "":
             self._line = my_line
         else:
             self._line = line
@@ -78,12 +78,13 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self._line = self._line.strip()
 
         self._fields = self._line.split('\t')
-        self.header = header
 
-        if self.header or len(self._fields) != 9 or self._line == '' or self._line[0] == "#":
+        if self.header or self._line == '' or self._line[0] == "#":
             self.__feature = None
             self.header = True
             return
+        elif len(self._fields) != 9:
+            raise InvalidParsingFormat("Invalid GF line: {}".format(self._line))
 
         self.chrom, self.source = self._fields[0:2]
         try:
@@ -150,6 +151,12 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self.__is_cds = state.pop("is_cds")
         self.__is_exon = state.pop("is_exon")
         self.__dict__.update(state)
+
+    def __hash__(self):
+        state = self.__getstate__()
+        state["_fields"] = tuple(state["_fields"])
+        state["attributes"] = tuple(state["attributes"].items())
+        return hash(frozenset(state.items()))
 
     def as_dict(self):
         return self.__getstate__()

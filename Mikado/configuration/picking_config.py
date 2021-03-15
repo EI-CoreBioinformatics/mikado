@@ -267,7 +267,11 @@ be checked for compliance with the requirements established in the scoring file.
 class ClusteringConfiguration:
     cds_only: bool = field(default=False, metadata={
         "metadata": {
-            "description": "Boolean, it specifies whether to cluster transcripts only according to their CDS (if present)."},
+            "description": "Boolean, it specifies whether to cluster transcripts only according to their CDS (if "
+                           "present). Please note that this applies *only* when comparing pairs of coding "
+                           "transcripts. If *either* transcript under consideration is non-coding, Mikado will "
+                           "consider both coding and non-coding parts of the transcript. for assessing the "
+                           "clustering."},
     })
     min_cds_overlap: float = field(default=0.2, metadata={
         "metadata": {

@@ -169,9 +169,9 @@ def launch(args):
     :param args:
     :return:
     """
-    from ...parsers import GFF, GTF, to_gff
+    from ...parsers import GFF, GTF, parser_factory
 
-    args.gff = to_gff(args.gff)
+    args.gff = parser_factory(args.gff)
     gene_ids, mrna_ids = set(), set()
     for line in args.ids:
         if args.genes is False:

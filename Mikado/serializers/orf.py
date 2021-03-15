@@ -109,20 +109,6 @@ class Orf(DBBASE):
         obj = bed12_object.as_simple_dict()
         obj["query_id"] = query_id
         return obj
-        # return {
-        #     "query_id": query_id,
-        #     "start": bed12_object.start,
-        #     "end": bed12_object.end,
-        #     "orf_name": bed12_object.name,
-        #     "strand": bed12_object.strand,
-        #     "thick_start": bed12_object.thick_start,
-        #     "thick_end": bed12_object.thick_end,
-        #     "score": bed12_object.score,
-        #     "has_start_codon": bed12_object.has_start_codon,
-        #     "has_stop_codon": bed12_object.has_stop_codon,
-        #     "cds_len": bed12_object.cds_len,
-        #     "phase": bed12_object.phase
-        # }
 
     @classmethod
     def as_bed12_static(cls, state, query_name):

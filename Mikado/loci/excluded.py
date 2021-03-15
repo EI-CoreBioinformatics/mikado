@@ -34,7 +34,6 @@ class Excluded(Abstractlocus):
         Abstractlocus.__init__(self, configuration=configuration)
         self.splitted = False
         self.metrics_calculated = False
-        # self.configuration = configuration
         self.logger = logger
         if isinstance(monosublocus_instance, Transcript):
             Abstractlocus.__init__(self, transcript_instance=monosublocus_instance)

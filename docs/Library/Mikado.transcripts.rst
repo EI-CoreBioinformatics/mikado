@@ -15,7 +15,6 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   Mikado.transcripts.clique_methods
    Mikado.transcripts.reference_gene
    Mikado.transcripts.transcript
    Mikado.transcripts.transcriptchecker

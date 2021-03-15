@@ -6,6 +6,9 @@ import logging
 import logging.handlers
 from dataclasses import field
 
+import argparse
+
+import os
 from marshmallow import validate
 from marshmallow_dataclass import dataclass, Optional
 
@@ -132,6 +135,11 @@ def create_queue_logger(instance, prefix=""):
 
 def create_logger_from_conf(conf, name="mikado", mode="a"):
     logger = logging.getLogger(name)
+    # Remove all previous handlers, if any is present. THIS IS NECESSARY TO PREVENT CLASHES IN THE UNIT-TESTS
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
+
     if isinstance(conf, LoggingConfiguration):
         log_settings = conf
     else:
@@ -142,6 +150,7 @@ def create_logger_from_conf(conf, name="mikado", mode="a"):
     if handle is None:
         handler = logging.StreamHandler()
     else:
+        os.makedirs(os.path.dirname(os.path.abspath(log_settings.log)), exist_ok=True)
         handler = logging.FileHandler(log_settings.log, mode=mode)
 
     handler.setFormatter(formatter)

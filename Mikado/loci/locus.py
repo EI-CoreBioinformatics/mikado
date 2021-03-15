@@ -4,19 +4,17 @@
 This module defines the last object to be created during the picking,
 i.e. the locus.
 """
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Set
 import collections
 import itertools
 import operator
 from collections import defaultdict
 import pysam
+from ..transcripts.pad import pad_transcript
 from ..transcripts.transcript import Transcript
-# from ..configuration.picking_config import valid_as_ccodes, redundant_as_ccodes
-from ..transcripts.transcriptchecker import TranscriptChecker
 from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 from ..scales.assignment.assigner import Assigner
-from ..exceptions import InvalidTranscript
 import networkx as nx
 import random
 
@@ -200,9 +198,9 @@ class Locus(Abstractlocus):
             iteration += 1
             self.logger.debug("Starting iteration %s", iteration)
             if _scores is None:
-                    self.metrics_calculated = False
-                    self.scores_calculated = False
-                    self.filter_and_calculate_scores(check_requirements=check_requirements)
+                self.metrics_calculated = False
+                self.scores_calculated = False
+                self.filter_and_calculate_scores(check_requirements=check_requirements)
             else:
                 pass
             with_retained = self._remove_retained_introns()
@@ -217,7 +215,7 @@ class Locus(Abstractlocus):
                     # Restart the padding procedure
                     continue
                 else:
-                    removed.update(self.__remove_redundant_after_padding())
+                    removed.update(self._remove_redundant_after_padding())
                     self.primary_transcript.attributes.pop("ccode", None)
                     self.logger.debug("Updated removal set: %s", ", ".join(removed))
             missing = len(self.transcripts) - max_isoforms
@@ -229,6 +227,14 @@ class Locus(Abstractlocus):
             else:
                 break
 
+        self._mark_padded_transcripts(original)
+        # Now that we have added the padding ... time to remove redundant alternative splicing events.
+        self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
+                          ", ".join(list(self.transcripts.keys())))
+        self._finalized = True
+        return
+
+    def _mark_padded_transcripts(self, original):
         for tid in self.transcripts:
             # For each transcript check if they have been padded
             assert tid in original
@@ -245,12 +251,6 @@ class Locus(Abstractlocus):
                     transcript.attributes["cds_padded"] = False
                 message += "."
                 self.logger.info(message.format(**locals()))
-
-        # Now that we have added the padding ... time to remove redundant alternative splicing events.
-        self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
-                          ", ".join(list(self.transcripts.keys())))
-        self._finalized = True
-        return
 
     def launch_padding(self):
 
@@ -277,26 +277,29 @@ class Locus(Abstractlocus):
         self.logger.debug("Recalculated metrics after padding in %s", self.id)
 
         self._not_passing = set()
-        self._check_requirements()
-        if self.primary_transcript_id in self._not_passing or set.intersection(templates, self._not_passing):
+        self._check_requirements()  # Populate self._not_passing with things that fail the requirements
+        # If we would have to remove the primary transcript we have done something wrong
+        if self.primary_transcript_id in self._not_passing or len(set.intersection(templates, self._not_passing)) > 0:
             self.logger.debug(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
             if self._not_passing == {self.primary_transcript_id}:
                 self.logger.info("The primary transcript %s is invalidated by the other transcripts in the locus.\
                 Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
                 self._not_passing = set(self.transcripts.keys()) - {self.primary_transcript_id}
-            # Templates are clearly wrong. Remove them
+            # Remove transcripts *except the primary* that do not pass the muster
             for tid in self._not_passing - {self.primary_transcript_id}:
                 self.remove_transcript_from_locus(tid)
+            # Restore the *non-failed* transcripts *and* the primary transcript to their original state
             for tid in set(backup.keys()) - (self._not_passing - {self.primary_transcript_id}):
-                self.logger.debug("Swapping the old transcript for %s", tid)
                 self._swap_transcript(self.transcripts[tid], backup[tid])
             self.metrics_calculated = False
             self.scores_calculated = False
             self.filter_and_calculate_scores()
+            # Signal to the master function that we have to redo the cycle
             failed = True
             return failed
 
+        # Order the transcripts by score. The primary is *not* in this list
         order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
                         if tid != self.primary_transcript_id],
                        key=operator.itemgetter(1), reverse=True)
@@ -321,9 +324,9 @@ class Locus(Abstractlocus):
                 removed.add(tid)
 
         removed.update(self._remove_retained_introns())
+
         # Now let us check whether we have removed any template transcript.
         # If we have, remove the offending ones and restart
-
         if len(set.intersection(set.union(set(templates), {self.primary_transcript_id}), removed)) > 0:
             self.logger.debug("Removed: %s; Templates: %s; Primary: %s", ",".join(removed), ",".join(templates),
                               self.primary_transcript_id)
@@ -338,7 +341,7 @@ class Locus(Abstractlocus):
 
         return failed
 
-    def _remove_retained_introns(self):
+    def _remove_retained_introns(self) -> Set[str]:
         """Method to remove from the locus any transcript that has retained introns and/or their CDS disrupted by
         a retained intron event."""
 
@@ -351,15 +354,14 @@ class Locus(Abstractlocus):
             for tid, transcript in self.transcripts.items():
                 if tid == self.primary_transcript_id:
                     continue
+                # This function will *only* modify the transcript instances, specifically *only* the
+                # "cds_disrupted_by_ri" and "retained_introns_num" properties
                 self.find_retained_introns(transcript)
                 self.transcripts[tid].attributes["retained_intron"] = (transcript.retained_intron_num > 0)
                 if transcript.retained_intron_num > 0:
                     retained_introns.add(tid)
+                assert transcript.cds_disrupted_by_ri is False or transcript.retained_intron_num > 0
                 if transcript.cds_disrupted_by_ri is True:
-                    if transcript.retained_intron_num <= 0:
-                        raise AssertionError(
-                            "Transcript {transcript.id} is marked as having its CDS disrupted by a retained intron event, yet \
-it is marked as having 0 retained introns. This is an error.".format(transcript=transcript))
                     cds_disrupted.add(tid)
             if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break
@@ -385,14 +387,14 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         return removed
 
-    def __remove_redundant_after_padding(self):
+    def _remove_redundant_after_padding(self):
 
         """Private method to remove duplicate copies of transcripts after the padding procedure."""
-
 
         # First thing: calculate the class codes
         to_remove = set()
         if len(self.transcripts) == 1:
+            self.logger.debug(f"{self.id} only has one transcript, no redundancy removal needed.")
             return to_remove
 
         self.logger.debug("Starting to remove redundant transcripts from %s", self.id)
@@ -414,31 +416,20 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                 self.logger.debug("Comparing ichain %s, %s vs %s: nF1 %s", ichain, t1, t2, class_codes[(t1, t2)].n_f1)
 
         for couple, comparison in class_codes.items():
-            removal = None
             if comparison.n_f1[0] == 100:
-                try:
-                    if couple[0] == self.primary_transcript_id:
-                        removal = couple[1]
-                    elif couple[1] == self.primary_transcript_id:
-                        removal = couple[0]
-                    elif self[couple[0]].is_reference and not self[couple[1]].is_reference:
-                        removal = couple[1]
-                    elif self[couple[1]].is_reference and not self[couple[0]].is_reference:
-                        removal = couple[0]
-                    elif self[couple[0]].score > self[couple[1]].score:
-                        removal = couple[1]
-                    elif self[couple[1]].score > self[couple[0]].score:
-                        removal = couple[0]
-                    else:
-                        # removal = np.random.choice(sorted(couple))
-                        removal = random.choice(sorted(couple))
-                except (TypeError, ValueError):
-                    raise ValueError((couple, self[couple[0]].score, self[couple[1]].score))
-                finally:
-                    if removal:
-                        to_remove.add(removal)
-                        self.logger.debug("Removing %s from locus %s because after padding it is redundant with %s",
-                                          removal, self.id, (set(couple) - {removal}).pop())
+                if self.primary_transcript_id in couple:
+                    removal = [_ for _ in couple if _ != self.primary_transcript_id][0]
+                elif len([_ for _ in couple if self[_].is_reference]) == 1:
+                    removal = [_ for _ in couple if self[_].is_reference is False][0]
+                elif self[couple[0]].score != self[couple[1]].score:
+                    removal = sorted([(_, self[_].score) for _ in couple],
+                                     key=operator.itemgetter(1), reverse=True)[1][0]
+                else:
+                    removal = random.choice(sorted(couple))
+                if removal:
+                    to_remove.add(removal)
+                    self.logger.debug("Removing %s from locus %s because after padding it is redundant with %s",
+                                      removal, self.id, (set(couple) - {removal}).pop())
 
         if to_remove:
             self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove))
@@ -544,7 +535,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         # Add a check similar to what we do for the minimum requirements and the fragments
         if to_be_added and self.configuration.scoring.as_requirements:
-            to_be_added = self.__check_as_requirements(transcript, is_reference=reference_pass)
+            to_be_added = self._check_as_requirements(transcript, is_reference=reference_pass)
 
         if to_be_added is True:
             is_alternative, ccode, _ = self.is_alternative_splicing(transcript)
@@ -572,14 +563,13 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         self.locus_verified_introns.update(transcript.verified_introns)
 
-    def __check_as_requirements(self, transcript: Transcript, is_reference=False) -> bool:
+    def _check_as_requirements(self, transcript: Transcript, is_reference=False) -> bool:
         """Private method to evaluate a transcript for inclusion in the locus.
         This method uses the "as_requirements" section of the configuration file to perform the
         evaluation.
         Please note that if "check_references" is False and the transcript is marked as reference, this function
         will always evaluate to True (ie the transcript is valid).
         """
-
 
         to_be_added = True
         if is_reference is True and self.configuration.pick.run_options.check_references is False:
@@ -604,8 +594,8 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
     def is_intersecting(self, *args):
         """Not implemented: See the alternative splicing definition functions.
         """
-        raise NotImplementedError("""Loci do not use this method, but rather
-        assess whether a transcript is a splicing isoform or not.""")
+        raise NotImplementedError("""Loci do not use this method, but rather assess whether a transcript is a 
+        splicing isoform or not.""")
 
     def is_putative_fragment(self):
 
@@ -951,14 +941,10 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
             if None is provided.
         """
 
-        try:
-            if isinstance(self.configuration.reference.genome, pysam.FastaFile):
-                self.fai = self.configuration.reference.genome
-            else:
-                self.fai = pysam.FastaFile(self.configuration.reference.genome)
-        except KeyError:
-            raise KeyError(self.configuration.reference)
-
+        if isinstance(self.configuration.reference.genome, pysam.FastaFile):
+            self.fai = self.configuration.reference.genome
+        else:
+            self.fai = pysam.FastaFile(self.configuration.reference.genome)
         five_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=False)
         three_graph = self.define_graph(objects=self.transcripts, inters=self._share_extreme, three_prime=True)
 
@@ -987,19 +973,14 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
                               self[tid].start,
                               __to_modify[tid][1] if not __to_modify[tid][1] else __to_modify[tid][1].end,
                               self[tid].end)
-            try:
-                new_transcript = expand_transcript(backup[tid],
-                                                   self.transcripts[tid],
-                                                   __to_modify[tid][0],
-                                                   __to_modify[tid][1],
-                                                   self.fai,
-                                                   self.logger)
-            except KeyboardInterrupt:
-                raise
-            except Exception as exc:
-                self.logger.exception(exc)
-                raise
-            if (new_transcript.start == self.transcripts[tid].end) and (new_transcript.end == self.transcripts[tid].end):
+            new_transcript = pad_transcript(backup[tid],
+                                            self.transcripts[tid],
+                                            __to_modify[tid][0],
+                                            __to_modify[tid][1],
+                                            self.fai,
+                                            self.logger)
+            if (new_transcript.start == self.transcripts[tid].end) and \
+                    (new_transcript.end == self.transcripts[tid].end):
                 self.logger.debug("No expansion took place for %s!", tid)
             else:
                 self.logger.debug("Expansion took place for %s!", tid)
@@ -1076,8 +1057,7 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
 
         graph = nx.DiGraph()
         graph.add_nodes_from(objects.keys())
-        if inters is None:
-            inters = self._share_extreme
+        inters = self._share_extreme if inters is None else inters
 
         if len(objects) >= 2:
             if (three_prime is True and self.strand != "-") or (three_prime is False and self.strand == "-"):
@@ -1441,388 +1421,3 @@ it is marked as having 0 retained introns. This is an error.".format(transcript=
         sub = [_ for _ in sub if _ not in ccodes]
         self.logger.debug("New redundant ccodes: %s", sub)
         self.redundant_ccodes = sub
-
-        
-def expand_transcript(transcript: Transcript,
-                      backup: Transcript,
-                      start_transcript: [Transcript, bool],
-                      end_transcript: [Transcript, bool],
-                      fai: pysam.libcfaidx.FastaFile,
-                      logger):
-
-    """This method will enlarge the coordinates and exon structure of a transcript, given:
-    :param transcript: the transcript to modify.
-    :type transcript: Transcript
-    :param start_transcript: the template transcript for the 5' end.
-    :param end_transcript: the template transcript for the 3' end.
-    :param fai: the indexed genomic sequence.
-    :param logger: the logger to be used in the function.
-    """
-
-    # If there is nothing to do, just get out
-    transcript.finalize()
-    if start_transcript not in (False, None):
-        start_transcript.finalize()
-    if end_transcript not in (False, None):
-        end_transcript.finalize()
-
-    if start_transcript in (False, None) and end_transcript in (False, None):
-        logger.debug("%s does not need to be expanded, exiting", transcript.id)
-        return transcript
-
-    if transcript.strand == "-":
-        start_transcript, end_transcript = end_transcript, start_transcript
-
-    # Make a backup copy of the transcript
-    # First get the ORFs
-    # Remove the CDS and unfinalize
-    logger.debug("Starting expansion of %s", transcript.id)
-    strand = transcript.strand
-    transcript.strip_cds()
-    transcript.unfinalize()
-    assert strand == transcript.strand
-
-    upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
-    downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,
-                                                                 backup, end_transcript, up_exons, new_first_exon)
-
-    first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
-
-    assert upstream >= 0 and downstream >= 0
-
-    if up_remove is True:
-        # Remove the first exon
-        transcript.remove_exon(first_exon)
-    if down_remove is True:
-        if not (up_remove is True and first_exon == last_exon):
-            transcript.remove_exon(last_exon)
-
-    new_exons = up_exons + down_exons
-    if not new_exons:
-        logger.debug("%s does not need to be expanded, exiting", transcript.id)
-        return backup
-
-    transcript.add_exons(new_exons)
-    transcript.start, transcript.end = None, None
-    transcript.finalize()
-
-    if transcript.strand == "-":
-        downstream, upstream = upstream, downstream
-
-    if (up_exons or down_exons):
-        if backup.is_coding:
-            seq = check_expanded(transcript, backup, start_transcript, end_transcript,
-                                 fai, upstream, downstream, logger)
-            transcript = enlarge_orfs(transcript, backup, seq, upstream, downstream, logger)
-            transcript.finalize()
-    else:
-        return backup
-
-    # Now finalize again
-    logger.debug("%s: start (before %s, now %s, %s), end (before %s, now %s, %s)",
-                 transcript.id,
-                 backup.start, transcript.start, transcript.start < backup.start,
-                 backup.end, transcript.end, transcript.end > backup.end)
-    if transcript.start < backup.start or transcript.end > backup.end:
-        transcript.attributes["padded"] = True
-
-    # Now check that we have a valid expansion
-    if backup.is_coding and not transcript.is_coding:
-        # Something has gone wrong. Just return the original transcript.
-        assert new_exons
-        logger.info("Padding %s would lead to an invalid CDS (up exons: %s). Aborting.",
-                    transcript.id, up_exons)
-        return backup
-    elif backup.is_coding:
-        abort = False
-        if backup.strand == "-" and backup.combined_cds_end < transcript.combined_cds_end:
-            abort = True
-        elif backup.strand != "-" and backup.combined_cds_end > transcript.combined_cds_end:
-            abort = True
-        if abort is True:
-            msg = "Padding {} (strand: {}) would lead to an in-frame stop codon ({} to {}, \
-vs original {} to {}. Aborting.".format(
-                transcript.id, backup.strand, transcript.combined_cds_start, transcript.combined_cds_end,
-                backup.combined_cds_start, backup.combined_cds_end)
-            logger.info(msg)
-            return backup
-
-    return transcript
-
-
-def _enlarge_start(transcript: Transcript,
-                   backup: Transcript,
-                   start_transcript: Transcript) -> (int, list, [None, tuple], bool):
-
-    """This method will enlarge the transcript at the 5' end, using another transcript as the template.
-    :param transcript: the original transcript to modify.
-    :param backup: a copy of the transcript. As we are modifying the original one, we do need a hard copy.
-    :param start_transcript: the template transcript.
-
-    The function returns the following:
-    :returns: the upstream modification, the list of upstream exons to add, the new first exon (if any),
-              a boolean flag indicating whether the first exon of the transcript should be removed.
-    """
-
-    upstream = 0
-    up_exons = []
-    new_first_exon = None
-    to_remove = False
-    if start_transcript:
-        transcript.start = start_transcript.start
-        upstream_exons = sorted([_ for _ in
-                                 start_transcript.find_upstream(transcript.exons[0][0], transcript.exons[0][1])
-                                      if _.value == "exon"])
-        intersecting_upstream = sorted(start_transcript.search(
-            transcript.exons[0][0], transcript.exons[0][1]))
-
-        if not intersecting_upstream:
-            raise KeyError("No exon or intron found to be intersecting with %s vs %s, this is a mistake",
-                           transcript.id, start_transcript.id)
-
-        if intersecting_upstream[0].value == "exon":
-            new_first_exon = (min(intersecting_upstream[0][0], backup.start),
-                              transcript.exons[0][1])
-            if new_first_exon != transcript.exons[0]:
-                upstream += backup.start - new_first_exon[0]
-                up_exons.append(new_first_exon)
-                to_remove = True
-            else:
-                new_first_exon = None
-            if intersecting_upstream[0] in upstream_exons:
-                upstream_exons.remove(intersecting_upstream[0])
-            upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
-            up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
-        elif intersecting_upstream[0].value == "intron":
-            # Check whether the first exon of the model *ends* within an *intron* of the template
-            # If that is the case, we have to keep the first exon in place and
-            # just expand it until the end
-            # Now we have to expand until the first exon in the upstream_exons
-            if intersecting_upstream[0][1] == transcript.exons[0][0] - 1:
-                assert upstream_exons
-                to_remove = False
-            elif upstream_exons:
-                to_remove = True
-                upstream_exon = upstream_exons[-1]
-                new_first_exon = (upstream_exon[0], transcript.exons[0][1])
-                upstream_exons.remove(upstream_exon)
-                upstream += backup.start - new_first_exon[0]
-                up_exons.append(new_first_exon)
-            else:
-                # Something fishy going on here. Let us double check everything.
-                if start_transcript.exons[0][0] == transcript.start:
-                    raise ValueError(
-                        "Something has gone wrong. The template transcript should have returned upstream exons."
-                    )
-                elif start_transcript.exons[0][0] < transcript.start:
-                    raise ValueError(
-                        "Something has gone wrong. We should have found the correct exons."
-                    )
-                else:
-                    pass
-
-            upstream += sum(_[1] - _[0] + 1 for _ in upstream_exons)
-            up_exons.extend([(_[0], _[1]) for _ in upstream_exons])
-
-    return upstream, up_exons, new_first_exon, to_remove
-
-
-def _enlarge_end(transcript: Transcript,
-                 backup: Transcript,
-                 end_transcript: Transcript,
-                 up_exons: list,
-                 new_first_exon: [None, tuple]) -> [int, list, list, bool]:
-
-    """
-    This method will enlarge the transcript at the 5' end, using another transcript as the template.
-    :param transcript: the original transcript to modify.
-    :param backup: a copy of the transcript. As we are modifying the original one, we do need a hard copy.
-    :param end_transcript: the template transcript.
-    :param up_exons: the list of exons added at the 5' end.
-    :param new_first_exon: the new coordinates of what used to be the first exon of the transcript.
-                           This is necessary because if the transcript is monoexonic, we might need to re-modify it.
-
-    The function returns the following:
-    :returns: the downstream modification, the (potentially modified) list of upstream exons to add,
-              the list of downstream exons to add, a boolean flag indicating whether the last exon of the transcript
-              should be removed.
-    """
-
-    downstream = 0
-    down_exons = []
-    to_remove = False
-
-    if end_transcript:
-        transcript.end = end_transcript.end
-        downstream_exons = sorted([_ for _ in
-                                    end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
-                                    if _.value == "exon"])
-        intersecting_downstream = sorted(end_transcript.search(
-            transcript.exons[-1][0], transcript.exons[-1][1]))
-        if not intersecting_downstream:
-            raise KeyError("No exon or intron found to be intersecting with %s vs %s, this is a mistake",
-                           transcript.id, end_transcript.id)
-        # We are taking the right-most intersecting element.
-        if intersecting_downstream[-1].value == "exon":
-            if transcript.monoexonic and new_first_exon is not None:
-                new_exon = (new_first_exon[0], max(intersecting_downstream[-1][1], new_first_exon[1]))
-                if new_exon != new_first_exon:
-                    up_exons.remove(new_first_exon)
-                    downstream += new_exon[1] - backup.end
-                    down_exons.append(new_exon)
-                    to_remove = True
-            else:
-                new_exon = (transcript.exons[-1][0],
-                            max(intersecting_downstream[-1][1], transcript.exons[-1][1]))
-                if new_exon != transcript.exons[-1]:
-                    downstream += new_exon[1] - backup.end
-                    down_exons.append(new_exon)
-                    to_remove = True
-
-            if intersecting_downstream[-1] in downstream_exons:
-                downstream_exons.remove(intersecting_downstream[-1])
-            downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
-            down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
-        elif intersecting_downstream[-1].value == "intron":
-            # Now we have to expand until the first exon in the upstream_exons
-            if intersecting_downstream[-1][0] == transcript.exons[-1][1] + 1:
-                assert downstream_exons
-                to_remove = False
-            elif downstream_exons:
-                downstream_exon = downstream_exons[0]
-                assert downstream_exon[1] > backup.end
-                assert downstream_exon[0] > backup.end
-                if transcript.monoexonic and new_first_exon is not None:
-                    new_exon = (new_first_exon[0], downstream_exon[1])
-                    up_exons.remove(new_first_exon)
-                    to_remove = True
-                else:
-                    new_exon = (transcript.exons[-1][0], downstream_exon[1])
-                    to_remove = True
-                downstream_exons.remove(downstream_exon)
-                downstream += new_exon[1] - backup.end
-                down_exons.append(new_exon)
-            else:
-                # Something fishy going on here. Let us double check everything.
-                if end_transcript.exons[-1][1] == transcript.end:
-                    raise ValueError(
-                        "Something has gone wrong. The template transcript should have returned upstream exons."
-                    )
-                elif end_transcript.exons[-1][1] > transcript.end:
-                    raise ValueError(
-                        "Something has gone wrong. We should have found the correct exons."
-                    )
-            downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
-            down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
-
-    return downstream, up_exons, down_exons, to_remove
-
-
-def check_expanded(transcript, backup, start_transcript, end_transcript, fai, upstream, downstream, logger) -> str:
-
-    """
-    This function checks that the expanded transcript is valid, and it also calculates and returns its cDNA sequence.
-    :param transcript: the modified transcript.
-    :param backup: The original transcript, before expansion.
-    :param start_transcript: the transcript used as template at the 5' end.
-    :param end_transcript: the transcript used as template at the 3' end.
-    :param fai: The pysam.libcfaidx.FastaFile object indexing the genome.
-    :param upstream: the amount of transcriptomic base-pairs added to the transcript at its 5' end.
-    :param downstream: the amount of transcriptomic base-pairs added to the transcript at its 3' end.
-    :param logger: the logger to use.
-    :returns: the cDNA of the modified transcript, as a standard Python string.
-    """
-
-    assert transcript.exons != backup.exons
-    assert transcript.end <= fai.get_reference_length(transcript.chrom), (
-        transcript.end, fai.get_reference_length(transcript.chrom))
-    genome_seq = fai.fetch(transcript.chrom, transcript.start - 1, transcript.end)
-
-    if not (transcript.exons[-1][1] - transcript.start + 1 == len(genome_seq)):
-        error = "{} should have a sequence of length {} ({} start, {} end), but one of length {} has been given"
-        error = error.format(transcript.id, transcript.exons[-1][1] - transcript.start + 1,
-                             transcript.start, transcript.end, len(genome_seq))
-        logger.error(error)
-        raise InvalidTranscript(error)
-    seq = TranscriptChecker(transcript, genome_seq, is_reference=True).cdna
-    assert len(seq) == transcript.cdna_length, (len(seq), transcript.cdna_length, transcript.exons)
-    if not len(seq) == backup.cdna_length + upstream + downstream:
-        error = [len(seq), backup.cdna_length + upstream + downstream,
-                 backup.cdna_length, upstream, downstream,
-                 (transcript.start, transcript.end), (backup.id, backup.start, backup.end),
-                 (None if not start_transcript else (start_transcript.id, (start_transcript.start,
-                                                                           start_transcript.end))),
-                 (None if not end_transcript else (end_transcript.id, (end_transcript.start,
-                                                                       end_transcript.end))),
-                 (backup.id, backup.exons),
-                 None if not start_transcript else (start_transcript.id, start_transcript.exons),
-                 None if not end_transcript else (end_transcript.id, end_transcript.exons),
-                 (transcript.id + "_expanded", transcript.exons),
-                 set.difference(set(transcript.exons), set(backup.exons)),
-                 set.difference(set(backup.exons), set(transcript.exons))
-                 ]
-        error = "\n".join([str(_) for _ in error])
-        raise AssertionError(error)
-    return seq
-
-
-def enlarge_orfs(transcript: Transcript,
-                 backup: Transcript,
-                 seq: str,
-                 upstream: int,
-                 downstream: int,
-                 logger) -> Transcript:
-
-    """
-    This method will take an expanded transcript and recalculate its ORF(s). As a consequence of the expansion,
-    truncated transcripts might become whole.
-    :param transcript: the expanded transcript.
-    :param backup: the original transcript. Used to extract the original ORF(s).
-    :param seq: the new cDNA sequence of the expanded transcript.
-    :param upstream: the amount of expansion that happened at the 5'.
-    :param downstream: the amount of expansion that happened at the 3'.
-    :param logger: the logger.
-    :returns: the modified transcript with the ORF(s) recalculated.
-    """
-
-    if backup.combined_cds_length > 0:
-        try:
-            internal_orfs = list(backup.get_internal_orf_beds())
-        except (ValueError, TypeError, AssertionError):
-            logger.error("Something went wrong with the CDS extraction for %s. Stripping it.",
-                         backup.id)
-            internal_orfs = []
-    else:
-        internal_orfs = []
-
-    if not internal_orfs:
-        return transcript
-
-    new_orfs = []
-    for orf in internal_orfs:
-        logger.debug("Old ORF: %s", str(orf))
-        try:
-            logger.debug("Sequence for %s: %s[..]%s (upstream %s, downstream %s)",
-                         transcript.id, seq[:10], seq[-10:], upstream, downstream)
-            orf.expand(seq, upstream, downstream, expand_orf=True, logger=logger)
-        except AssertionError as err:
-            logger.error(err)
-            logger.error("%s, %s, %s, %s",
-                         upstream,
-                         downstream,
-                         transcript.exons,
-                         transcript.cdna_length)
-            raise AssertionError(err)
-        logger.debug("New ORF: %s", str(orf))
-        if orf.coding is False:
-            raise ValueError(orf)
-        elif orf.invalid:
-            raise InvalidTranscript(orf.invalid_reason)
-
-        new_orfs.append(orf)
-
-    transcript.load_orfs(new_orfs)
-    transcript.finalize()
-    if backup.is_coding and not transcript.is_coding:
-        raise InvalidTranscript(new_orfs)
-    return transcript

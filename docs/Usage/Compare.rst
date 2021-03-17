@@ -315,16 +315,10 @@ All class codes fall within one of the following categories:
  - **Fusion**: this special class code is a qualifier and it never appears on its own. When a transcript is defined as a
    fusion between two or more reference transcript, it will appear on *multiple lines*, one for each of the matches. In
    each line, the class code will be a "f," followed by the class code assigned to that particular comparison.
-   So
-
-
-When a transcript is defined as a fusion,  its class code in the *tmap* file will be an "f" followed by the class codes
-
-
-
-
-of the individual transcript matches, sperated by comma. So a prediction which matches two reference models, one with a "j" and another with a "o",
-   will have a class code of **"f,j,o"**. In the *refmap* file, if the fusion is the best match, the class code will be "f" followed by the class code for the individual reference transcript; e.g., **"f,j"**
+   So e.g. a prediction which matches two reference models, one with a "j" and another with a "o", will be present in two
+   different lines; the first one with a class code of **f,j** and the second with a class code of **f,o**.
+   In the *refmap* file, if the fusion is the best match, the class code will be "f" followed by the class code for the
+   individual reference transcript; e.g., **"f,j"**
 
 
 .. topic:: Available class codes
@@ -504,7 +498,9 @@ Each calculated match against a reference transcript is stored as a potential *b
 
 This function is used to select both for the best match *for the transcript*, as well as to select among these matches for the best match *for the gene*.
 
-The interval tree data structure is created using Cython code originally part of the `bx-python <https://bitbucket.org/james_taylor/bx-python/overview>`_, kindly provided by `Dr. Taylor <mailto:james@taylorlab.org>`_ for modification and inclusion in Mikado. The code has been slightly modified for making it Python3 compliant.
+The interval tree data structure is created using Cython code originally part of the `bx-python <https://bitbucket.org/james_taylor/bx-python/overview>`_, kindly provided by `Dr. Taylor <mailto:james@taylorlab.org>`_ for modification and inclusion in Mikado. We subsequently integrated the improvements made on the code by Dr. Brent Pedersen in his :ref:`quicksect fork <https://github.com/brentp/quicksect>`.
+
+We further modified the original code for allowing "fuzzy matches", as in, allowing some leeway on how far the edges of the query interval are from the target intervals present in the tree.
 
 The .midx files storing the annotation for repeated compare runs are SQLite files. In them, Mikado will store for each gene its coordinates, its transcripts, and the location of exons and CDS features. MIDX files make repeated runs quite faster, as the program will not have to re-parse the GFF file.
 

@@ -91,6 +91,8 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
     if getattr(args, "exclude_redundant", None) in (True, False):
         mikado_config.prepare.exclude_redundant = args.exclude_redundant
         mikado_config.prepare.files.exclude_redundant = [args.exclude_redundant] * len(mikado_config.prepare.files.gff)
+    elif mikado_config.prepare.exclude_redundant is True:
+        mikado_config.prepare.files.exclude_redundant = [True] * len(mikado_config.prepare.files.gff)
     elif not mikado_config.prepare.files.exclude_redundant:
         mikado_config.prepare.files.exclude_redundant = [False] * len(mikado_config.prepare.files.gff)
     elif len(mikado_config.prepare.files.exclude_redundant) != len(mikado_config.prepare.files.gff):
@@ -99,7 +101,8 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
     if not mikado_config.prepare.files.reference:
         mikado_config.prepare.files.reference = [False] * len(mikado_config.prepare.files.gff)
     elif len(mikado_config.prepare.files.reference) != len(mikado_config.prepare.files.gff):
-        raise InvalidConfiguration("Mismatch between is_reference and gff files")
+        raise InvalidConfiguration(
+            "Mismatch between 'reference' and 'gff' in the prepare.files section. They must be of the same length.")
 
     # Set values from fields
     mikado_config.prepare.minimum_cdna_length = getattr(args, "minimum_cdna_length", None) if \
@@ -138,6 +141,7 @@ def setup(args, logger=None) -> (argparse.Namespace, Union[MikadoConfiguration, 
     and the command line options.
 
     :param args: the ArgumentParser-derived namespace.
+    :param logger: the logger to use for the function call. If none is provided, a new one will be created.
     """
 
     if logger is None or not isinstance(logger, logging.Logger):

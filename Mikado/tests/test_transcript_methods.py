@@ -454,6 +454,8 @@ Chr5\t26574999\t26578625\tID=at_AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\
             transcript.name = transcript.id
             self.transcripts[transcript.id] = transcript
 
+        for tid, transcript in self.transcripts.items():
+            self.assertFalse(any(key.lower() == "id=id" for key in transcript.attributes), (tid, transcript.attributes))
         self.assertEqual(len(self.transcripts), 4)
 
     def test_bed12(self):

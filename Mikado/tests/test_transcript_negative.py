@@ -117,12 +117,10 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
                          str(self.tr),
                          diff)
 
-        g_bed12 = "Chr1	5927	8737	ID=AT1G01020.1;coding=True;phase=0	0	-	6914	8666	0"\
-                  "	10	336,633,76,67,86,74,46,90,48,167	0,509,1229,1456,1636,1834,2014,2308,2489,2643\tParent=AT1G01020"
+        g_bed12 = "Chr1	5927	8737	ID=AT1G01020.1;coding=True;phase=0	0	-	6914	8666	0	10	336,633,76,67,86,74,46,90,48,167	0,509,1229,1456,1636,1834,2014,2308,2489,2643"
         self.assertEqual(g_bed12, self.tr.format("bed12", transcriptomic=False))
 
-        t_bed12 = "AT1G01020.1	0	1623	ID=AT1G01020.1;coding=True;phase=0	0	+	71	809	0	10	"\
-                  "167,48,90,46,74,86,67,76,633,336	0,167,215,305,351,425,511,578,654,1287"
+        t_bed12 = "AT1G01020.1	0	1623	ID=AT1G01020.1;coding=True;phase=0	0	+	71	809	0	10	167,48,90,46,74,86,67,76,633,336	0,167,215,305,351,425,511,578,654,1287"
         self.assertEqual(t_bed12, self.tr.format("bed12", transcriptomic=True))
 
     def test_empty(self):

@@ -296,30 +296,6 @@ class TranscriptBase:
         else:
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
 
-    @staticmethod
-    def __parse_attributes(attributes):
-        new_attributes = dict()
-        booleans = {"True": True, "False": False, "None": None}
-        for key, val in attributes.items():
-            if not isinstance(val, Hashable):
-                pass
-            elif val in booleans:
-                val = booleans[val]
-            elif isinstance(val, bool):
-                pass
-            else:
-                try:
-                    val = int(val)
-                except (ValueError, OverflowError):
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                except TypeError:
-                    pass
-            new_attributes[intern(key)] = val
-        return new_attributes
-
     def __initialize_with_bed12(self, transcript_row: BED12):
 
         """
@@ -357,8 +333,6 @@ class TranscriptBase:
                     cds.append((int(max(exon[0], transcript_row.thick_start)),
                                 int(min(exon[1], transcript_row.thick_end))))
             self.add_exons(cds, features="CDS")
-
-        self.attributes = self.__parse_attributes(transcript_row.attributes)
         self.finalize()
 
     def __initialize_with_bam(self, transcript_row: pysam.AlignedSegment):
@@ -449,7 +423,26 @@ class TranscriptBase:
         self.score = transcript_row.score
         self.scores = dict()
 
-        self.attributes = self.__parse_attributes(transcript_row.attributes)
+        booleans = {"True": True, "False": False, "None": None}
+
+        for key, val in transcript_row.attributes.items():
+            if not isinstance(val, Hashable):
+                pass
+            elif val in booleans:
+                val = booleans[val]
+            elif isinstance(val, bool):
+                pass
+            else:
+                try:
+                    val = int(val)
+                except (ValueError, OverflowError):
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                except TypeError:
+                    pass
+            self.attributes[intern(key)] = val
 
         self.blast_hits = []
         if transcript_row.is_transcript is False:

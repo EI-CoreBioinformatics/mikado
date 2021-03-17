@@ -117,19 +117,3 @@ class Parser(metaclass=abc.ABCMeta):
         self.__dict__.update(state)
         self._handle = self.__get_handle(state["_handle"], position=position)
 
-
-def _attribute_definition(val):
-    try:
-        val = float(val)
-        if val.is_integer():
-            return int(val)
-        return val
-    except (ValueError, TypeError):
-        if val.lower() in ("true", "false"):
-            val = val.capitalize()
-            if val == "True":
-                return True
-            else:
-                return False
-        return val
-

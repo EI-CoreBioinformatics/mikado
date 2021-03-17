@@ -437,7 +437,7 @@ CTCGGCAGATAG"""
                 t.add_exons([(71, 100), (201, end)], features="CDS", phases=[0, phase])
                 t.finalize()
                 r = t.as_bed12()
-                self.assertEqual(r.name, t.id)
+                self.assertEqual(r.name, "ID={};coding={};phase={}".format(t.id, True, phase))
                 self.assertEqual(r.phase, phase, (end, phase))
                 self.assertEqual(r.thick_end, end)
                 self.assertFalse(r.invalid)

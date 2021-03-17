@@ -1,5 +1,7 @@
 # Version 2.2.1
 Pinning sqlalchemy to <1.4.0 until sqlalchemy_utils is updated.
+Moreover, solved a small bug in `prepare`: setting `prepare.exclude_redundant` to `True` in the configuration file had 
+no effect. Now it is equivalent to use the `-er` switch on the CLI.
 
 # Version 2.2.0
 Removed Cython from the requirements.txt file. This allows to perform the tests correctly in a Conda environment (as Conda disallows installing Cython as part of a distributed package).

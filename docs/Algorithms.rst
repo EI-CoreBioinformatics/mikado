@@ -190,31 +190,52 @@ Mikado will fail if an operator not present on this list is specified, or if the
 
 .. _requirements-section:
 
-The "requirements", "as_requirements" and "not_fragmentary" sections
---------------------------------------------------------------------
+The "requirements", "cds_requirements", "as_requirements" and "not_fragmentary" sections
+----------------------------------------------------------------------------------------
 
 These sections specifies the minimum requirements for a transcript at various stages.
 
-* A transcript failing to pass the *requirements* check will be discarded outright (if "purge" is selected) or given a score of 0 otherwise.
-* If a transcript has not been selected as the primary transcript of a locus, it has to pass the *as_requirements* check to be considered as a valid alternative splicing event.
-* Finally, after loci have been defined, the primary transcripts of loci that do not pass the *not_fragmentary* section mark their loci to be compared against neighbouring loci which have passed this same check.
+* A transcript failing to pass the *requirements* check will be discarded outright (if "purge" is selected) or given a
+  score of 0 otherwise.
+* After passing the *rquirements* section, if the transcript is coding, Mikado will check whether its CDS passes the
+  requirements specified in *cds_requirements*. If the check fails, the transcripts will be **stripped of its CDS**, and
+  will only be considered further as a non-coding transcript. *This check can be used to properly consider transcripts
+  that have a suspicious coding structure - e.g. a single coding exon in a transcript with five or more exons, or a low
+  Coding Potential score coming from a third-party tool*.
+* If a transcript has not been selected as the primary transcript of a locus, it has to pass the *as_requirements* check
+  to be considered as a valid alternative splicing event.
+* Finally, after loci have been defined, the primary transcript of each locus will be checked against the
+  *not_fragmentary* expression. Any locus failing this check will be marked as a potential fragment and, if in the
+  vicinity of other loci, might be purged out of the final output or clearly marked as a fragment (depending on whether
+  the *purge* switch is set to true or false, respectively).
 
-**It is strongly advised to use lenient parameters in the requirements section**, as failing to do so might result in discarding whole loci. Typically, transcripts filtered at this step should be obvious fragments, eg monoexonic transcripts produced by RNA-Seq with a total length lower than the *library* fragment length.
-This section is composed by two parts:
+**It is strongly advised to use lenient parameters in the first requirements section**, as failing to do so might result
+in discarding whole loci. Typically, transcripts filtered at this step should be obvious artefacts, eg monoexonic
+transcripts produced by RNA-Seq with a total length lower than the *library* fragment length.
 
-* *parameters*: a list of the metrics to be considered. Each metric can be considered multiple times, by suffixing it with a ".<id>" construct (eg cdna_length.*mono* vs. cdna_length.*multi* to distinguish two uses of the cdna_length metric - once for monoexonic and once for multiexonic transcripts). Any parameter which is not a :ref:`valid metric name <Metrics>`, after removal of the suffix, **will cause an error**. Parameters have to specify the following:
+Each of these sections follows the same template, and they are composed by two parts:
+
+* *parameters*: a list of the metrics to be considered. Each metric can be considered multiple times, by suffixing
+  it with a ".<id>" construct (eg cdna_length.*mono* vs. cdna_length.*multi* to distinguish two uses of the cdna_length
+  metric - once for monoexonic and once for multiexonic transcripts). Any parameter which is not a :ref:`valid metric
+  name <Metrics>`, after removal of the suffix, **will cause an error**. Parameters have to specify the following:
 
     * a *value* that the metric has to be compared against
     * an *operator* that specifies the target operation. See :ref:`the operators section <operators>`.
 
-* *expression*: a string array that will be compiled into a valid boolean expression. All the metrics present in the expression string **must be present in the parameters section**. If an unrecognized metric is present, Mikado will crash immediately, complaining that the scoring file is invalid. Apart from brackets, Mikado accepts only the following boolean operators to chain the metrics:
+* *expression*: a string *array* that will be compiled into a valid boolean expression. All the metrics present in the
+  expression string **must be present in the parameters section**. If an unrecognized metric is present, Mikado will
+  crash immediately, complaining that the scoring file is invalid. Apart from brackets, Mikado accepts only the
+  following boolean operators to chain the metrics:
 
     * *and*
     * *or*
     * *not*
     * *xor*
 
-.. hint:: if no *expression* is specified, Mikado will construct one by chaining all the provided parameters with and *and* operator. Most of the time, this would result in an unexpected behaviour - ie Mikado assigning a score of 0 to most transcripts. It is **strongly advised** to explicitly provide a valid expression.
+.. hint:: if no *expression* is specified, Mikado will construct one by chaining all the provided parameters with and
+   *and* operator. Most of the time, this would result in an unexpected behaviour - ie Mikado assigning a score of 0 to
+   most transcripts. It is **strongly advised** to explicitly provide a valid expression.
 
 As an example, the following snippet replicates a typical requirements section found in a scoring file:
 
@@ -235,8 +256,10 @@ In the parameters section, we ask for the following:
 
         * *exon_num.mono*: monoexonic transcripts must have one exon ("eq")
         * *exon_num.multi*: multiexonic transcripts must have more than one exon ("gt")
-        * *cdna_length.mono*: monoexonic transcripts must have a length greater than 50 bps (the ".mono" suffix is arbitrary, as long as it is unique for all calls of *cdna_length*)
-        * *cdna_length.multi*: multiexonic transcripts must have a length greater than or equal to 100 bps (the ".multi" suffix is arbitrary, as long as it is unique for all calls of *cdna_length*)
+        * *cdna_length.mono*: monoexonic transcripts must have a length greater than 50 bps (the ".mono" suffix is
+          arbitrary, as long as it is unique for all calls of *cdna_length*)
+        * *cdna_length.multi*: multiexonic transcripts must have a length greater than or equal to 100 bps (the ".multi"
+          suffix is arbitrary, as long as it is unique for all calls of *cdna_length*)
         * *max_intron_length*: multiexonic transcripts should not have any intron longer than 200,000 bps.
         * *min_intron_length*: multiexonic transcripts should not have any intron smaller than 5 bps.
 
@@ -245,24 +268,39 @@ The *expression* field will be compiled into the following expression::
         (exon_num > 1 and cdna_length >= 100 and max_intron_length <= 200000 and min_intron_length >= 5) or (exon_num == 1 and cdna_length > 50)
 
 
-Any transcript for which the expression evaluates to ``false`` will be assigned a score of 0 outright and discarded, unless the user has chosen to disable the purging of such transcripts.
+Any transcript for which the expression evaluates to ``false`` will be assigned a score of 0 outright and discarded,
+unless the user has chosen to disable the purging of such transcripts.
 
 .. _scoring-section:
 
 The scoring section
 -------------------
 
-This section specifies which metrics will be used by Mikado to score the transcripts. Each metric to be used is specified as a subsection of the configuration, and will have the following attributes:
+This section specifies which metrics will be used by Mikado to score the transcripts. Each metric to be used is
+specified as a subsection of the configuration, and will have the following attributes:
 
-* *rescaling*: the only compulsory attribute. It specifies the kind of scoring that will be applied to the metric, and it has to be one of "max", "min", or "target". See :ref:`the explanation on the scoring algorithm <scoring_algorithm>` for details.
+* *rescaling*: the only compulsory attribute. It specifies the kind of scoring that will be applied to the metric, and
+  it has to be one of "max", "min", or "target". See :ref:`the explanation on the scoring algorithm <scoring_algorithm>`
+  for details.
 * *value*: compulsory if the chosen rescaling algorithm is "target". This should be either a number or a boolean value.
-* *multiplier*: the weight assigned to the metric in terms of scoring. This parameter is optional; if absent, as it is in the majority of cases, Mikado will consider the multiplier to equal to 1. This is the :math:`w_{m}` element in the :ref:`equations above <scoring_algorithm>`.
-* *filter*: It is possible to specify a filter which the metric has to fulfill to be considered for scoring, eg, "cdna_length >= 200". If the transcript fails to pass this filter, the score *for this metric only* will be set to 0. A "filter" subsection has to specify the following:
+* *multiplier*: the weight assigned to the metric in terms of scoring. This parameter is optional; if absent, as it is
+  in the majority of cases, Mikado will consider the multiplier to equal to 1. This is the :math:`w_{m}` element in the
+  :ref:`equations above <scoring_algorithm>`.
+* *filter*: It is possible to specify a filter which the metric has to fulfill to be considered for scoring, eg,
+  "cdna_length >= 200". If the transcript fails to pass this filter, the score *for this metric only* will be set to 0.
+  **The filter can apply to a different metric**, so it is possible to e.g. assign a score of 0 for, say, "combined_cds"
+  to any transcript whose "cdna_length" is, say, below 150 bps.
+  A "filter" subsection has to specify the following:
 
     * *operator*: the operator to apply for the boolean expression. See the :ref:`relative section <operators>`.
     * *value*: value that will be used to assess the metric.
+    * *metric*: *optional*. The metric that this filter refers to. If omitted, this will be identical to the metric
+      under examination.
 
-.. hint:: the purpose of the *filter* section is to allow for fine-tuning of the scoring mechanism; ie it allows to penalise transcripts with undesirable qualities (eg a possible retained intron) without discarding them outright. As such, it is a less harsh version of the :ref:`requirements section <requirements-section>` and it is the preferred way of specifying which transcript features Mikado should be wary of.
+.. hint:: the purpose of the *filter* section is to allow for fine-tuning of the scoring mechanism; ie it allows to
+          penalise transcripts with undesirable qualities (eg a possible retained intron) without discarding them
+          outright. As such, it is a less harsh version of the :ref:`requirements section <requirements-section>` and
+          it is the preferred way of specifying which transcript features Mikado should be wary of.
 
 For example, this is a snippet of a scoring section:
 
@@ -291,14 +329,25 @@ For example, this is a snippet of a scoring section:
 Using this snippet as a guide, Mikado will score transcripts in each locus as follows:
 
 * Assign a full score (one point, as no multiplier is specified) to transcripts which have the greatest *blast_score*
-* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest amount of CDS bases in secondary ORFs (*cds_not_maximal*)
-* Assign a full score (**two points**, as a multiplier of 2 is specified) to transcripts that have a total amount of CDS bps approximating 80% of the transcript cDNA length (*combined_cds_fraction*)
-* Assign a full score (one point, as no multiplier is specified) to transcripts that have a 5' UTR whose length is nearest to 100 bps (*five_utr_length*); if the 5' UTR is longer than 2,500 bps, this score will be 0 (see the filter section)
-* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest distance between the CDS end and the most downstream exon-exon junction (*end_distance_from_junction*). If such a distance is greater than 55 bps, assign a score of 0, as it is a probable target for NMD (see the filter section).
-* Assign a maximum penalty (**minus 10 points**, as a **negative** multiplier is specified) to the transcript with the highest number of non-verified introns in the locus.
+* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest amount of CDS
+  bases in secondary ORFs (*cds_not_maximal*)
+* Assign a full score (**two points**, as a multiplier of 2 is specified) to transcripts that have a total amount of CDS
+  bps approximating 80% of the transcript cDNA length (*combined_cds_fraction*)
+* Assign a full score (one point, as no multiplier is specified) to transcripts that have a 5' UTR whose length is
+  nearest to 100 bps (*five_utr_length*); if the 5' UTR is longer than 2,500 bps, this score will be 0
+  (see the filter section)
+* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest distance between
+  the CDS end and the most downstream exon-exon junction (*end_distance_from_junction*). If such a distance is greater
+  than 55 bps, assign a score of 0, as it is a probable target for NMD (see the filter section).
+* Assign a maximum penalty (**minus 10 points**, as a **negative** multiplier is specified) to the transcript with the
+  highest number of non-verified introns in the locus.
 
-  * Again, we are using a "filter" section to define which transcripts will be exempted from this scoring (in this case, a penalty)
-  * However, please note that we are using the keyword **metric** in this section. This tells Mikado to check a *different* metric for evaluating the filter. Nominally, in this case we are excluding from the penalty any *monoexonic* transcript. This makes sense as a monoexonic transcript will never have an intron to be confirmed to start with.
+  * Again, we are using a "filter" section to define which transcripts will be exempted from this scoring
+    (in this case, a penalty)
+  * However, please note that we are using the keyword **metric** in this section. This tells Mikado to check a
+    *different* metric for evaluating the filter. Nominally, in this case we are excluding from the penalty any
+    *monoexonic* transcript. This makes sense as a monoexonic transcript will never have an intron to be confirmed to
+    start with.
 
 .. note:: The possibility of using different metrics for the "filter" section is present from Mikado 1.3 onwards.
 
@@ -307,7 +356,8 @@ Using this snippet as a guide, Mikado will score transcripts in each locus as fo
 Metrics
 ~~~~~~~
 
-These are all the metrics available to quantify transcripts. The documentation for this section has been generated using the :ref:`metrics utility <metrics-command>`.
+These are all the metrics available to quantify transcripts. The documentation for this section has been generated using
+the :ref:`metrics utility <metrics-command>`.
 
 Metrics belong to one of the following categories:
 
@@ -319,19 +369,31 @@ Metrics belong to one of the following categories:
 
 * **CDS**: these metrics refer to features related to the CDS assigned to the transcript.
 
-* **UTR**: these metrics refer to features related to the UTR of the transcript. In the case in which a transcript has been assigned multiple ORFs, unless otherwise stated the UTR metrics will be derived only considering the *selected* ORF, not the combination of all of them.
+* **UTR**: these metrics refer to features related to the UTR of the transcript. In the case in which a transcript has
+  been assigned multiple ORFs, unless otherwise stated the UTR metrics will be derived only considering the *selected*
+  ORF, not the combination of all of them.
 
-* **Locus**: these metrics refer to features of the transcript in relationship to all other transcripts in its locus, eg how many of the introns present in the locus are present in the transcript. These metrics are calculated by Mikado during the picking phase, and as such their value can vary during the different stages as the transcripts are shifted to different groups.
+* **Locus**: these metrics refer to features of the transcript in relationship to all other transcripts in its locus, eg
+  how many of the introns present in the locus are present in the transcript. These metrics are calculated by Mikado during the picking phase, and as such their value can vary during the different stages as the transcripts are shifted to different groups.
 
-* **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as Portcullis, or the BLAST score of the best hits.
+* **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time.
+  Examples include data regarding the number of introns confirmed by external programs such as Portcullis, or the BLAST
+  score of the best hits.
 
-* **Attributes**: these metrics are extracted at runtime from attributes present in the input files. An example of this could be the TPM or FPKM values assigned to transcripts by rna expression analysis software.
+* **Attributes**: these metrics are extracted at runtime from attributes present in the input files. An example of this
+  could be the TPM or FPKM values assigned to transcripts by rna expression analysis software.
 
-.. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can be accessed using the keyword "external.<name of the metrics>" within the *configuration* file. See the :ref:`relevant section <external-metrics>` for details.
+.. hint:: Starting from version 1 beta8, Mikado allows to use externally defined metrics for the transcripts. These can
+          be accessed using the keyword "external.<name of the metrics>" within the *configuration* file. See the
+          :ref:`relevant section <external-metrics>` for details.
 
-.. hint:: Starting from version 2, Mikado allows to use attribute defined metrics for the transcripts. These can be accessed using the keyword "attributes.<name of the metric>" within the *scoring* file. See the :ref:`relevant section <attributes-metrics>` for details.
+.. hint:: Starting from version 2, Mikado allows to use attribute defined metrics for the transcripts. These can be
+          accessed using the keyword "attributes.<name of the metric>" within the *scoring* file. See the
+          :ref:`relevant section <attributes-metrics>` for details.
 
-.. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as scores, without rescaling. This feature is available only for metrics whose values naturally lie between 0 and 1, or that are boolean in nature.
+.. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as
+               scores, without rescaling. This feature is available only for metrics whose values naturally lie between
+               0 and 1, or that are boolean in nature.
 
 .. topic:: Available metrics
 
@@ -687,10 +749,16 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 .. attributes-metrics:
 
 Attributes metrics
-------------------
-Starting from version 2, Mikado allows the usage of metrics defined in the attributes of the input files, these metrics behave as the rest of the metrics but they are gathered at runtime from the input datasets. It is important to note that these metrics must be equivalent in all the inputs and are by default initialised to "0" when a transcript does not have an attribute defining the metric. The default initialisation value can be overridden in the scoring file.
+~~~~~~~~~~~~~~~~~~
+Starting from version 2, Mikado allows the usage of metrics defined in the attributes of the input files, these metrics
+behave as the rest of the metrics but they are gathered at runtime from the input datasets. It is important to note that
+these metrics must be equivalent in all the inputs and are by default initialised to "0" when a transcript does not have
+an attribute defining the metric. The default initialisation value can be overridden in the scoring file.
 
-Attribute metrics along with the required **rescaling** parameter, can define a *rtype* parameter as one of (float, int or bool) which will be used to cast the value of the attribute internally, and a *percentage* boolean which indicates that the values are in the 0-100 range and enables a transformation to the 0-1 range so that these can be used as 'raw' scores (see the :ref:`scoring algorithm section <_scoring_algorithm>`).
+Attribute metrics along with the required **rescaling** parameter, can define a *rtype* parameter as one of (float, int
+or bool) which will be used to cast the value of the attribute internally, and a *percentage* boolean which indicates
+that the values are in the 0-100 range and enables a transformation to the 0-1 range so that these can be used as 'raw'
+scores (see the :ref:`scoring algorithm section <_scoring_algorithm>`).
 
 An example for the usage of these metrics could be::
 
@@ -722,7 +790,8 @@ of missing exons from neighbouring data. The procedure is similar to the one emp
 1. A transcript can function as **template** for a candidate if:
 
   - the candidate's terminal exon falls within an **exon** of the template
-  - the extension would enlarge the candidate by at most *"ts_distance"* basepairs (not including introns), default **1000** bps
+  - the extension would enlarge the candidate by at most *"ts_distance"* basepairs (not including introns), default
+    **2000** bps
   - the extension would add at most *"ts_max_splices"* splice sites to the candidate, default **2**.
 2. A graph of possible extensions is built for both the 5' end and the 3' end of the locus.
    Transcripts are then divided in extension groups, starting with the outmost (ie the potential **template** for the group). Links that would cause chains

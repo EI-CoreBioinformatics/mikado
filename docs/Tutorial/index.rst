@@ -399,7 +399,8 @@ After selecting the best transcripts in each locus, Mikado has discarded most of
 Analysing the tutorial data with Snakemake
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The workflow described in this tutorial can be executed automatically using Snakemake [Snake]_ with :download:`this Snakefile <Snakefile>`. Just execute:
+The workflow described in this tutorial can be executed automatically using Snakemake [Snake]_ with :download:`this Snakefile <Snakefile>`.
+Just execute:
 
 .. code-block:: bash
 

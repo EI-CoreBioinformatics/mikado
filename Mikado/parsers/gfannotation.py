@@ -9,6 +9,7 @@ import abc
 import copy
 from sys import intern
 import re
+from .parser import _attribute_definition
 
 
 __author__ = 'Luca Venturini'
@@ -16,22 +17,6 @@ __author__ = 'Luca Venturini'
 from Mikado.exceptions import InvalidParsingFormat
 
 [intern(_) for _ in ["+", "-", "?", "true", "True", "false", "False"]]
-
-
-def _attribute_definition(val):
-    try:
-        val = float(val)
-        if val.is_integer():
-            return int(val)
-        return val
-    except (ValueError, TypeError):
-        if val.lower() in ("true", "false"):
-            val = val.capitalize()
-            if val == "True":
-                return True
-            else:
-                return False
-        return val
 
 
 # This class has exactly how many attributes I need it to have

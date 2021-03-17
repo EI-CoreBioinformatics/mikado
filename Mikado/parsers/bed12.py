@@ -9,7 +9,7 @@ from time import sleep
 import os
 from Bio import Seq
 import Bio.SeqRecord
-from .parser import Parser
+from .parser import Parser, _attribute_definition
 from sys import intern
 import copy
 from ..exceptions import InvalidParsingFormat
@@ -339,6 +339,7 @@ class BED12:
         self.alias = None
         self.__logger = create_null_logger()
         self.logger = logger
+        self.attributes = dict()
         self.logger.debug("Set the basic properties for %s", self.chrom)
 
         if len(args) == 0:
@@ -390,6 +391,7 @@ class BED12:
             raise InvalidParsingFormat("I need an ordered array, not {0}".format(type(self._line)))
         else:
             self._fields = self._line
+            print("Line", self._fields)
             self.__set_values_from_fields()
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
@@ -404,7 +406,6 @@ class BED12:
     @property
     def is_transcript(self):
         """BED12 files are always transcripts for Mikado."""
-
         return True
 
     @property
@@ -495,6 +496,7 @@ class BED12:
         """
 
         self.attribute_order = []
+        print("Parsing", attributes)
 
         infolist = self._attribute_pattern.findall(attributes.rstrip().rstrip(";"))
 
@@ -514,6 +516,8 @@ class BED12:
             elif key.lower() == "id":
                 self.name = val
             else:
+                print(key.capitalize(), val)
+                self.attributes[key.capitalize()] = _attribute_definition(val)
                 continue
 
     def __set_values_from_fields(self):
@@ -546,9 +550,10 @@ class BED12:
             self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
             self.block_starts = [int(x) for x in block_starts]
-        self._parse_attributes(self.name)
+        to_parse = self.name
         if len(self._fields) == 13:
-            self._parse_attributes(self._fields[-1])
+            to_parse = ";".join([to_parse, self._fields[-1]])
+        self._parse_attributes(to_parse)
         self.has_start_codon = False
         self.has_stop_codon = False
         self.start_codon = None
@@ -834,18 +839,12 @@ class BED12:
                 return "#"
 
         line = [self.chrom, self.start - 1, self.end]
-
-        if self.transcriptomic is True:
-            name = "ID={};coding={}".format(self.id, self.coding)
-            if self.coding:
-                name += ";phase={}".format(self.phase)
-            if self.alias is not None and self.alias != self.id:
-                name += ";alias={}".format(self.alias)
-
-            line.append(name)
-        else:
-            line.append(self.name)
-
+        name = "ID={};coding={}".format(self.id, self.coding)
+        if self.coding:
+            name += ";phase={}".format(self.phase)
+        if self.alias is not None and self.alias != self.id:
+            name += ";alias={}".format(self.alias)
+        line.append(name)
         if not self.score:
             line.append(0)
         else:
@@ -862,6 +861,17 @@ class BED12:
         line.append(self.block_count)
         line.append(",".join([str(x) for x in self.block_sizes]))
         line.append(",".join([str(x) for x in self.block_starts]))
+        attributes = dict((key.lower(), val) for key, val in self.attributes.items() if key.lower() not in
+                          ("geneid", "gene_id", "name", "phase", "coding", "alias", "id"))
+        if self.parent is not None:
+            attributes["Parent"] = self.parent[0]
+            assert "Parent" in attributes
+        elif "parent" in attributes:
+            par = attributes["parent"] if isinstance(attributes["parent"], str) else attributes["parent"][0]
+            del attributes["parent"]
+            attributes["Parent"] = par
+        if attributes:
+            line.append(";".join(f"{key}={val}" for key, val in attributes.items()))
         return "\t".join([str(x) for x in line])
 
     def __eq__(self, other):

@@ -15,6 +15,7 @@ from . import GTF
 from . import bed12
 from . import blast_utils
 from . import bam_parser
+from .bed12 import BED12
 
 
 def parser_factory(string, input_format=None):

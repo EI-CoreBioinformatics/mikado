@@ -131,5 +131,6 @@ Contents
    Tutorial/Adapting
    Usage/index
    Algorithms
+   Scoring_files
    References
    Library/modules

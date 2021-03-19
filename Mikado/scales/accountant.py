@@ -10,6 +10,7 @@ import collections
 import logging
 import operator
 from logging import handlers as log_handlers
+from .. import version
 from ..transcripts import Transcript
 from ..utilities.namespace import Namespace
 from ..utilities import calc_f1, Interval
@@ -1027,7 +1028,8 @@ class Accountant:
         with open("{0}.stats".format(self.args.out), 'wt') as out:
 
             # noinspection PyUnresolvedReferences
-            print("Command line:\n{0:>10}".format(self.args.commandline), file=out)
+            print("Mikado version {1}; Command line:\n{0:>10}".format(self.args.commandline,
+                                                                      version.__version__), file=out)
             print(gene_transcript_results["ref"]["total"], "reference RNAs in",
                   len(self.ref_genes), "genes", file=out)
             print(gene_transcript_results["pred"]["total"], "predicted RNAs in ",

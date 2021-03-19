@@ -226,7 +226,7 @@ class RunOptionsConfiguration:
                 raise validate.ValidationError(self._format_error(value))
             return value
 
-    shm: bool = field(default=True, metadata={
+    shm: bool = field(default=False, metadata={
         "metadata": {
             "description": "boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux \
 partition, for a potentially faster execution."},

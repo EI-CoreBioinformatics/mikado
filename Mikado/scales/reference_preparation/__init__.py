@@ -16,7 +16,7 @@ def prepare_index(args, queue_logger):
     if args.shm is True:
         shm_handle = create_shm_handle()
     else:
-        shm_handle = None
+        shm_handle = tempfile.NamedTemporaryFile(suffix=".midx")
 
     if args.index is True:
         create_index(args.reference, queue_logger=queue_logger, index_name=index_name,

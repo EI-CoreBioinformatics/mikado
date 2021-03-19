@@ -277,10 +277,10 @@ def pick_parser():
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
     shm = parser.add_mutually_exclusive_group()
-    shm.add_argument("--shm", default=None, action="store_true",
+    shm.add_argument("--shm", default=None, action="store_true", dest="shm",
                      help="Flag. If switched, Mikado pick will copy the database to RAM (ie SHM) for faster access \
 during the run.")
-    shm.add_argument("--no-shm", default=None, action="store_false",
+    shm.add_argument("--no-shm", default=None, action="store_false", dest="shm",
                      help="Flag. If switched, Mikado will force using the database on location instead of "
                           "copying it to /dev/shm for faster access.")
     parser.add_argument("-p", "--procs", type=int, default=None,

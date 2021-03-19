@@ -17,6 +17,8 @@ import zlib
 from logging import handlers as logging_handlers
 import functools
 import multiprocessing
+
+from Mikado import version
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
@@ -221,16 +223,19 @@ class Picker:
         This method will copy the SQLite input DB into memory.
         """
 
-        if self.configuration.pick.run_options.shm is True and self.configuration.db_settings.dbtype == "sqlite":
-            handle = create_shm_handle()
-            if handle is None:
-                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either "
-                                      "not available or not writable for this user. Leaving the DB where it is.")
+        if self.configuration.db_settings.dbtype == "sqlite" and os.path.exists(self.configuration.db_settings.db):
+            if self.configuration.pick.run_options.shm is True:
+                handle = create_shm_handle()
+                if handle is None:
+                    self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either "
+                                          "not available or not writable for this user.")
+                    handle = tempfile.NamedTemporaryFile(suffix=".db")
             else:
-                self.shm_db = handle
-                shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
-                self.configuration.db_settings.db = self.shm_db.name
-                self.main_logger.info(f"DB copied into memory at {self.shm_db.name}")
+                handle = tempfile.NamedTemporaryFile(suffix=".db")
+            self.shm_db = handle
+            shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
+            self.configuration.db_settings.db = self.shm_db.name
+            self.main_logger.info(f"DB copied into {self.shm_db.name}")
 
     def setup_logger(self):
 
@@ -287,13 +292,14 @@ class Picker:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
 
-        self.main_logger.info("Begun analysis of {0}".format(self.input_file))
+        self.main_logger.info(f"Mikado version: {version.__version__}")
         if self.commandline != '':
             self.main_logger.info("Command line: {0}".format(self.commandline))
         else:
             self.main_logger.info(
                 "Analysis launched directly, without using the launch script.")
 
+        self.main_logger.info("Begun analysis of {0}".format(self.input_file))
         # Create the shared DB if necessary
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()

@@ -10,7 +10,8 @@ import logging
 import os
 import sys
 from logging import handlers as log_handlers
-
+import tempfile
+from .. import version
 from ..exceptions import CorruptIndex
 from ..utilities.log_utils import create_default_logger, formatter
 import multiprocessing as mp
@@ -74,7 +75,7 @@ def _shutdown(args, index_name, logger, handler, queue_logger: logging.Logger, l
     args.reference.close()
     if hasattr(args.prediction, "close"):
         args.prediction.close()
-    if args.no_save_index is True or args.shm is True:
+    if args.no_save_index is True or args.shm is True or os.path.dirname(index_name) == tempfile.tempdir:
         queue_logger.debug(f"Removing the index in {index_name}")
         os.remove(index_name)
         queue_logger.debug(f"Removed the index in {index_name}")
@@ -106,6 +107,7 @@ def compare(args):
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(args)
     queue_logger.info("Start")
     args.commandline = " ".join(sys.argv)
+    queue_logger.info(f"Mikado version: {version.__version__}")
     queue_logger.info("Command line: %s", args.commandline)
     logger.handlers[0].flush()
 

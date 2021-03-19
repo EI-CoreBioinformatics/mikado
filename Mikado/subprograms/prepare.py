@@ -10,6 +10,9 @@ import os
 import argparse
 import logging
 import logging.handlers
+
+from Mikado import version
+
 from ._utils import check_log_settings_and_create_logger
 from ..configuration import MikadoConfiguration, DaijinConfiguration, parse_list_file
 from ..configuration.configurator import load_and_validate_config
@@ -170,8 +173,10 @@ def setup(args, logger=None) -> (argparse.Namespace, Union[MikadoConfiguration, 
 
     mikado_config, logger = check_log_settings_and_create_logger(mikado_config, args.log, args.log_level,
                                                                  section="prepare")
-    logger.info("Command line: %s",  " ".join(sys.argv))
-    logger.info("Random seed: %s", mikado_config.seed)
+
+    logger.info(f"Mikado version: {version.__version__}")
+    logger.info(f"Command line: {' '.join(sys.argv)}")
+    logger.info(f"Random seed: {mikado_config.seed}")
 
     mikado_config.prepare.files.out = os.path.basename(mikado_config.prepare.files.out)
     if getattr(args, "out") not in (None, False):

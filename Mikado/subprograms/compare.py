@@ -58,8 +58,10 @@ the stats file will not be produced.""")
                          help="""Flag. If set, compare will stop after
                          having generated the GFF index for the reference.""")
     shm = parser.add_mutually_exclusive_group()
-    shm.add_argument("--no-shm", action="store_false", default=True, dest="shm",
+    shm.add_argument("--no-shm", action="store_false", default=False, dest="shm",
                      help="Switch off /dev/shm usage.")
+    shm.add_argument("--shm", action="store_true", default=False, dest="shm",
+                     help="Switch on /dev/shm usage.")
     parser.add_argument('--distance', type=int, default=2000,
                         help='''Maximum distance for a transcript to be considered
                         a polymerase run-on. Default: %(default)s''')

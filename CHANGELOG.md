@@ -1,6 +1,8 @@
 # Version 2.2.2
 
-Adding the SHM capabilities to `mikado serialise` and `mikado compare`, and switching on the SHM option by default in all of these three programs.
+Added the SHM capabilities to `mikado serialise` and `mikado compare`.
+Now `mikado` `serialise`, `pick` and `compare` will copy the database to the TMPDIR before running, to ensure atomicity.
+This will also prevent problems in case the data is usually on an NFS drive, as is the case in most computing clusters.
 
 # Version 2.2.1
 Pinning sqlalchemy to <1.4.0 until sqlalchemy_utils is updated.

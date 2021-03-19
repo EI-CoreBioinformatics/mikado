@@ -21,7 +21,10 @@ import tempfile
 
 import io
 
+from Mikado import version
+
 from ..utilities import path_join, comma_split, create_shm_handle
+from ..utilities.dbutils import DBBASE
 from ..utilities.log_utils import create_default_logger, create_null_logger
 from ._utils import check_log_settings_and_create_logger
 from ..utilities import dbutils
@@ -178,10 +181,9 @@ def load_orfs(mikado_configuration: Union[DaijinConfiguration, MikadoConfigurati
                                                configuration=mikado_configuration,
                                                logger=logger)
                 serializer()
-            except InvalidSerialization:
+            except InvalidSerialization as exc:
                 logger.critical("Mikado serialise failed due to problems with the input data. Please check the logs.")
-                os.remove(mikado_configuration.db_settings.db)
-                sys.exit(1)
+                raise exc
         logger.info("Finished loading ORF data")
     else:
         logger.info("No ORF data provided, skipping")
@@ -268,11 +270,16 @@ def _set_serialise_run_options(conf: Union[MikadoConfiguration, DaijinConfigurat
 
 def _execute_force_removal(configuration: Union[MikadoConfiguration, DaijinConfiguration],
                            logger=create_null_logger()):
-    if (configuration.db_settings.dbtype == "sqlite" and
-            os.path.exists(configuration.db_settings.db)):
-        logger.warn("Removing old data from %s because force option in place",
-                    configuration.db_settings.db)
-        os.remove(configuration.db_settings.db)
+
+    if configuration.db_settings.dbtype == "sqlite":
+        if os.path.exists(configuration.db_settings.db):
+            logger.warn("Removing old data from %s because force option in place",
+                        configuration.db_settings.db)
+            os.remove(configuration.db_settings.db)
+            assert not os.path.exists(configuration.db_settings.db)
+        else:
+            pass
+        return
 
     engine = dbutils.connect(configuration)
     meta = sqlalchemy.MetaData(bind=engine)
@@ -282,10 +289,7 @@ def _execute_force_removal(configuration: Union[MikadoConfiguration, DaijinConfi
         tab.drop()
         if configuration.db_settings.dbtype == "mysql":
             engine.execute("OPTIMIZE TABLE {}".format(tab.name))
-    if configuration.db_settings.dbtype == "mysql":
-        engine.execute("")
-    # This would fail in MySQL as it uses the OPTIMIZE TABLE syntax above
-    elif configuration.db_settings.dbtype != "sqlite":
+    if configuration.db_settings.dbtype != "mysql":
         engine.execute("VACUUM")
     dbutils.DBBASE.metadata.create_all(engine)
     return
@@ -314,6 +318,7 @@ def setup(args):
                                                                         args.log, args.log_level,
                                                                         section="serialise")
     logger.setLevel("INFO")
+    logger.info(f"Mikado version: {version.__version__}")
     logger.info("Command line: %s", " ".join(sys.argv))
     if args.random_seed is True:
         mikado_configuration.seed = None
@@ -345,6 +350,8 @@ def setup(args):
 
     if mikado_configuration.serialise.force is True:
         _execute_force_removal(mikado_configuration, logger=logger)
+        if (args.force is True or mikado_configuration.serialise.force is True) and mikado_configuration.db_settings.dbtype == "sqlite":
+            assert not os.path.exists(mikado_configuration.db_settings.db)
 
     return mikado_configuration, logger, sql_logger
 
@@ -360,24 +367,51 @@ def serialise(args):
     """
 
     mikado_configuration, logger, sql_logger = setup(args)
+    intended_db = copy(mikado_configuration.db_settings.db)
+    pre_existing = os.path.exists(intended_db)
     if mikado_configuration.serialise.shm is True and mikado_configuration.db_settings.dbtype == "sqlite":
-        intended_db = copy(mikado_configuration.db_settings.db)
         mikado_configuration, temp_db = setup_shm_db(mikado_configuration, logger=logger)
+        if pre_existing and mikado_configuration.serialise.force is False:
+            shutil.copy(intended_db, temp_db)
+    elif mikado_configuration.db_settings.dbtype == "sqlite":
+        temp_db = tempfile.NamedTemporaryFile(suffix=".db")
+        mikado_configuration.db_settings.db = temp_db.name
     else:
-        intended_db, temp_db = None, None
-    load_orfs(mikado_configuration, logger)
-    load_blast(mikado_configuration, logger)
-    load_external(mikado_configuration, logger)
-    load_junctions(mikado_configuration, logger)
+        temp_db = None
+
+    try:
+        load_orfs(mikado_configuration, logger)
+        load_blast(mikado_configuration, logger)
+        load_external(mikado_configuration, logger)
+        load_junctions(mikado_configuration, logger)
+    except (ValueError,OSError,PermissionError,IndexError,InvalidSerialization) as exc:
+        logger.error("Mikado crashed due to an error. Please check the logs for hints on the cause of the error; if "
+                     "it is a bug, please report it to https://github.com/EI-CoreBioinformatics/mikado/issues.")
+        logger.error(exc)
+        assert (temp_db is None and mikado_configuration.db_settings.dbtype != "sqlite") or (
+                temp_db is not None and mikado_configuration.db_settings.dbtype == "sqlite")
+        if mikado_configuration.db_settings.dbtype == "sqlite":
+            temp_db.close()
+            if pre_existing and os.path.exists(intended_db):
+                os.remove(intended_db)
+        else:
+            engine = dbutils.connect(mikado_configuration)
+            connection = engine.connect()
+            for tbl in reversed(DBBASE.metadata.sorted_tables):
+                connection.execute(tbl.delete())
+        logging.shutdown()
+        sys.exit(1)
+
     logger.info("Finished")
 
-    if mikado_configuration.serialise.shm is True and mikado_configuration.db_settings.dbtype == "sqlite":
-        logger.info(f"Copying from the in-memory temporary database {mikado_configuration.db_settings.db} "
+    if temp_db is not None:
+        logger.info(f"Copying from the temporary database {mikado_configuration.db_settings.db} "
                     f"back to disk {intended_db}.")
         shutil.copy(mikado_configuration.db_settings.db, intended_db)
-        logger.info(f"Copied from the in-memory temporary database {mikado_configuration.db_settings.db} "
+        logger.info(f"Copied from the temporary database {mikado_configuration.db_settings.db} "
                     f"back to disk {intended_db}.")
         temp_db.close()
+
     logging.shutdown()
 
 

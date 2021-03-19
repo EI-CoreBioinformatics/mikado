@@ -71,7 +71,7 @@ def _set_pick_run_options(conf: Union[DaijinConfiguration, MikadoConfiguration],
     conf.pick.run_options.exclude_cds = True if args.no_cds is True else conf.pick.run_options.exclude_cds
     conf.pick.run_options.intron_range = tuple(sorted(args.intron_range)) if args.intron_range is not None \
         else conf.pick.run_options.intron_range
-    conf.pick.run_options.shm = True if args.shm is not None else conf.pick.run_options.shm
+    conf.pick.run_options.shm = args.shm if args.shm is not None else conf.pick.run_options.shm
     if args.only_reference_update is True:
         conf.pick.run_options.only_reference_update = True
         conf.pick.run_options.reference_update = True
@@ -276,9 +276,13 @@ def pick_parser():
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
-    parser.add_argument("--shm", default=False, action="store_true",
-                        help="Flag. If switched, Mikado pick will copy the database to RAM (ie SHM) for faster access \
+    shm = parser.add_mutually_exclusive_group()
+    shm.add_argument("--shm", default=None, action="store_true",
+                     help="Flag. If switched, Mikado pick will copy the database to RAM (ie SHM) for faster access \
 during the run.")
+    shm.add_argument("--no-shm", default=None, action="store_false",
+                     help="Flag. If switched, Mikado will force using the database on location instead of "
+                          "copying it to /dev/shm for faster access.")
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="""Number of processors to use. \
 Default: look in the configuration file (1 if undefined)""")

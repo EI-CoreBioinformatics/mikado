@@ -125,3 +125,7 @@ to keep per blasted sequence."},
                 "metadata": {"description": "Whether to drop and reload everything into the DB"},
     })
     single_thread: bool = field(default=False, metadata={})
+    shm: bool = field(default=True, metadata={
+        "metadata": {"description": "Whether to build the database in /dev/shm before copying it to its final "
+                                    "location, or not."}
+    })

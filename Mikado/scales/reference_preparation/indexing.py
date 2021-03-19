@@ -1,4 +1,6 @@
 import sqlite3
+
+from ...utilities import create_shm_handle
 from ...utilities.file_type import filetype
 from ...exceptions import CorruptIndex
 import collections
@@ -79,7 +81,7 @@ def load_index(args, queue_logger):
 
 def check_index(reference, queue_logger):
 
-    if reference.endswith("midx"):
+    if reference.endswith(("midx", "db")):
         reference = reference
     else:
         reference = "{}.midx".format(reference)
@@ -89,7 +91,7 @@ def check_index(reference, queue_logger):
         cursor = conn.cursor()
         tables = cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
         if sorted(tables) != sorted([("positions",), ("genes",)]):
-            raise CorruptIndex("Invalid database file")
+            raise CorruptIndex(f"Invalid database file: {reference}")
         gid, obj = cursor.execute("SELECT * from genes").fetchone()
         try:
             obj = msgpack.loads(obj, raw=False)
@@ -97,7 +99,7 @@ def check_index(reference, queue_logger):
             try:
                 obj = json.loads(obj)
             except (ValueError, TypeError, json.decoder.JSONDecodeError):
-                raise CorruptIndex("Corrupt index")
+                raise CorruptIndex(f"Corrupt index: {reference}")
             raise CorruptIndex("Old index, deleting and rebuilding")
 
         gene = Gene(None)
@@ -107,16 +109,20 @@ def check_index(reference, queue_logger):
             raise CorruptIndex("Invalid value for genes, indicating a corrupt index. Deleting and rebuilding.")
 
     except sqlite3.DatabaseError:
-        raise CorruptIndex("Invalid database file")
+        raise CorruptIndex(f"Invalid database file: {reference}")
 
 
 def create_index(reference, queue_logger, index_name, ref_gff=False,
-                 exclude_utr=False, protein_coding=False):
+                 exclude_utr=False, protein_coding=False, use_shm=True):
 
     """Method to create the simple indexed database for features."""
 
-    with tempfile.NamedTemporaryFile(suffix=".db") as temp_db:
-        queue_logger.info("Starting to create an index for %s", reference.name)
+    use_shm = use_shm and os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
+    queue_logger.info(f"Using /dev/shm: {use_shm}")
+    with tempfile.NamedTemporaryFile(suffix=".db",
+                                     dir=tempfile.tempdir if use_shm is False else "/dev/shm") as temp_db:
+        queue_logger.info(f"Starting to create an index for {reference.name} using "
+                          f"{temp_db.name} as temporary database.")
         if os.path.exists("{0}.midx".format(reference.name)):
             queue_logger.warning("Removing the old index")
             try:

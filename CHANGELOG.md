@@ -1,3 +1,7 @@
+# Version 2.2.2
+
+Adding the SHM capabilities to `mikado serialise` and `mikado compare`, and switching on the SHM option by default in all of these three programs.
+
 # Version 2.2.1
 Pinning sqlalchemy to <1.4.0 until sqlalchemy_utils is updated.
 Moreover, solved a small bug in `prepare`: setting `prepare.exclude_redundant` to `True` in the configuration file had 

@@ -10,12 +10,18 @@ import argparse
 import functools
 import glob
 import os
+import shutil
 import sys
 import logging
 import logging.handlers
+from copy import copy
 from typing import Union
 
-from ..utilities import path_join, comma_split
+import tempfile
+
+import io
+
+from ..utilities import path_join, comma_split, create_shm_handle
 from ..utilities.log_utils import create_default_logger, create_null_logger
 from ._utils import check_log_settings_and_create_logger
 from ..utilities import dbutils
@@ -30,6 +36,26 @@ from ..configuration import configurator
 
 
 __author__ = 'Luca Venturini'
+
+
+def setup_shm_db(configuration: MikadoConfiguration, logger=create_null_logger()) -> (MikadoConfiguration,
+                                                                                      Union[None, io.FileIO]):
+    """
+    This method will copy the SQLite input DB into memory.
+    """
+
+    if configuration.serialise.shm is True and configuration.db_settings.dbtype == "sqlite":
+        handle = create_shm_handle()
+        if handle is None:
+            logger.info("Mikado was asked to copy the database into /dev/shm, but it is either " 
+                        "not available or not writable for this user.")
+            configuration.serialise.shm = False
+            return configuration, None
+        else:
+            logger.info(
+                f"Using {handle.name} as temporary database before copying into {configuration.db_settings.db}.")
+            configuration.db_settings.db = handle.name
+            return configuration, handle
 
 
 def xml_launcher(xml_candidate=None, configuration=None, logger=None):
@@ -228,6 +254,7 @@ def _set_serialise_run_options(conf: Union[MikadoConfiguration, DaijinConfigurat
     conf.serialise.start_adjustment = args.start_adjustment
     conf.serialise.max_target_seqs = args.max_target_seqs or conf.serialise.max_target_seqs
     conf.serialise.single_thread = args.single_thread or conf.serialise.single_thread
+    conf.serialise.shm = args.use_shm if args.use_shm is not None else conf.serialise.shm
     conf.serialise.files.blast_loading_debug = True if args.blast_loading_debug else \
         conf.serialise.files.blast_loading_debug
     conf.serialise.force = args.force if args.force is not None else conf.serialise.force
@@ -286,7 +313,6 @@ def setup(args):
     mikado_configuration, logger = check_log_settings_and_create_logger(mikado_configuration,
                                                                         args.log, args.log_level,
                                                                         section="serialise")
-
     logger.setLevel("INFO")
     logger.info("Command line: %s", " ".join(sys.argv))
     if args.random_seed is True:
@@ -334,11 +360,24 @@ def serialise(args):
     """
 
     mikado_configuration, logger, sql_logger = setup(args)
+    if mikado_configuration.serialise.shm is True and mikado_configuration.db_settings.dbtype == "sqlite":
+        intended_db = copy(mikado_configuration.db_settings.db)
+        mikado_configuration, temp_db = setup_shm_db(mikado_configuration, logger=logger)
+    else:
+        intended_db, temp_db = None, None
     load_orfs(mikado_configuration, logger)
     load_blast(mikado_configuration, logger)
     load_external(mikado_configuration, logger)
     load_junctions(mikado_configuration, logger)
     logger.info("Finished")
+
+    if mikado_configuration.serialise.shm is True and mikado_configuration.db_settings.dbtype == "sqlite":
+        logger.info(f"Copying from the in-memory temporary database {mikado_configuration.db_settings.db} "
+                    f"back to disk {intended_db}.")
+        shutil.copy(mikado_configuration.db_settings.db, intended_db)
+        logger.info(f"Copied from the in-memory temporary database {mikado_configuration.db_settings.db} "
+                    f"back to disk {intended_db}.")
+        temp_db.close()
     logging.shutdown()
 
 
@@ -352,6 +391,11 @@ def serialise_parser():
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
+    shm = parser.add_mutually_exclusive_group()
+    shm.add_argument("--shm", action="store_true", default=None, dest="use_shm",
+                     help="Use /dev/shm (if available) for faster database building.")
+    shm.add_argument("--no-shm", action="store_false", default=None, dest="use_shm",
+                     help="Force building the database on its final location, even if /dev/shm is available.")
     orfs = parser.add_argument_group()
     orfs.add_argument("--orfs", type=str, default=None,
                       help="ORF BED file(s), separated by commas")

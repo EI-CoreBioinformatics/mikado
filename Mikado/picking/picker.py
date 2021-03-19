@@ -22,7 +22,7 @@ from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
 import sqlalchemy.exc
-from ..utilities import path_join
+from ..utilities import path_join, create_shm_handle
 from ..utilities.log_utils import formatter
 from ..parsers.GTF import GTF, GtfLine
 from ..parsers.GFF import GFF3
@@ -221,28 +221,16 @@ class Picker:
         This method will copy the SQLite input DB into memory.
         """
 
-        if self.configuration.pick.run_options.shm is True:
-            shm_available = os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
-            if shm_available is False:
-                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either \
-not available or not writable for this user. Leaving the DB where it is.")
-                return
-            self.main_logger.info("Copying Mikado database into a SHM db")
-            assert self.configuration.db_settings.dbtype == "sqlite"
-            # Create temporary file
-            self.shm_db = tempfile.NamedTemporaryFile(suffix=".db", prefix="/dev/shm/")
-            self.main_logger.debug("Copying {0} into {1}".format(
-                self.configuration.db_settings.db,
-                self.shm_db.name))
-            try:
+        if self.configuration.pick.run_options.shm is True and self.configuration.db_settings.dbtype == "sqlite":
+            handle = create_shm_handle()
+            if handle is None:
+                self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either "
+                                      "not available or not writable for this user. Leaving the DB where it is.")
+            else:
+                self.shm_db = handle
                 shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
                 self.configuration.db_settings.db = self.shm_db.name
-            except PermissionError:
-                self.main_logger.warning(
-                    """Permission to write on /dev/shm denied.
-                    Back to using the DB on disk.""")
-                self.configuration.pick.run_options.shm = False
-            self.main_logger.info("DB copied into memory")
+                self.main_logger.info(f"DB copied into memory at {self.shm_db.name}")
 
     def setup_logger(self):
 

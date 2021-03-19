@@ -1286,6 +1286,7 @@ class CompareFusionCheck(unittest.TestCase):
             args.no_save_index = True
             args.reference = reference
             args.prediction = prediction
+            args.shm = False
             args.log = None
             args.out = os.path.join(out, "fusion_test", "fusion_test")
             args.distance = 2000
@@ -1752,91 +1753,90 @@ class PickUtilsTest(unittest.TestCase):
 
         # Let's check that we are setting fields correctly now.
         curr_dir = os.getcwd()
-        os.chdir(tempfile.gettempdir())
-        levels = []
-        [levels.extend([level.upper(), level.lower(), level.capitalize()]) for level in
-         ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            levels = []
+            [levels.extend([level.upper(), level.lower(), level.capitalize()]) for level in
+             ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]]
 
-        conf = MikadoConfiguration()
-        try:
-            for section, handle, level in itertools.product(
-                    [None, "prepare", "serialise", "pick"],
-                    [None, "stderr", "mikado.log", b"mikado.log", open("mikado.log", "wt"),
-                     "folder/mikado.log"],
-                    levels):
-                with self.subTest(section=section, level=level, handle=handle):
-                    conf.pick.files.output_dir = "pick"
-                    conf.pick.files.log = "pick.log"
-                    conf.prepare.files.output_dir = "prepare"
-                    conf.prepare.files.log = "prepare.log"
-                    conf.serialise.files.output_dir = "serialise"
-                    conf.serialise.files.log = "serialise.log"
-                    conf, logger = check_log_settings_and_create_logger(conf, handle, level, section)
-                    self.assertEqual(len(logger.handlers), 1)
-                    handler = logger.handlers[0]
-                    self.assertEqual(logger.level, logging.getLevelName(level.upper()), logger.level)
-                    if (section is None and handle is None) or handle == "stderr":
-                        self.assertIsInstance(handler, logging.StreamHandler)
-                        if section == "pick":
-                            self.assertIsNone(conf.pick.files.log)
-                        elif section == "serialise":
-                            self.assertIsNone(conf.serialise.files.log)
-                        elif section == "prepare":
-                            self.assertIsNone(conf.prepare.files.log)
-                    else:
-                        self.assertIsInstance(handler, logging.FileHandler)
-                        fname = handler.stream.name
-                        if handle is None:
-                            if section == "prepare":
-                                self.assertEqual(fname, os.path.join(os.getcwd(), "prepare", "prepare.log"))
+            conf = MikadoConfiguration()
+            try:
+                for section, handle, level in itertools.product(
+                        [None, "prepare", "serialise", "pick"],
+                        [None, "stderr", "mikado.log", b"mikado.log", open("mikado.log", "wt"),
+                         "folder/mikado.log"],
+                        levels):
+                    with self.subTest(section=section, level=level, handle=handle):
+                        conf.pick.files.output_dir = "pick"
+                        conf.pick.files.log = "pick.log"
+                        conf.prepare.files.output_dir = "prepare"
+                        conf.prepare.files.log = "prepare.log"
+                        conf.serialise.files.output_dir = "serialise"
+                        conf.serialise.files.log = "serialise.log"
+                        conf, logger = check_log_settings_and_create_logger(conf, handle, level, section)
+                        self.assertEqual(len(logger.handlers), 1)
+                        handler = logger.handlers[0]
+                        self.assertEqual(logger.level, logging.getLevelName(level.upper()), logger.level)
+                        if (section is None and handle is None) or handle == "stderr":
+                            self.assertIsInstance(handler, logging.StreamHandler)
+                            if section == "pick":
+                                self.assertIsNone(conf.pick.files.log)
                             elif section == "serialise":
-                                self.assertEqual(fname, os.path.join(os.getcwd(), "serialise", "serialise.log"))
-                            elif section == "pick":
-                                self.assertEqual(fname, os.path.join(os.getcwd(), "pick", "pick.log"))
+                                self.assertIsNone(conf.serialise.files.log)
+                            elif section == "prepare":
+                                self.assertIsNone(conf.prepare.files.log)
                         else:
-                            if handle == b"mikado.log":
-                                check = "mikado.log"
-                            elif isinstance(handle, (io.BufferedWriter, io.TextIOWrapper)):
-                                check = "mikado.log"
+                            self.assertIsInstance(handler, logging.FileHandler)
+                            fname = handler.stream.name
+                            if handle is None:
+                                if section == "prepare":
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), "prepare", "prepare.log"))
+                                elif section == "serialise":
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), "serialise", "serialise.log"))
+                                elif section == "pick":
+                                    self.assertEqual(fname, os.path.join(os.getcwd(), "pick", "pick.log"))
                             else:
-                                check = handle
-                            if section == "prepare":
-                                if not os.path.dirname(check):
-                                    self.assertEqual(fname, os.path.join(os.getcwd(), conf.prepare.files.output_dir,
-                                                                         check))
+                                if handle == b"mikado.log":
+                                    check = "mikado.log"
+                                elif isinstance(handle, (io.BufferedWriter, io.TextIOWrapper)):
+                                    check = "mikado.log"
                                 else:
-                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
-                                other = conf.prepare.files.log
-                            elif section == "serialise":
-                                if not os.path.dirname(check):
-                                    self.assertEqual(fname, os.path.join(os.getcwd(),
-                                                                         conf.serialise.files.output_dir,
-                                                                         check))
+                                    check = handle
+                                if section == "prepare":
+                                    if not os.path.dirname(check):
+                                        self.assertEqual(fname, os.path.join(os.getcwd(), conf.prepare.files.output_dir,
+                                                                             check))
+                                    else:
+                                        self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                    other = conf.prepare.files.log
+                                elif section == "serialise":
+                                    if not os.path.dirname(check):
+                                        self.assertEqual(fname, os.path.join(os.getcwd(),
+                                                                             conf.serialise.files.output_dir,
+                                                                             check))
+                                    else:
+                                        self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                    other = conf.serialise.files.log
+                                elif section == "pick":
+                                    if not os.path.dirname(check):
+                                        self.assertEqual(fname, os.path.join(os.getcwd(),
+                                                                             conf.pick.files.output_dir,
+                                                                             check))
+                                    else:
+                                        self.assertEqual(fname, os.path.join(os.getcwd(), handle))
+                                    other = conf.pick.files.log
                                 else:
-                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
-                                other = conf.serialise.files.log
-                            elif section == "pick":
-                                if not os.path.dirname(check):
-                                    self.assertEqual(fname, os.path.join(os.getcwd(),
-                                                                         conf.pick.files.output_dir,
-                                                                         check))
-                                else:
-                                    self.assertEqual(fname, os.path.join(os.getcwd(), handle))
-                                other = conf.pick.files.log
-                            else:
-                                other = None
-                            if other is not None:
-                                self.assertEqual(conf.log_settings.log, other)
+                                    other = None
+                                if other is not None:
+                                    self.assertEqual(conf.log_settings.log, other)
 
-                        self.assertTrue(os.path.exists(fname))
-                        if os.path.dirname(fname) != tempfile.gettempdir():
-                            shutil.rmtree(os.path.dirname(fname))
-                        else:
-                            os.remove(fname)
-        except AssertionError:
-            raise
-        finally:
-            os.chdir(curr_dir)
+                            self.assertTrue(os.path.exists(fname))
+                            if os.path.dirname(fname) != os.path.realpath(tmpdir):
+                                shutil.rmtree(os.path.dirname(fname))
+                            else:
+                                os.remove(fname)
+            except AssertionError:
+                raise
 
 
 @mark.slow

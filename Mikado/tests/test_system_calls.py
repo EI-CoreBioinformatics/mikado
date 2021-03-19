@@ -2015,7 +2015,7 @@ class PickTest(unittest.TestCase):
                 with open(os.path.join(folder, log)) as hlog:
                     log_lines = [_.rstrip() for _ in hlog]
                 if shm is True:
-                    self.assertTrue(any("Copying Mikado database into a SHM db" in _ for _ in log_lines))
+                    self.assertTrue(any("/dev/shm" in _ for _ in log_lines))
 
     @mark.slow
     def test_different_scoring(self):
@@ -2129,7 +2129,7 @@ class PickTest(unittest.TestCase):
     def test_purging1(self):
 
         # Now the scoring
-        gtf, dir, temp_gtf, scoring = self.__get_purgeable_gff()
+        gtf, folder, temp_gtf, scoring = self.__get_purgeable_gff()
 
         scoring["scoring"] = dict()
         scoring["scoring"]["cdna_length"] = dict()
@@ -2138,7 +2138,7 @@ class PickTest(unittest.TestCase):
         scoring["scoring"]["cdna_length"]["filter"]["operator"] = "gt"
         scoring["scoring"]["cdna_length"]["filter"]["value"] = 2000
 
-        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=dir.name)
+        scoring_file = tempfile.NamedTemporaryFile(suffix=".yaml", delete=True, mode="wt", dir=folder.name)
         yaml.dump(scoring, scoring_file)
         scoring_file.flush()
         self.configuration.pick.scoring_file = scoring_file.name
@@ -2146,7 +2146,7 @@ class PickTest(unittest.TestCase):
         for purging in (False, True):
             with self.subTest(purging=purging):
                 self.configuration.pick.files.loci_out = "mikado.purging_{}.loci.gff3".format(purging)
-                self.configuration.pick.files.log = os.path.join(dir.name, "mikado.purging_{}.log".format(purging))
+                self.configuration.pick.files.log = os.path.join(folder.name, "mikado.purging_{}.log".format(purging))
                 self.configuration.pick.clustering.purge = purging
                 self.configuration.pick.scoring_file = scoring_file.name
                 self.configuration = configurator.check_and_load_scoring(self.configuration)
@@ -2157,7 +2157,7 @@ class PickTest(unittest.TestCase):
                 with self.assertRaises(SystemExit), self.assertLogs("main_logger", "INFO"):
                     pick_caller()
 
-                with parser_factory(os.path.join(dir.name,
+                with parser_factory(os.path.join(folder.name,
                                                  self.configuration.pick.files.loci_out)) as gff:
                     lines = [line for line in gff if line.header is False]
                 self.assertGreater(len(lines), 0)
@@ -2172,11 +2172,11 @@ class PickTest(unittest.TestCase):
 
             # Clean up
             for fname in ["mikado.db", "mikado.purging_{}.*".format(purging)]:
-                [os.remove(_) for _ in glob.glob(os.path.join(dir.name, fname))]
+                [os.remove(_) for _ in glob.glob(os.path.join(folder.name, fname))]
 
         scoring_file.close()
         temp_gtf.close()
-        dir.cleanup()
+        folder.cleanup()
 
     @mark.slow
     def test_purging2(self):
@@ -2530,10 +2530,12 @@ class SerialiseChecker(unittest.TestCase):
                     with open(json_file, "wt") as json_handle:
                         print_config(self.configuration, json_handle, output_format="yaml")
                     with self.subTest(proc=procs):
+                        self.assertFalse(os.path.exists(db))
                         sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
                                                      "--transcripts", transcripts, "--blast_targets", uni_out,
                                                      "--log", log,
                                                      "-od", folder,
+                                                     "--force",
                                                      "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
                                                      "-p", procs, "-mo", mobjects, db,
                                                      "--seed", "1078"]]

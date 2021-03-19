@@ -414,12 +414,12 @@ Please check your input files. Rogue ID: %s", row.id)
                 self.query_cache[current_query.query_name] = current_query.query_id
                 current_query = current_query.query_id
             else:
-                self.logger.critical(
-                    "The provided ORFs do not match the transcripts provided and already present in the database.\
+                exc = "The provided ORFs do not match the transcripts provided and already present in the database.\
 This could be due to having called the ORFs on a FASTA file different from `mikado_prepared.fasta`, the output of \
 mikado prepare. If this is the case, please use mikado_prepared.fasta to call the ORFs and then restart \
-`mikado serialise` using them as input.")
-                raise InvalidSerialization
+`mikado serialise` using them as input."
+                self.logger.critical(exc)
+                raise InvalidSerialization(exc)
 
             loaded_obj["query_id"] = current_query
             objects.append(loaded_obj)

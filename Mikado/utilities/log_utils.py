@@ -133,7 +133,7 @@ def create_queue_logger(instance, prefix=""):
     return
 
 
-def create_logger_from_conf(conf, name="mikado", mode="a"):
+def create_logger_from_conf(conf, name="mikado", mode="w"):
     logger = logging.getLogger(name)
     # Remove all previous handlers, if any is present. THIS IS NECESSARY TO PREVENT CLASHES IN THE UNIT-TESTS
     for handler in logger.handlers[:]:

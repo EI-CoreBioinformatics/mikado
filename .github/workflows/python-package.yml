@@ -52,7 +52,7 @@ jobs:
         python setup.py develop
     - name: Test light
       run: |
-        pytest -m slow Mikado/tests/test_system_calls.py::SerialiseChecker::test_subprocess_multi_empty_orfs
+        pytest -m slow Mikado/tests/test_light.py::LightTest::test_subprocess_multi_empty_orfs
     - name: Test full
       run: |
         pytest --cov=Mikado --cov-report=xml --cov-config=.coveragerc -m '(slow or not slow) and not triage';

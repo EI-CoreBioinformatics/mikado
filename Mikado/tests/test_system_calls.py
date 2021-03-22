@@ -2552,7 +2552,7 @@ class SerialiseChecker(unittest.TestCase):
                         self.assertFalse(os.path.exists(db), logged)
                         self.assertTrue(any(
                             "Mikado serialise failed due to problems with the input data. Please check the logs." in line
-                            for line in logged))
+                            for line in logged), [print(line) for line in logged])
                         self.assertTrue(any(
                             "The provided ORFs do not match the transcripts provided and already present in the database."
                             in line for line in logged),

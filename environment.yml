@@ -1,4 +1,4 @@
-# name: mikado2
+name: mikado2
 channels:
   - bioconda
   - conda-forge

@@ -13,6 +13,11 @@ jobs:
       matrix:
         python-version: [ 3.8, 3.7, 3.6 ]
     steps:
+    - name: Install system development tools
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt update
+        sudo apt install -y build-essential zlib1g-dev zlib1g
     - uses: actions/checkout@v2
     - uses: actions/cache@v2
       if: startsWith(runner.os, 'Linux')
@@ -30,36 +35,31 @@ jobs:
           ${{ runner.os }}-pip-
     - name: Cache conda
       id: cache-miniconda
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       env:
         CACHE_NUMBER: 0
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         path: ~/conda_pkgs_dir
         key:
-          ${{ runner.os }}-conda-${{ hashFiles('./environment.yml') }}
-    - name: Install system development tools
-      run: |
-        export DEBIAN_FRONTEND=noninteractive
-        sudo apt update
-        sudo apt install -y build-essential zlib1g-dev zlib1g
+          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml') }}
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         miniconda-version: "latest"
-        environment-file: ./environment-caching.yml
+        environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: true
         channels: conda-forge, defaults
         use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-        auto-update-conda: false
-        activate-environment: "test"
-        auto-activate-base: false
+        # auto-update-conda: false
+        activate-environment: "mikado2"
+        # auto-activate-base: false
     - name: Install dependencies
       run: |
         gcc --help
-        mamba install -n test -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
+        mamba install -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
         pip install -r requirements.txt
         pip install Cython pytest-cov
         python setup.py develop

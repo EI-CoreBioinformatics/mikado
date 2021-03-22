@@ -8,12 +8,17 @@ import pkg_resources
 import tempfile
 import pysam
 from pytest import mark
+
+from Mikado import create_default_logger
 from Mikado.configuration import print_config, configurator
+from Mikado.exceptions import InvalidSerialization
+from Mikado.subprograms.serialise import load_orfs
 
 
 @mark.slow
 class LightTest(unittest.TestCase):
     def test_subprocess_multi_empty_orfs(self):
+        print("Started light test")
         self.fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", "chr5.fas.gz"))
         self.configuration = configurator.load_and_validate_config(None)
         self.configuration.reference.genome = self.fai.filename.decode()
@@ -33,6 +38,8 @@ class LightTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="has_to_fail") as folder_one, \
                 tempfile.TemporaryDirectory(prefix="has_to_fail") as folder_two:
             for procs, folder in [(3, folder_one), (1, folder_two)]:
+                self.configuration = configurator.load_and_validate_config(None)
+                self.configuration.reference.genome = self.fai.filename.decode()
                 json_file = os.path.join(folder, "mikado.yaml")
                 db = os.path.join(folder, "mikado.db")
                 log = "failed_serialise.log"
@@ -41,32 +48,30 @@ class LightTest(unittest.TestCase):
                 self.configuration.multiprocessing_method = "fork"
                 with gzip.open(uniprot, "rb") as uni, open(uni_out, "wb") as uni_out_handle:
                     uni_out_handle.write(uni.read())
-                with open(json_file, "wt") as json_handle:
-                    print_config(self.configuration, json_handle, output_format="yaml")
+                self.configuration.serialise.files.transcripts = transcripts
+                self.configuration.serialise.files.blast_targets = uni_out
+                self.configuration.serialise.files.log = log
+                self.configuration.serialise.files.output_dir = folder
+                self.configuration.serialise.force = True
+                self.configuration.serialise.files.orfs = [tmp_orf.name]
+                self.configuration.serialise.files.junctions = [junctions]
+                self.configuration.serialise.files.xml = [xml]
+                self.configuration.threads = procs
+                self.configuration.serialise.max_objects = mobjects
+                self.configuration.db_settings.db = db
+                self.configuration.seed = 1078
 
                 self.assertFalse(os.path.exists(db))
-                sys.argv = [str(_) for _ in ["mikado", "serialise", "--json-conf", json_file,
-                                             "--transcripts", transcripts, "--blast_targets", uni_out,
-                                             "--log", log,
-                                             "-od", folder,
-                                             "--force",
-                                             "--orfs", tmp_orf.name, "--junctions", junctions, "--xml", xml,
-                                             "-p", procs, "-mo", mobjects, db,
-                                             "--seed", "1078"]]
-                log = os.path.join(folder, log)
-                subprocess.call(sys.argv, shell=False)
-                # with self.assertRaises(SystemExit):
-                #     pkg_resources.load_entry_point("Mikado", "console_scripts", "mikado")()
-                self.assertTrue("failed" in log)
-                self.assertTrue(os.path.exists(log), log)
-                self.assertTrue(os.stat(log).st_size > 0, log)
-                logged = [_.rstrip() for _ in open(log)]
-                self.assertGreater(len(logged), 0)
-                self.assertFalse(os.path.exists(db), logged)
+                logger = create_default_logger(f"test_light_serialise_{procs}", level="INFO")
+
+                with self.assertRaises(InvalidSerialization), self.assertLogs(logger.name) as cmo:
+                    load_orfs(self.configuration, logger)
+
                 self.assertTrue(any(
                     "Mikado serialise failed due to problems with the input data. Please check the logs." in line
-                    for line in logged), [print(line) for line in logged])
+                    for line in cmo.output), cmo.output)
                 self.assertTrue(any(
                     "The provided ORFs do not match the transcripts provided and "
-                    "already present in the database." in line for line in logged),
-                    print("\n".join(logged)))
+                    "already present in the database." in line for line in cmo.output),
+                    print("\n".join(cmo.output)))
+        print("Finished light test")

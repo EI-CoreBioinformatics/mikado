@@ -34,21 +34,20 @@ jobs:
         python-version: ${{ matrix.python-version }}
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         miniconda-version: "latest"
-        environment-file: ./environment.yml
+        # environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: true
-        channels: bioconda, conda-forge, defaults
-        use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
-        auto-update-conda: true
+        # channels: bioconda, conda-forge, defaults
+        use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+        auto-update-conda: false
         activate-environment: "test"
         auto-activate-base: false
     - name: Install dependencies
       run: |
-        mamba install -y -c conda-forge -n test -- pytest-cov
         gcc --help
         mamba install -n test -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread
         pip install -r requirements.txt
-        pip install Cython
+        pip install Cython pytest-cov
         python setup.py develop
     - name: Test light
       run: |

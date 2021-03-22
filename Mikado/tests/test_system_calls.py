@@ -1837,6 +1837,8 @@ class PickUtilsTest(unittest.TestCase):
                                 os.remove(fname)
             except AssertionError:
                 raise
+            finally:
+                os.chdir(curr_dir)
 
 
 @mark.slow

@@ -446,7 +446,8 @@ def gmap_intron_lengths(command, MAX_INTRON):
 #########################
 # Rules
 
-localrules: mikado_cfg, tophat_all, gsnap_all, gsnap_index, star_all, hisat_all, cufflinks_all, trinity_all, stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
+localrules: mikado_cfg, tophat_all, gsnap_all, gsnap_index, star_all, hisat_all, cufflinks_all, trinity_all,
+            stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
 
 rule all:
     input:
@@ -508,7 +509,10 @@ rule align_tophat:
     threads: THREADS
     message: "Aligning RNAseq data with tophat (sample - {wildcards.sample} - run {wildcards.run})"
     conda: os.path.join(envdir, "tophat2.yaml")
-    shell: "{params.load} tophat2 --output-dir={params.outdir} --no-sort-bam --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} tophat2 --output-dir={params.outdir} --no-sort-bam --num-threads={threads} \
+--min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} \
+{params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} \
+&& touch -h {output.link}"
 
 
 rule tophat_all:
@@ -538,9 +542,11 @@ rule gsnap_index:
     threads: 1
     message: "Linking the gmap index folder"
     params:
-       source=os.path.join("gmap", "index").rstrip("/"),
-       dest="gsnap" + os.path.sep
-    shell: "cd {ALIGN_DIR} && mkdir -p {params.dest} && ln -rs {params.source} {params.dest}"
+       source=os.path.relpath(os.path.join(ALIGN_DIR_FULL, "gmap", "index"),
+                              start=os.path.join(ALIGN_DIR_FULL, "gsnap")).rstrip("/"),
+       link_dest="gsnap" + os.path.sep
+    shell: "cd {ALIGN_DIR_FULL} && mkdir -p {params.link_dest} && ln -s {params.source} {params.link_dest}"
+
 
 rule align_gsnap:
     input:
@@ -560,7 +566,9 @@ rule align_gsnap:
     threads: THREADS
     message: "Aligning RNAseq with gsnap (sample {wildcards.sample} - run {wildcards.run})"
     conda: os.path.join(envdir, "gmap.yaml")
-    shell: "{params.load} {params.load_sam} gsnap --gunzip --bunzip2 --dir={params.dir} --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} {params.load_sam} gsnap --gunzip --bunzip2 --dir={params.dir} --db={NAME} {params.extra} \
+--novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {params.infiles} \
+2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 
 rule gsnap_all:
@@ -583,7 +591,8 @@ rule align_star_index:
     threads: THREADS
     conda: os.path.join(envdir, "star.yaml")
     message: "Indexing genome with star"
-    shell: "{params.load} cd {params.dir} && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} {params.trans} --genomeFastaFiles {params.genome} {params.extra} > {log} 2>&1 && cd {CWD}"
+    shell: "{params.load} cd {params.dir} && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir \
+{params.indexdir} {params.trans} --genomeFastaFiles {params.genome} {params.extra} > {log} 2>&1 && cd {CWD}"
 
 
 rule align_star:
@@ -644,15 +653,20 @@ rule align_hisat:
         load_samtools=loadPre(config, "samtools"),
         link_src=os.path.join("..", "hisat", "{sample}-{run}", "hisat.bam"),
         extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
-        ss_gen="hisat2_extract_splice_sites.py " + REF_TRANS + " > " + os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}", "splice_sites.txt") + " &&" if REF_TRANS else "",
-        trans="--known-splicesite-infile={}".format(os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}", "splice_sites.txt")) if REF_TRANS else "",
+        ss_gen="hisat2_extract_splice_sites.py " + REF_TRANS + " > " + os.path.join(ALIGN_DIR, "hisat",
+            "{sample}-{run}", "splice_sites.txt") + " &&" if REF_TRANS else "",
+        trans="--known-splicesite-infile={}".format(os.path.join(ALIGN_DIR, "hisat", "{sample}-{run}",
+            "splice_sites.txt")) if REF_TRANS else "",
         strand=lambda wildcards: hisatStrandOption(wildcards.sample),
         infiles=lambda wildcards: hisatInput(wildcards.sample)
     log: os.path.join(ALIGN_DIR_FULL, "logs", "hisat", "hisat-{sample}-{run}.log")
     threads: THREADS
     conda: os.path.join(envdir, "hisat2.yaml")
     message: "Aligning input with hisat (sample {wildcards.sample} - run {wildcards.run})"
-    shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} \
+--max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta \
+{params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} \
+{output.link} && touch -h {output.link}"
 
 rule hisat_all:
     input: expand(os.path.join(ALIGN_DIR, "output", "hisat-{sample}-{run}.bam"), sample=SAMPLES, run=HISAT_RUNS)
@@ -704,6 +718,7 @@ rule align_all:
     threads: 1
     shell: "touch {output}"
 
+
 if len(ALIGN_RUNS) > 0:
     rule align_collect_stats:
         input: rules.align_all.output
@@ -721,6 +736,7 @@ else:
             stats=os.path.join(ALIGN_DIR, "output", "*.sorted.bam.stats")
         threads: 1
         message: "Collecting alignment stats"
+
 
 rule asm_cufflinks:
     input: 
@@ -741,7 +757,9 @@ rule asm_cufflinks:
     threads: THREADS
     message: "Using cufflinks to assemble (run {wildcards.run2}): {input.bam}"
     conda: os.path.join(envdir, "cufflinks.yaml")
-    shell: "{params.load} cufflinks --output-dir={params.outdir} --num-threads={threads} {params.trans} {params.strand} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} --no-update-check {params.extra} {input.bam} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
+    shell: "{params.load} cufflinks --output-dir={params.outdir} --num-threads={threads} {params.trans} \
+{params.strand} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} --no-update-check {params.extra} \
+{input.bam} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
 
 
 rule cufflinks_all:
@@ -771,7 +789,8 @@ rule asm_scallop:
     message: "Using Scallop to assemble (run {wildcards.run2}): {input.bam}"
     conda: os.path.join(envdir, "scallop.yaml")
     shell: """{params.load} mkdir -p {params.outdir} &&
-      scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"""
+      scallop -i {input.bam} -o {params.gtf} {params.strand} {params.extra} > {log} 2>&1 && ln -sf {params.link_src} \
+      {output.gtf} && touch -h {output.gtf}"""
 
 rule trinity_all:
     input: expand(os.path.join(ASM_DIR, "output", "trinity-{run2}-{alrun}.gff"), run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
@@ -840,7 +859,9 @@ rule asm_stringtie:
     threads: THREADS
     message: "Using stringtie to assemble (run {wildcards.run2}): {input.bam}"
     conda: os.path.join(envdir, "stringtie.yaml")
-    shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} {params.trans} -o {output.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 \
+{params.extra} {params.trans} -o {output.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} \
+{output.link} && touch -h {output.link}"
 
 rule stringtie_all:
     input: expand(os.path.join(ASM_DIR, "output", "stringtie-{run2}-{alrun}.gtf"), run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
@@ -863,7 +884,8 @@ rule asm_class:
     log: os.path.join(ASM_DIR, "logs", "class", "class-{run2}-{alrun}.log")
     threads: THREADS
     message: "Using class to assemble (run {wildcards.run2}): {input.bam}"
-    shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} \
+2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule class_all:
     input: expand(os.path.join(ASM_DIR, "output", "class-{run2}-{alrun}.gtf"), run2=CLASS_RUNS, alrun=ALIGN_RUNS)
@@ -1009,7 +1031,8 @@ rule portcullis_junc:
     threads: THREADS
     message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"
     conda: os.path.join(envdir, "portcullis.yaml")
-    shell: "{params.load} portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} {params.prepdir} > {log} 2>&1"
+    shell: "{params.load} portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} \
+{params.prepdir} > {log} 2>&1"
 
 
 rule portcullis_filter:
@@ -1053,12 +1076,16 @@ if RUN_PORTCULLIS:
         conda: os.path.join(envdir, "portcullis.yaml")
         threads: 1
         message: "Taking intersection of portcullis results"
-        shell: "{params.load} (junctools set --prefix=portcullis_merged --output={output.tab} --operator=mean union {input.tabs} > {log} || touch {output.tab} ) && junctools convert -if portcullis -of ebed -o {output.bed} {output.tab}"
+        shell: """{params.load} (junctools set --prefix=portcullis_merged --output={output.tab} --operator=mean \
+union {input.tabs} > {log} || touch {output.tab} ) && junctools convert -if portcullis -of ebed -o {output.bed} \
+{output.tab}"""
 else:
     rule portcullis_merge:
         input:
-               beds=os.path.join(expand(PORTCULLIS_DIR, "output", "portcullis_{aln_method}.pass.junctions.bed"), aln_method=ALIGN_RUNS),
-               tabs=os.path.join(expand(PORTCULLIS_DIR, "output", "portcullis_{aln_method}.pass.junctions.tab"), aln_method=ALIGN_RUNS),
+            beds=expand(os.path.join(PORTCULLIS_DIR, "output", "portcullis_{aln_method}.pass.junctions.bed"),
+                aln_method=ALIGN_RUNS),
+            tabs=expand(os.path.join(PORTCULLIS_DIR, "output", "portcullis_{aln_method}.pass.junctions.tab"),
+                aln_method=ALIGN_RUNS),
         output:
             bed=touch(os.path.join(PORTCULLIS_DIR, "output", "portcullis.merged.bed")),
             tab=touch(os.path.join(PORTCULLIS_DIR, "output", "portcullis.merged.tab"))
@@ -1093,4 +1120,6 @@ rule mikado_cfg:
     log: os.path.join(OUT_DIR, "mikado.yaml.log")
     threads: 1
     message: "Creating Mikado configuration file"
-    shell: "{params.load} mikado configure --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
+    shell: "{params.load} mikado configure --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} \
+--strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} \
+--external={input.cfg} {output} 2> {log}"

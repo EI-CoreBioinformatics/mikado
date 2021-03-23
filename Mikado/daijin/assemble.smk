@@ -278,17 +278,17 @@ def scallopStrandOption(sample):
 
 def starCompressionOption(sample):
     if EXT_MAP[sample] == ".gz":
-        return "--readFilesCommand zcat"
+        return "--readFilesCommand 'gzip -dc'"
     elif EXT_MAP[sample] == ".bz":
-        return "--readFilesCommand bzcat"
+        return "--readFilesCommand 'bzip2 -dc'"
     else:
         return ""
 
 def long_starCompressionOption(sample):
     if L_EXT_MAP[sample] == ".gz":
-        return "--readFilesCommand zcat"
+        return "--readFilesCommand 'gzip -dc'"
     elif L_EXT_MAP[sample] == ".bz":
-        return "--readFilesCommand bzcat"
+        return "--readFilesCommand 'bzip2 -dc'"
     else:
         return ""
 
@@ -303,9 +303,9 @@ def starLongInput(sample):
 
 def long_gmap_input(sample):
     if L_EXT_MAP[sample] == ".gz":
-        return "<(zcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+        return "<(gzip -dc " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
     elif L_EXT_MAP[sample] == ".bz2":
-        return "<(bzcat " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
+        return "<(bzip2 -dc " + os.path.abspath(L_INPUT_MAP[sample]) + ")"
     else:
         return os.path.abspath(L_INPUT_MAP[sample])
 
@@ -470,7 +470,7 @@ rule uncompress_genome:
         elif filetype(REF) == b"application/gzip":
             subprocess.call("gzip -dc {} > {}".format(REF, output), shell=True)
         elif filetype(REF) == b"application/x-bzip2":
-            subprocess.call("bgzip -dc {} > {}".format(REF, output), shell=True)
+            subprocess.call("bzip2 -dc {} > {}".format(REF, output), shell=True)
         else:
             raise ValueError("Unknown file type")
 

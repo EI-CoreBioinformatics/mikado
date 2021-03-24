@@ -1,7 +1,8 @@
 # Version 2.2.3
 
 Testing Mikado also on OSX, and adding OSX to the supported OSes in Conda.
-Fix [#392](https://github.com/EI-CoreBioinformatics/mikado/issues/392): 
+
+Fix [#392](https://github.com/EI-CoreBioinformatics/mikado/issues/392): Mikado was having trouble with pipes in the sequence IDs (either present in the first place or added by NCBI+ when using `makeblastdb -parse_seqids`).
 
 # Version 2.2.2
 

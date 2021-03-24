@@ -71,7 +71,7 @@ def xml_launcher(xml_candidate=None, configuration=None, logger=None):
     :param xml_candidate: An XML or ASN BLAST file name
 
     :param configuration: the configuration dictionary, if available
-    :type configuration: (None | dict)
+    :type configuration: (None | MikadoConfiguration|DaijinConfiguration)
 
     :param logger: the logger instance.
     :type logger: (None | logging.Logger)

@@ -51,7 +51,7 @@ class BlastOpener:
                     self.__handle = gzip.open(self.__filename, "rt")
                 elif self.__filename.endswith(".asn.gz"):
                     # I cannot seem to make it work with gzip.open
-                    zcat = subprocess.Popen(["zcat", self.__filename], shell=False,
+                    zcat = subprocess.Popen(["gzip", "-dc", self.__filename], shell=False,
                                             stdout=subprocess.PIPE)
                     blast_formatter = subprocess.Popen(
                         ['blast_formatter', '-outfmt', '5', '-archive', '-'],

@@ -54,7 +54,7 @@ def xml_pickler(configuration, filename, default_header,
                             qmult, tmult = get_multipliers(record)
                             off_by_one = get_off_by_one(record)
                         hits, hsps, cache = objectify_record(
-                            record, [], [], cache, max_target_seqs=max_target_seqs,
+                            record, [], [], cache,
                             qmult=qmult, tmult=tmult, off_by_one=off_by_one)
 
                         record = {"hits": hits, "hsps": hsps}
@@ -121,7 +121,7 @@ def _serialise_xmls(self):
                             qmult=qmult,
                             tmult=tmult,
                             cache=cache,
-                            max_target_seqs=self._max_target_seqs, logger=self.logger, off_by_one=off_by_one)
+                            logger=self.logger, off_by_one=off_by_one)
                         hit_counter += len(hits) - current
                         hits, hsps = load_into_db(self, hits, hsps, force=False)
                 self.logger.debug("Finished %s", filename)
@@ -169,12 +169,10 @@ def _serialise_xmls(self):
                      hit_counter, record_counter)
 
     self.logger.info("Finished loading blast hits")
-    if hasattr(self, "logging_queue"):
-        self.logging_queue.close()
 
 
 def objectify_record(record, hits, hsps, cache,
-                     max_target_seqs=10000, logger=create_null_logger(),
+                     logger=create_null_logger(),
                      qmult=1, tmult=1, off_by_one=False):
     """
     Private method to serialise a single record into the DB.
@@ -192,9 +190,6 @@ def objectify_record(record, hits, hsps, cache,
 
     :param logger: logger
     :type logger: logging.Logger
-
-    :param max_target_seqs: Maximum target sequences per query
-    :type max_target_seqs: int
 
     :param qmult: query multiplier (3 for BLASTX or TBLASTX, 1 otherwise)
     :type qmult: int

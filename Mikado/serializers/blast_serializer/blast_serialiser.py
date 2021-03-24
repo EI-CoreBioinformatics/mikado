@@ -5,13 +5,15 @@ XML serialisation class.
 import os
 import logging.handlers as logging_handlers
 import logging
+
+from sqlalchemy.engine import reflection
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
 import pysam
 from ...utilities.dbutils import connect
 from ...utilities.log_utils import create_null_logger, check_logger
 from ...configuration import MikadoConfiguration, DaijinConfiguration
-from .query import Query
+from .query import Query, id_pattern
 from .target import Target
 from .hsp import Hsp
 from .hit import Hit
@@ -175,6 +177,10 @@ class BlastSerializer:
         for record, length in zip(self.query_seqs.references, self.query_seqs.lengths):
             if not record:
                 continue
+
+            if id_pattern.search(record):
+                record = id_pattern.search(record).groups()[0]
+
             if record in queries and queries[record][1] == length:
                 continue
             elif record in queries:
@@ -244,6 +250,9 @@ class BlastSerializer:
         self.logger.info("Started to serialise the targets")
         for target in self.target_seqs:
             for record, length in zip(target.references, target.lengths):
+                if id_pattern.search(record):
+                    record = id_pattern.search(record).groups()[0]
+
                 if record in targets and targets[record][1] is True:
                     continue
                 elif record in targets:
@@ -257,13 +266,9 @@ class BlastSerializer:
                     "target_length": length
                 })
                 counter += 1
-                #
-                # objects.append(Target(record, len(self.target_seqs[record])))
                 if len(objects) >= self.maxobjects:
-                    # counter += len(objects)
                     self.logger.debug("Loading %d objects into the \"target\" table",
                                      counter)
-                    # self.session.bulk_insert_mappings(Target, objects)
                     self.session.begin(subtransactions=True)
                     self.engine.execute(Target.__table__.insert(), objects)
                     self.session.commit()
@@ -329,7 +334,9 @@ class BlastSerializer:
 
         """Method to serialize the BLAST XML file into a database
         provided with the __init__ method """
+        self.logger.debug("Checking the sequences")
         self.queries, self.targets = self.__serialise_sequences()
+        self.logger.debug("Checked the sequences")
 
         if isinstance(self.xml, str):
             if ".xml" in self.xml:
@@ -354,8 +361,18 @@ class BlastSerializer:
         """
         Alias for serialize
         """
-        [idx.drop(bind=self.engine) for idx in Hit.__table__.indexes]
-        [idx.drop(bind=self.engine) for idx in Hsp.__table__.indexes]
+        inspector = reflection.Inspector.from_engine(self.engine)
+        hit_indices = dict((idx.name, idx) for idx in Hit.__table__.indexes)
+        hsp_indices = dict((idx.name, idx) for idx in Hsp.__table__.indexes)
+
+        # More robust: only drop existing indices
+        for idx in inspector.get_indexes(Hit.__table__.name):
+            index = hit_indices[idx["name"]]
+            index.drop(bind=self.engine)
+        for idx in inspector.get_indexes(Hsp.__table__.name):
+            index = hsp_indices[idx["name"]]
+            index.drop(bind=self.engine)
+
         self.engine.execute("PRAGMA foreign_keys=OFF")
         self.serialize()
         # Recreate the indices

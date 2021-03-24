@@ -88,7 +88,7 @@ jobs:
       if: startsWith(runner.os, 'macOS')
       run: |
         mamba install -c bioconda -c conda-forge -y prodigal blast diamond transdecoder kallisto samtools gffread;
-        cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5
+        cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5 complete_no_assemble
     - name: Test fast
       run: |
         python -c "import Mikado; Mikado.test(label='fast')";

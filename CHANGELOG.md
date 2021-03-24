@@ -1,3 +1,8 @@
+# Version 2.2.3
+
+Testing Mikado also on OSX, and adding OSX to the supported OSes in Conda.
+Fix [#392](https://github.com/EI-CoreBioinformatics/mikado/issues/392): 
+
 # Version 2.2.2
 
 Added the SHM capabilities to `mikado serialise` and `mikado compare`.

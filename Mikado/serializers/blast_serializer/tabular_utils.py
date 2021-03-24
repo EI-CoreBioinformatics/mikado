@@ -1,6 +1,8 @@
 import copy
 
 from typing import Union
+
+import io
 from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
@@ -99,7 +101,7 @@ def get_targets(engine):
         "Duplicated IDs found in the Mikado target database!"
 
     if targets[targets.slength.isna()].shape[0] > 0:
-        raise KeyError("Unbound targets!")
+        raise KeyError("Unbound targets!:\n" + str(targets[targets.slength.isna()]))
     return targets
 
 
@@ -278,6 +280,10 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
                        "Mikado serialise with the correct query file.")
 
     if any(data.sid.isna()):
+        print(targets.head())
+        print()
+        print(data["sseqid"].head())
+        print()
         raise KeyError("The tabular file passed in and the targets in the database differ. Please rerun BLAST and "
                        "Mikado serialise with the correct target file.")
 
@@ -434,19 +440,29 @@ def parse_tab_blast(self,
             catter = "bunzip2 -c"
 
         if bash is not None:
-            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive <({catter} {bname})"'.format(
-                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, executable=bash, stdout=sp.STDOUT)
+            formatter = sp.Popen(
+                f"""blast_formatter -outfmt "6 {' '.join(blast_keys)}" -archive <({catter} {bname})""",
+                shell=True, executable=bash, stdout=sp.PIPE)
         else:
             if catter != "cat":
                 temp = tempfile.NamedTemporaryFile(mode="wt", suffix=".asn")
                 sp.call("{catter} {bname}".format(bname=bname, catter=catter), shell=True, stdout=temp)
                 temp.flush()
-            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive {temp}'.format(
-                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, stdout=sp.STDOUT)
-        data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
+                temp_name = temp.name
+            else:
+                temp_name = bname
+            cmd = f"""blast_formatter -outfmt "6 {' '.join(blast_keys)}" -archive {temp_name}"""
+            try:
+                formatter = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+            except (OSError,ValueError,TypeError) as exc:
+                raise OSError(f"{cmd}\n{exc}")
+        data = pd.read_csv(io.TextIOWrapper(formatter.stdout), delimiter="\t", names=blast_keys)
     elif isinstance(bname, str) and bname.endswith("daa"):
-        formatter = sp.Popen("diamond view -a {bname} --outfmt 6 {blast_keys}".format(
-            bname=bname, blast_keys=blast_keys), shell=True, stdout=sp.STDOUT)
+        cmd = f"diamond view -a {bname} --outfmt 6 {' '.join(blast_keys)}"
+        try:
+            formatter = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+        except OSError as exc:
+            raise OSError(f"{cmd}\n{exc}")
         data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
     else:
         data = pd.read_csv(bname, delimiter="\t", names=blast_keys)

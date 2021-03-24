@@ -3,6 +3,8 @@ Generic utilities used for BLAST serialising into a DB.
 """
 
 import numpy as np
+
+from .query import id_pattern
 from ...parsers.blast_utils import merge
 from .aln_string_parser import prepare_aln_strings
 
@@ -62,10 +64,14 @@ def _get_query_for_blast(record, cache):
     :return: current_query (ID in the database), name
     """
 
-    if record.id in cache:
-        return cache[record.id], record.id, cache
-    elif record.id.split()[0] in cache:
-        return cache[record.id.split()[0]], record.id.split()[0], cache
+    if id_pattern.search(record.id):
+        name = id_pattern.search(record.id).groups()[0]
+    elif len(record.id.split()) > 1:
+        name = record.id.split()[0]
+    else:
+        name = record.id
+    if name in cache:
+        return cache[name], name, cache
     else:
         raise ValueError("{} not found (Accession: {})".format(record.id, record.__dict__))
 
@@ -81,12 +87,29 @@ def _get_target_for_blast(alignment, cache):
     :return: current_target (ID in the database), targets
     """
 
-    if alignment.accession in cache:
-        return cache[alignment.accession], cache
-    elif alignment.id in cache:
-        return cache[alignment.id], cache
+    accession = alignment.accession
+    al_id = alignment.id
+
+    if id_pattern.search(accession):
+        accession = id_pattern.search(accession).groups()[0]
+    elif len(accession.split()) > 1:
+        accession = accession.split()[0]
     else:
-        raise ValueError("{} not found (Accession: {})".format(alignment.id, alignment.__dict__))
+        pass
+
+    if accession in cache:
+        return cache[accession], cache
+    else:
+        if id_pattern.search(al_id):
+            al_id = id_pattern.search(al_id).groups()[0]
+        elif len(al_id.split()) > 1:
+            al_id = al_id.split()[0]
+        else:
+            pass
+        if al_id in cache:
+            return cache[al_id], cache
+        else:
+            raise ValueError("{} not found (Accession: {})".format(alignment.id, alignment.__dict__))
 
 
 def _np_grouper(data):

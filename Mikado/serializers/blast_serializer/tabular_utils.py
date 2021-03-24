@@ -1,11 +1,10 @@
 import copy
 
 from typing import Union
-
 from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
-import re
+from .query import id_pattern
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -13,7 +12,6 @@ from .utils import load_into_db
 from collections import defaultdict
 import logging
 import logging.handlers
-
 from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
@@ -260,7 +258,11 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
                         qmult=3, tmult=1):
 
     if data[data.btop.isna()].shape[0] > 0:
-        raise ValueError(data.loc[0])
+        raise ValueError(
+            f"BTOP not present in the tabular file: please rerun BLAST with the correct blast_keys: {blast_keys}")
+
+    data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
+    data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
 
     assert "qid" in queries.columns or "qid" == queries.index.name, queries.head()
     assert "sid" in targets.columns or "sid" == targets.index.name, targets.head()

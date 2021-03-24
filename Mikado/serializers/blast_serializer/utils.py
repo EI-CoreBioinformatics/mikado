@@ -1,6 +1,7 @@
 from .hit import Hit
 from .hsp import Hsp
 import sqlalchemy.exc
+import re
 
 
 def load_into_db(self, hits, hsps, force=False, raw=False):

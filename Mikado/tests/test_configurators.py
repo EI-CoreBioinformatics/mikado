@@ -1,13 +1,8 @@
-import shutil
 import unittest
 from dataclasses import asdict
-
 import marshmallow
 import tempfile
-
 import pkg_resources
-
-from .. import create_default_logger
 from ..configuration import configurator
 from .._transcripts.scoring_configuration import SizeFilter, TargetScore
 from ..configuration.configuration import *

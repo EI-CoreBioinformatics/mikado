@@ -56,6 +56,13 @@ rule complete:
     output: touch("finished.ok")
 
 
+rule complete_no_assemble:
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "check.ok", "manual.ok",
+           "check_metrics.ok", "g11.ok", "refmap_check.ok", "refmap_check_pc.ok",
+           "external.ok", "alias_check.ok"
+    output: touch("finished_no_daijin.ok")
+
+
 rule daijin_configure:
     input:
       prots=swissprot,
@@ -196,9 +203,9 @@ rule check_refmap:
         refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
         assert refmap.location.str.contains("^Chr5:", regex=True).all()
         # Account for the non-protein coding
-        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(=|_)$", regex=True).all()
-        assert refmap.loc[refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(f,=|f,_)$", regex=True).all()
-        assert (refmap.tid.index == refmap.tid.str.replace(r"^at_", "")).all(), refmap.tid
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^[=|_]$", regex=True).all()
+        assert refmap.loc[refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^f,[=|_]$", regex=True).all()
+        assert (refmap.tid.index == refmap.tid.str.replace(r"^at_", "", regex=True)).all(), refmap.tid
 
 rule check_refmap_pc:
     input:
@@ -208,7 +215,7 @@ rule check_refmap_pc:
         import pandas as pd
         refmap = pd.read_csv(input["refmap"], delimiter="\t", index_col=0)
         assert refmap.location.str.contains(r"^Chr5:", regex=True).all()
-        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^(=|_)$", regex=True).all()
+        assert refmap.loc[~refmap.index.str.contains("AT5G66650")].ccode.str.contains(r"^[=|_]$", regex=True).all()
         checker = refmap.loc[~refmap.index.str.contains("AT5G66650")].tid.str.replace(r"^at_", "", regex=True)
         assert (checker == checker.index).all()
 
@@ -415,23 +422,17 @@ rule check_g11:
 rule clean:
     run:
         import shutil
-        for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
-                                    glob.glob("daijin_*.stats"),
-				    glob.glob("*manual*"),				    
-                                    glob.glob("*midx"), glob.glob("*fai"),
-				    glob.glob("daijin*yaml"),
-                                    glob.glob("uniprot*fasta"), glob.glob("*loci*"),
-				                    ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
-                                    ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
-                                    glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
-                                    glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
-		                    glob.glob("*.ok"),
-                                    ["refmap_check.ok", "refmap_check_pc.ok",
-                                    "configuration.yaml", "configuration.toml", "daijin.toml", "daijin.yaml"]):
+        for filename in itertools.chain(
+                glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"), glob.glob("daijin_*.stats"),
+                glob.glob("*manual*"), glob.glob("*midx"), glob.glob("*fai"), glob.glob("daijin*yaml"),
+                glob.glob("uniprot*fasta"), glob.glob("*loci*"),
+                ["daijin.yaml", "Daijin", "daijin_logs", "daijin_test"],
+                ["mikado_prepared.gtf", "mikado_prepared.fasta", "mikado.prodigal.gff3"],
+                glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
+                glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
+                ["configuration.yaml", "configuration.toml", "daijin.toml", "daijin.yaml"]):
             if os.path.exists(filename) and filename not in (".", ".."):
                 shutil.rmtree(filename) if os.path.isdir(filename) else os.remove(filename)
-            if os.path.exists("Daijin"):
-                shutil.rmtree("Daijin")
 
 rule clean_crumbs:
     run:

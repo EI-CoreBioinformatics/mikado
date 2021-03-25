@@ -2,10 +2,11 @@ import copy
 
 from typing import Union
 
+import io
 from Bio.Align import substitution_matrices
 from functools import partial
 from .btop_parser import parse_btop
-import re
+from .query import id_pattern
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
@@ -13,7 +14,6 @@ from .utils import load_into_db
 from collections import defaultdict
 import logging
 import logging.handlers
-
 from ...configuration import MikadoConfiguration, DaijinConfiguration
 from ...utilities.log_utils import create_null_logger, create_queue_logger
 from sqlalchemy.orm.session import Session
@@ -101,7 +101,7 @@ def get_targets(engine):
         "Duplicated IDs found in the Mikado target database!"
 
     if targets[targets.slength.isna()].shape[0] > 0:
-        raise KeyError("Unbound targets!")
+        raise KeyError("Unbound targets!:\n" + str(targets[targets.slength.isna()]))
     return targets
 
 
@@ -260,7 +260,11 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
                         qmult=3, tmult=1):
 
     if data[data.btop.isna()].shape[0] > 0:
-        raise ValueError(data.loc[0])
+        raise ValueError(
+            f"BTOP not present in the tabular file: please rerun BLAST with the correct blast_keys: {blast_keys}")
+
+    data["qseqid"] = data["qseqid"].str.replace(id_pattern, "\\1")
+    data["sseqid"] = data["sseqid"].str.replace(id_pattern, "\\1")
 
     assert "qid" in queries.columns or "qid" == queries.index.name, queries.head()
     assert "sid" in targets.columns or "sid" == targets.index.name, targets.head()
@@ -276,6 +280,10 @@ def sanitize_blast_data(data: pd.DataFrame, queries: pd.DataFrame, targets: pd.D
                        "Mikado serialise with the correct query file.")
 
     if any(data.sid.isna()):
+        print(targets.head())
+        print()
+        print(data["sseqid"].head())
+        print()
         raise KeyError("The tabular file passed in and the targets in the database differ. Please rerun BLAST and "
                        "Mikado serialise with the correct target file.")
 
@@ -432,19 +440,29 @@ def parse_tab_blast(self,
             catter = "bunzip2 -c"
 
         if bash is not None:
-            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive <({catter} {bname})"'.format(
-                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, executable=bash, stdout=sp.STDOUT)
+            formatter = sp.Popen(
+                f"""blast_formatter -outfmt "6 {' '.join(blast_keys)}" -archive <({catter} {bname})""",
+                shell=True, executable=bash, stdout=sp.PIPE)
         else:
             if catter != "cat":
                 temp = tempfile.NamedTemporaryFile(mode="wt", suffix=".asn")
                 sp.call("{catter} {bname}".format(bname=bname, catter=catter), shell=True, stdout=temp)
                 temp.flush()
-            formatter = sp.Popen('blast_formatter -outfmt "6 {blast_keys}" -archive {temp}'.format(
-                blast_keys=blast_keys, catter=catter, bname=bname), shell=True, stdout=sp.STDOUT)
-        data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
+                temp_name = temp.name
+            else:
+                temp_name = bname
+            cmd = f"""blast_formatter -outfmt "6 {' '.join(blast_keys)}" -archive {temp_name}"""
+            try:
+                formatter = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+            except (OSError,ValueError,TypeError) as exc:
+                raise OSError(f"{cmd}\n{exc}")
+        data = pd.read_csv(io.TextIOWrapper(formatter.stdout), delimiter="\t", names=blast_keys)
     elif isinstance(bname, str) and bname.endswith("daa"):
-        formatter = sp.Popen("diamond view -a {bname} --outfmt 6 {blast_keys}".format(
-            bname=bname, blast_keys=blast_keys), shell=True, stdout=sp.STDOUT)
+        cmd = f"diamond view -a {bname} --outfmt 6 {' '.join(blast_keys)}"
+        try:
+            formatter = sp.Popen(cmd, shell=True, stdout=sp.PIPE)
+        except OSError as exc:
+            raise OSError(f"{cmd}\n{exc}")
         data = pd.read_csv(formatter.stdout, delimiter="\t", names=blast_keys)
     else:
         data = pd.read_csv(bname, delimiter="\t", names=blast_keys)

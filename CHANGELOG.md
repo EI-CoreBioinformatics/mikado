@@ -1,3 +1,15 @@
+# Version 2.2.3
+
+Testing Mikado also on OSX, and adding OSX to the supported OSes in Conda.
+
+Fix [#392](https://github.com/EI-CoreBioinformatics/mikado/issues/392): Mikado was having trouble with pipes in the sequence IDs (either present in the first place or added by NCBI+ when using `makeblastdb -parse_seqids`).
+
+# Version 2.2.2
+
+Added the SHM capabilities to `mikado serialise` and `mikado compare`.
+Now `mikado` `serialise`, `pick` and `compare` will copy the database to the TMPDIR before running, to ensure atomicity.
+This will also prevent problems in case the data is usually on an NFS drive, as is the case in most computing clusters.
+
 # Version 2.2.1
 Pinning sqlalchemy to <1.4.0 until sqlalchemy_utils is updated.
 Moreover, solved a small bug in `prepare`: setting `prepare.exclude_redundant` to `True` in the configuration file had 

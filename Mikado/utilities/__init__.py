@@ -9,6 +9,8 @@ import functools
 import re
 from typing import Union
 
+import tempfile
+
 from . import dbutils
 from . import log_utils
 import collections
@@ -280,3 +282,37 @@ def to_bool(param: Union[str, bool, int, float]):
             return False
 
     raise ValueError(f"Invalid boolean parameter: {param}")
+
+
+def create_shm_handle():
+    shm_available = os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK)
+    if shm_available is False:
+        return None
+    try:
+        shm_handle = tempfile.NamedTemporaryFile(suffix=".db", dir="/dev/shm/")
+        return shm_handle
+    except PermissionError:
+        return None
+
+    # if self.configuration.pick.run_options.shm is True:
+    #
+    #     if shm_available is False:
+    #         self.main_logger.info("Mikado was asked to copy the database into /dev/shm, but it is either \
+    # not available or not writable for this user. Leaving the DB where it is.")
+    #         return
+    #     self.main_logger.info("Copying Mikado database into a SHM db")
+    #     assert self.configuration.db_settings.dbtype == "sqlite"
+    #     # Create temporary file
+    #     self.shm_db = tempfile.NamedTemporaryFile(suffix=".db", dir="/dev/shm/")
+    #     self.main_logger.debug("Copying {0} into {1}".format(
+    #         self.configuration.db_settings.db,
+    #         self.shm_db.name))
+    #     try:
+    #         shutil.copy2(self.configuration.db_settings.db, self.shm_db.name)
+    #         self.configuration.db_settings.db = self.shm_db.name
+    #     except PermissionError:
+    #         self.main_logger.warning(
+    #             """Permission to write on /dev/shm denied.
+    #             Back to using the DB on disk.""")
+    #         self.configuration.pick.run_options.shm = False
+    #     self.main_logger.info("DB copied into memory")

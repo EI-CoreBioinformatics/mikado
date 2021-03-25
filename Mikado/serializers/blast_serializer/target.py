@@ -6,6 +6,7 @@ a table containing numeric ID, name and length.
 
 import collections
 from sqlalchemy import Column, String, Integer
+from .query import id_pattern
 from ...utilities.dbutils import DBBASE
 __author__ = 'Luca Venturini'
 
@@ -40,6 +41,9 @@ class Target(DBBASE):
             raise TypeError("Invalid name: {0}".format(target_name))
         if not isinstance(target_length, int) or target_length <= 0:
             raise TypeError("Invalid length value: {0}".format(target_length))
+
+        if id_pattern.search(target_name):
+            target_name = id_pattern.search(target_name).groups()[0]
 
         self.target_name = target_name
         self.target_length = target_length

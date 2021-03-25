@@ -10,6 +10,9 @@ import logging
 import os
 import sys
 from logging import handlers as log_handlers
+import tempfile
+from .. import version
+from ..exceptions import CorruptIndex
 from ..utilities.log_utils import create_default_logger, formatter
 import multiprocessing as mp
 
@@ -69,6 +72,15 @@ def setup_logger(args):
 
 
 def _shutdown(args, index_name, logger, handler, queue_logger: logging.Logger, log_queue_listener):
+    args.reference.close()
+    if hasattr(args.prediction, "close"):
+        args.prediction.close()
+    if args.no_save_index is True or args.shm is True or os.path.dirname(index_name) == tempfile.tempdir:
+        queue_logger.debug(f"Removing the index in {index_name}")
+        os.remove(index_name)
+        queue_logger.debug(f"Removed the index in {index_name}")
+    else:
+        queue_logger.debug("Index left in place")
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
     log_queue_listener.stop()
@@ -76,11 +88,6 @@ def _shutdown(args, index_name, logger, handler, queue_logger: logging.Logger, l
     [_.close() for _ in logger.handlers]
     handler.flush()
     handler.close()
-    args.reference.close()
-    if hasattr(args.prediction, "close"):
-        args.prediction.close()
-    if args.no_save_index is True:
-        os.remove(index_name)
     [_.close() for _ in queue_logger.handlers]
     return
 
@@ -100,12 +107,18 @@ def compare(args):
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(args)
     queue_logger.info("Start")
     args.commandline = " ".join(sys.argv)
+    queue_logger.info(f"Mikado version: {version.__version__}")
     queue_logger.info("Command line: %s", args.commandline)
     logger.handlers[0].flush()
 
     from .reference_preparation import prepare_index
-    index_name = prepare_index(args, queue_logger)
-    assert os.path.exists(index_name), "Something went wrong in creating or loading the index {}".format(index_name)
+    try:
+        index_name = prepare_index(args, queue_logger)
+    except (CorruptIndex, PermissionError, ValueError, IndexError, KeyError):
+        queue_logger.critical("Something went wrong in creating or loading the index.")
+        raise
+
+    assert os.path.exists(index_name)
 
     if args.index is True:
         _shutdown(args, index_name, logger, handler, queue_logger, log_queue_listener)

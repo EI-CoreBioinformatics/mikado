@@ -5,8 +5,11 @@ Basic module with the Query serialiser.
 import collections
 from sqlalchemy import Column, String, Integer
 from ...utilities.dbutils import DBBASE
+import re
 __author__ = 'Luca Venturini'
 
+
+id_pattern = re.compile(r"^[^|]*\|([^|]*)\|.*")
 
 # These two classes are OK like this, they do not need more public methods!
 # pylint: disable=too-few-public-methods
@@ -38,6 +41,9 @@ class Query(DBBASE):
             raise TypeError("Invalid name: {0}".format(name))
         if not isinstance(length, int) or length <= 0:
             raise TypeError("Invalid length value: {0}".format(length))
+
+        if id_pattern.search(name):
+            name = id_pattern.search(name).groups()[0]
 
         self.query_name = name
         self.query_length = length

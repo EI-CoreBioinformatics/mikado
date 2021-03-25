@@ -2,7 +2,6 @@
 This module implements the Hit serialisation class.
 """
 from typing import Dict, List
-
 from ...exceptions import InvalidHit
 from sqlalchemy import Column, Integer, Float, ForeignKey, Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint

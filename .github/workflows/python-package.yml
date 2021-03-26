@@ -81,7 +81,7 @@ jobs:
     - name: Test daijin
       if: startsWith(runner.os, 'Linux')
       run: |
-        mamba install -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop gmap \
+        mamba install -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop "gmap!=2021.02.22" \
           star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread;
         cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5
     - name: Test daijin mikado

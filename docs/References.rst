@@ -49,3 +49,5 @@ References
 .. [Prodigal] **Prodigal: prokaryotic gene recognition and translation initiation site identification.** Hyatt, D.,
    Chen, GL., LoCascio, P.F. et al. BMC Bioinformatics 11, 119 (2010). doi:10.1186/1471-2105-11-119
 .. [TransDecoder] https://github.com/TransDecoder/TransDecoder/wiki
+.. [Pandas] **pandas-dev/pandas: Pandas**, The pandas development team. Zenodo, March 2021. doi:10.5281/zenodo.4572994
+.. [PySAM] https://github.com/pysam-developers/pysam

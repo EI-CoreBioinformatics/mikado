@@ -202,7 +202,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
         raise
     except Exception as exc:
         logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
-        raise InvalidConfiguration("The configuration file passed is invalid. Please double check.")
+        raise InvalidConfiguration(f"The configuration file passed is invalid. Please double check. Exception: {exc}")
 
     random.seed(config.seed % (2 ** 32 - 1))
 

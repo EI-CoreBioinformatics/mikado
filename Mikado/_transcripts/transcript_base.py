@@ -230,7 +230,6 @@ class TranscriptBase:
         self.splices = set()
         self.selected_internal_orf_index = None
         self.__verified_introns = set()
-        self.segments = []
         self.intron_range = intron_range
         self.internal_orfs = []
         self.blast_hits = []
@@ -992,14 +991,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         if exon in self.exons:
             self.exons.remove(exon)
-            if ("exon", exon) in self.segments:
-                self.segments.remove(("exon", exon))
-            tr = set()
-            for segment in self.segments:
-                if self.overlap(segment[1], exon) >= 0:
-                    tr.add(segment)
-            for _ in tr:
-                self.segments.remove(_)
             tr = set()
             for segment in self.combined_cds:
                 if self.overlap(segment, exon) >= 0:
@@ -1056,7 +1047,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.start = cds_start
         self.end = cds_end
         self.internal_orfs, self.combined_utr = [], []
-        self.segments = []
         # Need to recalculate it
         self._cdna_length = None
         self.finalize()
@@ -1089,7 +1079,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self._selected_cds_introns = set()
         self.selected_internal_orf_index = None
         self.combined_utr = []
-        self.segments = []
         self.internal_orfs = []
         self.finalize()
 
@@ -1207,10 +1196,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         # Now let'add the things that we calculate with the basic lengths
         state["calculated"] = self.__get_calculated_stats()
         state["feature"] = self.feature
-        state["segments"] = []
-        for segment in self.segments:
-            segment = [segment[0], [segment[1][0], segment[1][1]]]
-            state["segments"].append(segment)
 
         for metric in mmetrics:
             state[metric] = getattr(self, metric)
@@ -1245,7 +1230,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.combined_cds = []
         self._selected_cds_introns = set()
         self._combined_cds_introns = set()
-        self.segments = []
         self._cdna_length = None
 
         for dump, store in zip(
@@ -1259,14 +1243,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                     store.add(tuple(iv))
                 else:
                     store.append(tuple(iv))
-
-        for segment in state["segments"]:
-            if len(segment) != 2:
-                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
-            feature, (start, end) = segment
-            if not all([isinstance(feature, str), isinstance(start, int), isinstance(end, int)]):
-                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
-            self.segments.append((feature, (start, end)))
 
         self.splices = set(state["splices"])
         self._trust_orf = trust_orf

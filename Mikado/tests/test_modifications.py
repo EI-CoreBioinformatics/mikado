@@ -272,14 +272,15 @@ class TestPadding(unittest.TestCase):
         locus.add_transcript_to_locus(t2_1, check_in_locus=False)
         locus.add_transcript_to_locus(t2_2, check_in_locus=False)
         self.assertTrue(locus.primary_transcript_id == t1.id)
-        locus.logger.setLevel("DEBUG")
+        locus.logger.setLevel("INFO")
         locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
         self.assertIn(t1.id, locus.transcripts)
         if t2_1.id in locus.transcripts:
             for tid1, tid2 in itertools.combinations(locus.transcripts.keys(), 2):
                 res, _ = Assigner.compare(locus[tid1], locus[tid2])
                 print(tid1, tid2, res.ccode)
-            self.assertNotIn(t2_1.id, locus.transcripts)
+            self.assertNotIn(t2_1.id, locus.transcripts.keys(),
+                             [(key, val.start, val.end) for key, val in locus.transcripts.items()])
 
         self.assertIn(t2_2.id, locus.transcripts, "\n".join(tr.format("bed12") for tr in locus))
         self.assertTrue(locus[t2_2.id].attributes["padded"])

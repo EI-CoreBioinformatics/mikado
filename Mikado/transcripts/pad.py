@@ -40,35 +40,46 @@ def pad_transcript(transcript: Transcript,
     # Make a backup copy of the transcript
     # First get the ORFs
     # Remove the CDS and unfinalize
-    logger.debug("Starting expansion of %s", transcript.id)
+    logger.warning("Starting expansion of %s", transcript.id)
     strand = transcript.strand
     transcript.strip_cds()
     transcript.unfinalize()
     assert strand == transcript.strand
 
     upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
-    downstream, up_exons, down_exons, down_remove = _enlarge_end(transcript,
-                                                                 backup, end_transcript, up_exons, new_first_exon)
+    downstream, up_exons, down_exons, new_exon, down_remove = _enlarge_end(transcript,
+                                                                           backup, end_transcript, up_exons, new_first_exon)
 
-    first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
+    # first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 
     assert upstream >= 0 and downstream >= 0
 
-    if up_remove is True:
-        # Remove the first exon
-        transcript.remove_exon(first_exon)
-    if down_remove is True:
-        if not (up_remove is True and first_exon == last_exon):
-            transcript.remove_exon(last_exon)
+    if transcript.monoexonic is False:
+        if up_remove is True:
+            # Remove the first exon
+            up_exons = sorted(up_exons)
+            transcript.exons[0] = up_exons[-1]
+            up_exons.remove(up_exons[-1])
+            # transcript.remove_exon(first_exon)
+        if down_remove is True:  # (up_remove is False or first_exon != last_exon):
+            down_exons = sorted(down_exons)
+            transcript.exons[-1] = down_exons[-1]
+            down_exons.remove(down_exons[-1])
+        # transcript.remove_exon(last_exon)
+    elif new_exon is not None:
+        transcript.exons[0] = new_exon
 
     new_exons = up_exons + down_exons
-    if not new_exons:
-        logger.debug("%s does not need to be expanded, exiting", transcript.id)
+    if not any([len(new_exons) > 0, up_remove, down_remove]):
+        logger.warning("%s does not need to be expanded, exiting", transcript.id)
         return backup
 
     transcript.add_exons(new_exons)
     transcript.start, transcript.end = None, None
+    level = transcript.logger.level
+    transcript.logger.setLevel("DEBUG")
     transcript.finalize()
+    transcript.logger.setLevel(level)
 
     if transcript.strand == "-":
         downstream, upstream = upstream, downstream
@@ -211,6 +222,7 @@ def _enlarge_end(transcript: Transcript,
     downstream = 0
     down_exons = []
     to_remove = False
+    new_exon = new_first_exon[:] if new_first_exon is not None else None
 
     if end_transcript:
         transcript.end = end_transcript.end
@@ -218,7 +230,7 @@ def _enlarge_end(transcript: Transcript,
             [_ for _ in end_transcript.find_downstream(transcript.exons[-1][0], transcript.exons[-1][1])
              if _.value == "exon"])
         intersecting_downstream = sorted(end_transcript.search(
-            transcript.exons[-1][0], transcript.exons[-1][1]))
+            transcript.exons[-1][0] + 1, transcript.exons[-1][1]))
         if not intersecting_downstream:
             raise KeyError("No exon or intron found to be intersecting with %s vs %s, this is a mistake",
                            transcript.id, end_transcript.id)
@@ -275,7 +287,7 @@ def _enlarge_end(transcript: Transcript,
             downstream += sum(_[1] - _[0] + 1 for _ in downstream_exons)
             down_exons.extend([(_[0], _[1]) for _ in downstream_exons])
 
-    return downstream, up_exons, down_exons, to_remove
+    return downstream, up_exons, down_exons, new_exon, to_remove
 
 
 def check_expanded(transcript, backup, start_transcript, end_transcript, fai, upstream, downstream, logger) -> str:

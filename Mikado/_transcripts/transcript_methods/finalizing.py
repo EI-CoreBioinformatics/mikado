@@ -502,35 +502,31 @@ def _check_phase_correctness(transcript, strip_faulty_cds=True):
     :return: Mikado.loci.transcript.Transcript
     """
 
-    segments, internal_orfs = transcript.segments, transcript.internal_orfs
+    internal_orfs = transcript.internal_orfs
 
-    if min(len(segments), len(internal_orfs)) == 0:
-        # transcript.logger.debug("Redefining segments for %s", transcript.id)
-        segments = [("exon", tuple([e[0], e[1]])) for e in transcript.exons]
-        # Define CDS
-        if len(internal_orfs) > 0:
-            for segment in itertools.chain(internal_orfs):
-                if segment[0] == "exon":
-                    continue
-                elif segment[0] == "UTR":
-                    segments.append(("UTR", (segment[1][0], segment[1][1])))
-                elif segment[0] == "CDS":
-                    segments.append(("CDS", (segment[1][0], segment[1][1])))
-        else:
-            segments.extend([("CDS", tuple([c[0], c[1]])) for c in transcript.combined_cds])
-        # Define UTR segments
-        segments.extend([("UTR", tuple([u[0], u[1]])) for u in transcript.combined_utr])
-        # Mix and sort
-        segments = sorted(segments, key=operator.itemgetter(1, 0))
-        # Add to the store as a single entity
-        if not internal_orfs and any(_[0] == "CDS" for _ in segments):
-            internal_orfs = [segments]
-        else:
-            transcript.selected_internal_orf_index = None
+    segments = [("exon", tuple([e[0], e[1]])) for e in transcript.exons]
+    # Define CDS
+    if len(internal_orfs) > 0:
+        for segment in itertools.chain(internal_orfs):
+            if segment[0] == "exon":
+                continue
+            elif segment[0] == "UTR":
+                segments.append(("UTR", (segment[1][0], segment[1][1])))
+            elif segment[0] == "CDS":
+                segments.append(("CDS", (segment[1][0], segment[1][1])))
     else:
-        pass
+        segments.extend([("CDS", tuple([c[0], c[1]])) for c in transcript.combined_cds])
+    # Define UTR segments
+    segments.extend([("UTR", tuple([u[0], u[1]])) for u in transcript.combined_utr])
+    # Mix and sort
+    segments = sorted(segments, key=operator.itemgetter(1, 0))
+    # Add to the store as a single entity
+    if not internal_orfs and any(_[0] == "CDS" for _ in segments):
+        internal_orfs = [segments]
+    else:
+        transcript.selected_internal_orf_index = None
 
-    transcript.segments, transcript.internal_orfs = segments, internal_orfs
+    transcript.internal_orfs = internal_orfs
 
     __orfs_to_remove = []
     orf_excs = []
@@ -669,7 +665,6 @@ def finalize(transcript):
                     transcript.logger.exception(exc)
                     transcript.combined_cds = []
                     transcript.combined_utr = []
-                    transcript.segments = []
                     transcript.internal_orfs = []
                     _basic_final_checks(transcript)
                     _check_cdna_vs_utr(transcript)
@@ -704,8 +699,6 @@ def finalize(transcript):
 
     try:
         _check_completeness(transcript)
-        assert all([segment[1] in transcript.exons for segment in transcript.segments if
-                    segment[0] == "exon"]), (transcript.exons, transcript.segments)
         transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
         _check_phase_correctness(transcript, strip_faulty_cds=strip_faulty_cds)
         transcript.logger.debug("Calculating intron correctness for %s", transcript.id)

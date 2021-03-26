@@ -793,8 +793,9 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             row.block_sizes = [0]
             row = BED12(row, seq,
                         coding=False, transcriptomic=True, max_regression=0, start_adjustment=False,
+                        lenient=True,
                         table=self.codon_table)
-            if row.invalid is False:
+            if row.invalid is True:
                 raise AssertionError("\n".join([str(row), row.invalid_reason]))
             yield row
         else:

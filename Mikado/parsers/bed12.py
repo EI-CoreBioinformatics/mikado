@@ -668,7 +668,7 @@ class BED12:
                               self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
 
             # Get only a proper multiple of three
-            if self.lenient is False:
+            if self.lenient is False and self.coding is True:
                 if self.strand != "-":
                     orf_sequence = sequence[
                                    (self.thick_start - 1 if not self.phase

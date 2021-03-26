@@ -701,7 +701,6 @@ class Picker:
                         f"{exc}")
                     [_.kill() for _ in working_processes]
                     sys.exit(1)
-                self.logger.info(f"Received counter {counter}")
                 mapper["done"].add(counter)
                 if counter in mapper["results"]:
                     self.logger.fatal("%d double index found!", counter)
@@ -717,7 +716,6 @@ class Picker:
                                      len(mapper["done"]), total)
                 chrom = mapper[counter]
                 mapper[chrom]["done"].add(counter)
-                self.logger.info(f"Finished counter {counter}")
                 if mapper[chrom]["done"] == mapper[chrom]["submit"]:
                     self.logger.info("Finished with chromosome %s", chrom)
             status_queue.task_done()

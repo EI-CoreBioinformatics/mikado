@@ -40,7 +40,7 @@ def pad_transcript(transcript: Transcript,
     # Make a backup copy of the transcript
     # First get the ORFs
     # Remove the CDS and unfinalize
-    logger.warning("Starting expansion of %s", transcript.id)
+    logger.debug("Starting expansion of %s", transcript.id)
     strand = transcript.strand
     transcript.strip_cds()
     transcript.unfinalize()
@@ -71,15 +71,12 @@ def pad_transcript(transcript: Transcript,
 
     new_exons = up_exons + down_exons
     if not any([len(new_exons) > 0, up_remove, down_remove]):
-        logger.warning("%s does not need to be expanded, exiting", transcript.id)
+        logger.debug("%s does not need to be expanded, exiting", transcript.id)
         return backup
 
     transcript.add_exons(new_exons)
     transcript.start, transcript.end = None, None
-    level = transcript.logger.level
-    transcript.logger.setLevel("DEBUG")
     transcript.finalize()
-    transcript.logger.setLevel(level)
 
     if transcript.strand == "-":
         downstream, upstream = upstream, downstream

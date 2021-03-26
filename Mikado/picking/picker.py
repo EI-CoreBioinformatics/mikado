@@ -36,7 +36,7 @@ from ..transcripts import Transcript
 from ..loci.superlocus import Superlocus
 from ..configuration.configurator import load_and_validate_config
 from ..utilities import dbutils
-from ..exceptions import UnsortedInput, InvalidConfiguration, InvalidTranscript
+from ..exceptions import UnsortedInput, InvalidConfiguration, InvalidTranscript, InvalidCDS
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 from ._locus_single_printer import print_locus
 import multiprocessing.managers
@@ -689,8 +689,19 @@ class Picker:
                 self.logger.error("We have not retrieved all loci!")
                 raise ValueError
             results = msgpack.loads(zlib.decompress(results))
+            self.logger.info(f"Length of results to analyse: {len(results)}")
             for result in results:
-                counter, chrom, num_genes, loci, subloci, monoloci = result
+                try:
+                    counter, chrom, num_genes, loci, subloci, monoloci = result
+                except (InvalidTranscript, InvalidCDS, TypeError, RuntimeError, ValueError, AssertionError) as exc:
+                    self.logger.critical(
+                        f"Mikado has encountered a fatal crash. Invalid result:\n{result}\n"
+                        "Please inspect the logs and report the bug at "
+                        "https://github.com/EI-CoreBioinformatics/mikado/issues. Exception:\n"
+                        f"{exc}")
+                    [_.kill() for _ in working_processes]
+                    sys.exit(1)
+                self.logger.info(f"Received counter {counter}")
                 mapper["done"].add(counter)
                 if counter in mapper["results"]:
                     self.logger.fatal("%d double index found!", counter)
@@ -706,9 +717,12 @@ class Picker:
                                      len(mapper["done"]), total)
                 chrom = mapper[counter]
                 mapper[chrom]["done"].add(counter)
+                self.logger.info(f"Finished counter {counter}")
                 if mapper[chrom]["done"] == mapper[chrom]["submit"]:
                     self.logger.info("Finished with chromosome %s", chrom)
+            status_queue.task_done()
 
+        self.logger.info("Joining children processes")
         [_.join() for _ in working_processes]
         self.logger.info("Joined children processes; starting to merge partial files")
 

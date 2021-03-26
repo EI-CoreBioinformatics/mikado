@@ -123,6 +123,9 @@ def parse_prepare_options(args, mikado_config) -> Union[DaijinConfiguration, Mik
     mikado_config.prepare.strip_faulty_cds = True if getattr(args, "strip_faulty_cds", None) else \
         mikado_config.prepare.strip_faulty_cds
     mikado_config.prepare.strip_cds = True if getattr(args, "strip_cds", None) else mikado_config.prepare.strip_cds
+    if len(mikado_config.prepare.files.strip_cds) == 0:
+        mikado_config.prepare.files.strip_cds = [mikado_config.prepare.strip_cds] * len(mikado_config.prepare.files.gff)
+
     mikado_config.serialise.codon_table = str(args.codon_table) if (
             getattr(args, "codon_table", None) not in (None, False, True)) else mikado_config.serialise.codon_table
 
@@ -228,7 +231,7 @@ def prepare_parser():
     1- add the "transcript" feature
     2- sort by coordinates
     3- check the strand""")
-    parser.add_argument("--fasta", "--reference", dest="reference",
+    parser.add_argument("--fasta", "--reference", "--genome", dest="reference",
                         type=argparse.FileType(), help="Genome FASTA file. Required.")
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument("--verbose", default=None, dest="log_level", action="store_const", const="DEBUG")

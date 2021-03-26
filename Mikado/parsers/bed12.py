@@ -668,7 +668,7 @@ class BED12:
                               self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
 
             # Get only a proper multiple of three
-            if self.__lenient is False:
+            if self.lenient is False:
                 if self.strand != "-":
                     orf_sequence = sequence[
                                    (self.thick_start - 1 if not self.phase
@@ -685,6 +685,19 @@ class BED12:
                                                 gap='N')
 
                 self._internal_stop_codons = str(translated_seq).count("*")
+                if self._internal_stop_codons == 0 and len(orf_sequence[last_pos:]) > 3:
+                    if orf_sequence[last_pos:][:3] in self.table.stop_codons:
+                        # We need to shift either the thick start or the thick end. Note that last_pos is negative
+                        # so we need to minus it.
+                        if self.strand == "-":
+                            self.thick_start += -last_pos % 3
+                            self.logger.warning(
+                                f"Shifting the position of the thick start of {self.name} by {-last_pos % 3}")
+                        else:
+                            self.thick_end -= -last_pos % 3
+                            self.logger.warning(
+                                f"Shifting the position of the thick end of {self.name} by {-last_pos % 3}")
+
             del self.invalid
             if self.__is_invalid() is True:
                 return
@@ -743,7 +756,7 @@ class BED12:
                         self.chrom, self.invalid, self.invalid_reason)
                     break
         else:
-            self.__regression(orf_sequence)
+            self._regression(orf_sequence)
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
@@ -772,7 +785,7 @@ class BED12:
             self.logger.debug("%s is not coding after checking. Reason: %s", self.chrom, self.invalid_reason)
             self.coding = False
 
-    def __regression(self, orf_sequence):
+    def _regression(self, orf_sequence):
         self.logger.debug(
             "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s; phase %s)",
             self.chrom, self.end, self.thick_start, self.thick_end, self.phase)
@@ -1011,6 +1024,10 @@ class BED12:
     def invalid(self):
         self.__invalid = None
 
+    @property
+    def lenient(self):
+        return self.__lenient
+
     def __is_invalid(self):
 
         if self._internal_stop_codons >= 1:
@@ -1045,7 +1062,7 @@ class BED12:
                 )
                 return True
 
-            if self.__lenient is True:
+            if self.lenient is True:
                 pass
             else:
                 if (self.cds_len - self.phase) % 3 != 0:

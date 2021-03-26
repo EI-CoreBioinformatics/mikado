@@ -324,19 +324,20 @@ we will not reverse it")
                 self.finalize()
             else:
                 self.logger.warning("Transcript %s has an invalid CDS and must therefore be discarded.", self.id)
+                raise InvalidTranscript("Transcript %s has an invalid CDS and must therefore be discarded.")
 
         if self.is_coding is False:
             return
 
         try:
             orfs = list(self.get_internal_orf_beds())
-            assert len(orfs) >= 1
-        except AssertionError as exc:  # Invalid ORFs found
+            if len(orfs) < 1:
+                raise AssertionError("No ORFs remaining.")
+        except AssertionError as exc:
             if self.strip_faulty_cds is False:
-                raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
+                raise InvalidTranscript(f"Invalid ORF(s) for {self.id}. Discarding it. Error: {exc}")
             else:
-                self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
-                                    self.id, exc)
+                self.logger.warning(f"Invalid ORF(s) for {self.id}. Stripping it of its CDS. Error: {exc}")
                 self.strip_cds()
             return
 
@@ -361,7 +362,9 @@ we will not reverse it")
                 self.has_stop_codon = orf.has_stop_codon
                 self.attributes["has_start_codon"] = orf.has_start_codon
                 self.attributes["has_stop_codon"] = orf.has_stop_codon
-                return
+
+        self.strip_cds()
+        self.load_orfs(orfs)
 
     @property
     def cdna(self) -> str:

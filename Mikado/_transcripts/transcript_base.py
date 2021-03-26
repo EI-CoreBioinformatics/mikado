@@ -794,7 +794,8 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             row = BED12(row, seq,
                         coding=False, transcriptomic=True, max_regression=0, start_adjustment=False,
                         table=self.codon_table)
-            assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
+            if row.invalid is False:
+                raise AssertionError("\n".join([str(row), row.invalid_reason]))
             yield row
         else:
             for index, iorf in enumerate(self.internal_orfs):
@@ -831,8 +832,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 new_row.phase = phase
                 # self.logger.debug(new_row)
                 new_row = BED12(new_row,
+                                lenient=False,
                                 sequence=seq,
                                 phase=phase,
+                                logger=self.logger,
                                 coding=True, transcriptomic=True, max_regression=0, start_adjustment=False,
                                 table=self.codon_table)
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):

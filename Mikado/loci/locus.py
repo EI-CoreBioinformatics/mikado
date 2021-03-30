@@ -580,9 +580,13 @@ class Locus(Abstractlocus):
         evaluated = dict()
         for key in section.parameters:
             name = section.parameters[key].name
-            value = operator.attrgetter(name)(transcript)
-            if "external" in key:
-                value = value[0]
+            if 'attributes' in name:
+                name_parts = name.split('.')
+                value = transcript.attributes[name_parts[1]]
+            else:
+                value = operator.attrgetter(name)(transcript)
+                if "external" in key:
+                    value = value[0]
 
             evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used

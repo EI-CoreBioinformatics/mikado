@@ -2,7 +2,7 @@ import re
 import unittest
 
 from .. import create_default_logger
-from .._transcripts.scoring_configuration import ScoringFile, MinMaxScore
+from .._transcripts.scoring_configuration import ScoringFile, MinMaxScore, SizeFilter
 from ..loci import Transcript, Superlocus
 import pkg_resources
 import os
@@ -185,3 +185,16 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
         sup.get_metrics()
         self.assertIn("attributes.tpm", sup._metrics[self.transcript.id])
         self.assertEqual(sup._metrics[self.transcript.id]["attributes.tpm"], 0.1)
+        sup.define_loci()
+
+    def test_attribute_use_as_alternative_splicing(self):
+        from Mikado.loci import Locus
+        checked_conf = self.conf.copy()
+        self.transcript.attributes['cov'] = 10
+        loci = Locus(self.transcript, configuration=checked_conf)
+        loci.configuration.scoring.as_requirements.parameters['attributes.cov'] = SizeFilter(operator='ge', value=3,
+                                                                                             metric=None,
+                                                                                             name='attributes.cov')
+        loci.configuration.scoring.as_requirements.expression = [
+            loci.configuration.scoring.as_requirements.expression[0] + ' and attributes.cov']
+        loci._check_as_requirements(self.transcript)

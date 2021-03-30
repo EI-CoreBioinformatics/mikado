@@ -197,4 +197,29 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
                                                                                              name='attributes.cov')
         loci.configuration.scoring.as_requirements.expression = [
             loci.configuration.scoring.as_requirements.expression[0] + ' and attributes.cov']
-        loci._check_as_requirements(self.transcript)
+        loci.configuration.scoring.as_requirements._check_my_requirements()
+        self.assertTrue(loci._check_as_requirements(self.transcript))
+
+    def test_attribute_use_as_alternative_splicing_fail_filter(self):
+        from Mikado.loci import Locus
+        checked_conf = self.conf.copy()
+        self.transcript.attributes['cov'] = 10
+        loci = Locus(self.transcript, configuration=checked_conf)
+        loci.configuration.scoring.as_requirements.parameters['attributes.cov'] = SizeFilter(operator='ge', value=15,
+                                                                                             metric=None,
+                                                                                             name='attributes.cov')
+        loci.configuration.scoring.as_requirements.expression = [
+            loci.configuration.scoring.as_requirements.expression[0] + ' and attributes.cov']
+        loci.configuration.scoring.as_requirements._check_my_requirements()
+        self.assertFalse(loci._check_as_requirements(self.transcript))
+
+    def test_attributes_use_as_cds_requirements(self):
+        from Mikado.loci import Locus
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.cds_requirements.expression = ["attributes.something"]
+        checked_conf.scoring.cds_requirements.parameters = {"attributes.something": SizeFilter(value=1, operator="ge")}
+        checked_conf.scoring.cds_requirements._check_my_requirements()
+        self.transcript.attributes['something'] = 2
+        loci = Locus(self.transcript, configuration=checked_conf)
+        not_passing = loci._check_not_passing(section_name="cds_requirements")
+        self.assertSetEqual(not_passing, set())

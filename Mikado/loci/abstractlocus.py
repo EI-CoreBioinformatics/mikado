@@ -1281,16 +1281,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             evaluated = dict()
             for key in section.parameters:
-                if section.parameters[key].name is not None:
-                    name = section.parameters[key].name
+                if "attributes" in key:
+                    key_parts = key.split('.')
+                    value = self.transcripts[tid].attributes[key_parts[1]]
                 else:
-                    name = key
-                try:
-                    value = operator.attrgetter(name)(self.transcripts[tid])
-                except AttributeError:
-                    raise AttributeError((section_name, key, section.parameters[key]))
-                if "external" in key:
-                    value = value[0]
+                    if section.parameters[key].name is not None:
+                        name = section.parameters[key].name
+                    else:
+                        name = key
+                    try:
+                        value = operator.attrgetter(name)(self.transcripts[tid])
+                    except AttributeError:
+                        raise AttributeError((section_name, key, section.parameters[key]))
+                    if "external" in key:
+                        value = value[0]
 
                 evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used

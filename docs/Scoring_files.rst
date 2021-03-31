@@ -595,7 +595,7 @@ As external metrics allow Mikado to accept any arbitrary metric for each transcr
 
 .. note:: also for external metrics, it is necessary to add a suffix to them if they are invoked more than once in an expression (see the :ref:`tutorial <scoring-tutorial-first-reqs>`). An invocation of e.g. "external.samples_expressed.mono" and "external.samples_expressed.multi", to distinguish between monoexonic and multiexonic transcripts, would be perfectly valid and actually *required* by Mikado. Notice the double use of the dot (".") as separator. Its usage as such is the reason that it cannot be present in the name of the metric itself (so, for example, "has.coverage.gaps" would be an invalid metric name).
 
-.. attributes-metrics:
+.. _attributes-metrics:
 
 Attributes metrics
 ~~~~~~~~~~~~~~~~~~

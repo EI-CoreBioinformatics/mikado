@@ -467,7 +467,7 @@ rule uncompress_genome:
     run:
         os.makedirs(REF_DIR, exist_ok=True)
         if filetype(REF) == b"application/txt":
-            os.symlink(REF, output)
+            os.symlink(os.path.relpath(os.path.abspath(REF), os.path.abspath(REF_DIR)), output.genome)
         elif filetype(REF) == b"application/gzip":
             subprocess.call("gzip -dc {} > {}".format(REF, output), shell=True)
         elif filetype(REF) == b"application/x-bzip2":

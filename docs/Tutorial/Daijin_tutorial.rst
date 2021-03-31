@@ -240,11 +240,11 @@ Step 2: running the assemble part
 
 Now that we have created a proper configuration file, it is time to launch Daijin assemble and inspect the results. Issue the command::
 
-    daijin assemble --cores <Number of maximum cores> daijin.yaml
+    daijin assemble --cores <Number of maximum cores> daijin.toml
 
 After checking that the configuration file is valid, Daijin will start the alignment and assembly of the dataset. On a normal desktop computer, this should take less than 2 hours. Before launching the pipeline, you can obtain a graphical representation of the steps with::
 
-  daijin assemble --dag daijin.yaml | dot -Tsvg > assemble.svg
+  daijin assemble --dag daijin.toml | dot -Tsvg > assemble.svg
 
 .. figure:: assemble_pipeline.png
    :scale: 50%
@@ -252,7 +252,7 @@ After checking that the configuration file is valid, Daijin will start the align
 
 You can also ask Daijin to display the steps to be executed, inclusive of their command lines, by issuing the following command::
 
-  daijin assemble --dryrun daijin.yaml
+  daijin assemble --dryrun daijin.toml
 
 When Daijin is finished, have a look inside the folder Dmelanogaster/3-assemblies/output/; you will find the following GTF files:
 

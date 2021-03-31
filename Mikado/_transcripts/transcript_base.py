@@ -213,7 +213,6 @@ class TranscriptBase:
         self.__derived_children = set()
         self.__original_source = None
         self.__external_scores = Namespace(default=(0, False))
-        self.__internal_orf_transcripts = []
         self.__cds_not_maximal = None
 
         # Starting settings for everything else
@@ -889,39 +888,51 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return self.__configuration
 
     @property
-    def frames(self):
+    def frames(self) -> dict:
         """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
         each, a set of the positions that are in that frame. If the transcript does not have """
         self.finalize()
-        frames = {0: set(), 1: set(), 2: set()}
-        for orf in self.internal_orfs:
-            if self.strand == "-":
-                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
-                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
-                for start, end, phase in exons:
-                    frame = ((3 - phase) % 3 - 1) % 3
-                    for pos in range(end, start - 1, -1):
-                        frame = abs((frame + 1) % 3)
-                        frames[frame].add(pos)
-            else:
-                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
-                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
-                for start, end, phase in exons:
-                    frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
-                    for pos in range(start, end + 1):
-                        frame = abs((frame + 1) % 3)
-                        frames[frame].add(pos)
-        return frames
+
+        @functools.lru_cache()
+        def calculate_frames(internal_orfs, strand) -> dict:
+            frames = {0: set(), 1: set(), 2: set()}
+            for orf in internal_orfs:
+                if strand == "-":
+                    exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                    if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
+                    for start, end, phase in exons:
+                        frame = ((3 - phase) % 3 - 1) % 3
+                        for pos in range(end, start - 1, -1):
+                            frame = abs((frame + 1) % 3)
+                            frames[frame].add(pos)
+                else:
+                    exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                    if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
+                    for start, end, phase in exons:
+                        frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
+                        for pos in range(start, end + 1):
+                            frame = abs((frame + 1) % 3)
+                            frames[frame].add(pos)
+            for frame in frames:
+                frames[frame] = frozenset(frames[frame])
+            return frames
+
+        return calculate_frames(tuple(tuple(_) for _ in self.internal_orfs), self.strand)
 
     @property
-    def framed_codons(self):
+    def framed_codons(self) -> List:
         """Return the list of codons as calculated by self.frames."""
 
-        codons = list(zip(*[sorted(self.frames[0]), sorted(self.frames[1]), sorted(self.frames[2])]))
-        if self.strand == "-":
-            codons = list(reversed(codons))
+        @functools.lru_cache()
+        def calculate_codons(frames, strand) -> list:
+            # Reconvert to dictionary. We had to turn into a tuple of items for hashing.
+            frames = dict(frames)
+            codons = list(zip(*[sorted(frames[0]), sorted(frames[1]), sorted(frames[2])]))
+            if strand == "-":
+                codons = list(reversed(codons))
+            return codons
 
-        return codons
+        return calculate_codons(tuple(self.frames.items()), self.strand)
 
     @property
     def _selected_orf_transcript(self):
@@ -939,16 +950,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         Note: this will exclude the UTR part, even when the transcript only has one ORF."""
 
         self.finalize()
-        if not self.is_coding:
-            return []
-        elif len(self.__internal_orf_transcripts) == len(self.internal_orfs):
-            return self.__internal_orf_transcripts
-        else:
-            for num, orf in enumerate(self.internal_orfs, start=1):
+        @functools.lru_cache()
+        def calculate_orf_transcripts(internal_orfs, chrom, strand, tid):
+            orf_transcripts = []
+            for num, orf in enumerate(internal_orfs, start=1):
                 torf = TranscriptBase()
-                torf.chrom, torf.strand = self.chrom, self.strand
-                torf.derives_from = self.id
-                torf.id = "{}.orf{}".format(self.id, num)
+                torf.chrom, torf.strand = chrom, strand
+                torf.derives_from = tid
+                torf.id = "{}.orf{}".format(tid, num)
                 __exons, __phases = [], []
                 for segment in [_ for _ in orf if _[0] == "CDS"]:
                     __exons.append(segment[1])
@@ -956,9 +965,13 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 torf.add_exons(__exons, features="exon", phases=None)
                 torf.add_exons(__exons, features="CDS", phases=__phases)
                 torf.finalize()
-                self.__internal_orf_transcripts.append(torf)
+                orf_transcripts.append(torf)
+            return orf_transcripts
 
-        return self.__internal_orf_transcripts
+        orf_transcripts = calculate_orf_transcripts(tuple(tuple(_) for _ in self.internal_orfs),
+                                                    self.chrom, self.strand, self.id)
+
+        return orf_transcripts
 
     def as_bed12(self) -> BED12:
 
@@ -1131,7 +1144,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             return
 
         self.internal_orfs = []
-        self.__internal_orf_transcripts = []
         self.combined_utr = []
         self._cdna_length = None
         self.finalized = False
@@ -1741,10 +1753,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     @property
     def gene(self):
 
-        if "gene_id" not in self.attributes:
-            self.attributes["gene_id"] = self.parent[0]
-
-        return self.attributes["gene_id"]
+        return self.attributes.get("gene_id", self.parent[0])
 
     @property
     def location(self):
@@ -1774,7 +1783,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             if not isinstance(score, (float, int)):
                 try:
                     score = float(score)
-                except:
+                except (ValueError, TypeError):
                     raise ValueError(
                         "Invalid value for score: {0}, type {1}".format(score, type(score)))
         self.__score = score

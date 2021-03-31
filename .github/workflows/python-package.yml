@@ -39,7 +39,7 @@ jobs:
       id: cache-miniconda
       uses: actions/cache@v2
       env:
-        CACHE_NUMBER: 0
+        CACHE_NUMBER: 1
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         path: ~/conda_pkgs_dir

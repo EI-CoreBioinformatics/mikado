@@ -460,6 +460,18 @@ class Picker:
         requested_external.update({param for param in self.configuration.scoring.scoring.keys()
                                    if param.startswith("external")})
         
+        attribute_metrics = set()
+        attribute_metrics.update({param for param in self.configuration.scoring.requirements.parameters.keys()
+                                   if param.startswith("attributes")})
+        attribute_metrics.update({param for param in self.configuration.scoring.not_fragmentary.parameters.keys()
+                                   if param.startswith("attributes")})
+        attribute_metrics.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("attributes")})
+        attribute_metrics.update({param for param in self.configuration.scoring.cds_requirements.parameters.keys()
+                                   if param.startswith("attributes")})
+        attribute_metrics.update({param for param in self.configuration.scoring.scoring.keys()
+                                   if param.startswith("attributes")})
+
         # Check that the external scores are all present. If they are not, raise a warning.
         if requested_external - set(available_external_metrics):
             self.logger.error(
@@ -486,6 +498,7 @@ class Picker:
             metrics.extend(available_external_metrics)
         else:
             metrics.extend(requested_external)
+        metrics.extend(attribute_metrics)
         metrics = Superlocus.available_metrics[:5] + sorted(metrics)
         session.close()
         engine.dispose()

@@ -2,7 +2,7 @@ import re
 import unittest
 
 from .. import create_default_logger
-from .._transcripts.scoring_configuration import ScoringFile, MinMaxScore, SizeFilter
+from .._transcripts.scoring_configuration import ScoringFile, MinMaxScore, SizeFilter, RangeFilter
 from ..loci import Transcript, Superlocus
 import pkg_resources
 import os
@@ -35,6 +35,18 @@ class ExternalTester(unittest.TestCase):
         self.transcript2 = self.transcript.copy()
         self.transcript2.id = "ENST00000560637"
         # self.assertIn("scoring", self.conf)
+        
+        # This is for the is_fragment test
+        self.other_transcript = Transcript()
+        self.other_transcript.start = 48053001
+        self.other_transcript.end = 48053301
+
+        exons = [(48053001, 48053301)]
+
+        self.other_transcript.strand = "+"
+        self.other_transcript.add_exons(exons)
+        self.other_transcript.id = "ENST00000560646"
+        self.other_transcript.parent = "ENSG00000137873"
 
     def test_copying(self):
         self.transcript.external_scores.update({"test": 0, "test1": 1})
@@ -223,3 +235,129 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
         loci = Locus(self.transcript, configuration=checked_conf)
         not_passing = loci._check_not_passing(section_name="cds_requirements")
         self.assertSetEqual(not_passing, set())
+
+    def test_attributes_use_as_fragment_filter(self):
+        from Mikado.loci import Locus
+        checked_conf = self.conf.copy()
+        checked_conf.pick.fragments.max_distance = checked_conf.pick.clustering.flank = 5000
+        checked_conf.scoring.not_fragmentary.expression = ["attributes.something"]
+        checked_conf.scoring.not_fragmentary.parameters = {"attributes.something": SizeFilter(value=1, operator="ge")}
+        checked_conf.scoring.not_fragmentary._check_my_requirements()
+        self.transcript.attributes['something'] = 2
+        logger = create_default_logger("test_attributes_use_as_fragment_filter", level="DEBUG")
+        loci = Locus(self.transcript, configuration=checked_conf, logger=logger)
+        self.other_transcript.attributes["something"] = 0.5
+        fragment = Locus(self.other_transcript, configuration=checked_conf, logger=logger)
+        self.assertEqual(fragment.other_is_fragment(loci), (False, None))
+        self.assertTrue(loci.other_is_fragment(fragment)[0])
+        del self.other_transcript.attributes["something"]
+        fragment = Locus(self.other_transcript, configuration=checked_conf, logger=logger)
+        self.assertEqual(fragment.other_is_fragment(loci), (False, None))
+        self.assertTrue(loci.other_is_fragment(fragment)[0])
+
+    def test_attributes_range_use_as_fragment_filter(self):
+        from Mikado.loci import Locus
+        checked_conf = self.conf.copy()
+        checked_conf.pick.fragments.max_distance = checked_conf.pick.clustering.flank = 5000
+        checked_conf.scoring.not_fragmentary.expression = ["attributes.something"]
+        checked_conf.scoring.not_fragmentary.parameters = {"attributes.something": RangeFilter(value=[10, 50],
+                                                                                               operator="within")}
+        checked_conf.scoring.not_fragmentary._check_my_requirements()
+        self.transcript.attributes['something'] = 11
+        logger = create_default_logger("test_attributes_range_as_fragment_filter", level="DEBUG")
+        loci = Locus(self.transcript, configuration=checked_conf, logger=logger)
+        self.other_transcript.attributes["something"] = 0.5
+        fragment = Locus(self.other_transcript, configuration=checked_conf, logger=logger)
+        self.assertEqual(fragment.other_is_fragment(loci), (False, None))
+        self.assertTrue(loci.other_is_fragment(fragment)[0])
+        del self.other_transcript.attributes["something"]
+        fragment = Locus(self.other_transcript, configuration=checked_conf, logger=logger)
+        self.assertEqual(fragment.other_is_fragment(loci), (False, None))
+        self.assertTrue(loci.other_is_fragment(fragment)[0])
+        # Now change the default.
+        checked_conf.scoring.not_fragmentary.parameters = {"attributes.something": RangeFilter(value=[10, 50],
+                                                                                               operator="within",
+                                                                                               default=20)}
+        checked_conf.scoring.not_fragmentary._check_my_requirements()
+        not_fragment = Locus(self.other_transcript, configuration=checked_conf, logger=logger)
+        self.assertNotIn("something", not_fragment.transcripts[self.other_transcript.id].attributes)
+        # Not a fragment any more, the default of 15 is within the range.
+        self.assertFalse(loci.other_is_fragment(fragment)[0])
+
+    def test_print_metrics_with_attributes_from_scoring(self):
+        from Mikado.loci import Locus, Sublocus
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring = {"attributes.something": MinMaxScore(default=0, rescaling="max", filter=None)}
+        checked_conf.scoring.cds_requirements.expression = ["cdna_length"]
+        checked_conf.scoring.cds_requirements.parameters = {"cdna_length": SizeFilter(operator="ge", value=1)}
+        checked_conf.scoring.requirements.expression = ["cdna_length"]
+        checked_conf.scoring.requirements.parameters = {"cdna_length": SizeFilter(operator="ge", value=1)}
+        checked_conf.scoring.check(checked_conf.pick.orf_loading.minimal_orf_length)
+        for lclass in [Locus, Sublocus]:
+            logger = create_default_logger(f"test_print_metrics_with_attributes_{lclass.name}", level="DEBUG")
+            locus = lclass(self.transcript, configuration=checked_conf, logger=logger)
+            self.assertIn(self.transcript.id, locus.transcripts)
+            rows = list(locus.print_metrics())
+            self.assertEqual(len(rows), 1)
+            row = rows[0]
+            self.assertNotIn("something", locus.transcripts[self.transcript.id].attributes)
+            self.assertIn("attributes.something", row.keys())
+            self.assertEqual(row["attributes.something"], checked_conf.scoring.scoring["attributes.something"].default)
+            self.transcript.attributes["something"] = 5
+            locus = Locus(self.transcript, configuration=checked_conf)
+            rows = list(locus.print_metrics())
+            self.assertEqual(len(rows), 1)
+            row = rows[0]
+            self.assertIn("something", locus.transcripts[self.transcript.id].attributes)
+            self.assertIn("attributes.something", row.keys())
+            self.assertEqual(row["attributes.something"], 5)
+            del self.transcript.attributes["something"]
+
+    def test_print_metrics_with_attributes_from_requirements(self):
+        from Mikado.loci import Locus, Sublocus
+        checked_conf = self.conf.copy()
+        checked_conf.scoring.scoring = {"attributes.something": MinMaxScore(default=0, rescaling="max", filter=None)}
+        checked_conf.scoring.cds_requirements.expression = ["attributes.cds"]
+        checked_conf.scoring.cds_requirements.parameters = {"attributes.cds": SizeFilter(operator="ge", value=1,
+                                                                                         default=1)}
+        checked_conf.scoring.requirements.expression = ["attributes.req"]
+        checked_conf.scoring.requirements.parameters = {"attributes.req": SizeFilter(operator="ge", value=1,
+                                                                                     default=1)}
+        checked_conf.scoring.as_requirements.expression = ["attributes.as"]
+        checked_conf.scoring.as_requirements.parameters = {"attributes.as": SizeFilter(operator="ge", value=1,
+                                                                                       default=1)}
+        checked_conf.scoring.not_fragmentary.expression = ["attributes.frag"]
+        checked_conf.scoring.not_fragmentary.parameters = {"attributes.frag": SizeFilter(operator="ge", value=1,
+                                                                                         default=1)}
+        sections = {"something": checked_conf.scoring.scoring,
+                    "req": checked_conf.scoring.requirements.parameters,
+                    "as": checked_conf.scoring.as_requirements.parameters,
+                    "cds": checked_conf.scoring.cds_requirements.parameters,
+                    "frag": checked_conf.scoring.not_fragmentary.parameters}
+
+        checked_conf.scoring.check(checked_conf.pick.orf_loading.minimal_orf_length)
+        for lclass in [Locus, Sublocus]:
+            logger = create_default_logger(f"test_print_metrics_with_attributes_{lclass.name}", level="DEBUG")
+            locus = lclass(self.transcript, configuration=checked_conf, logger=logger)
+            self.assertIn(self.transcript.id, locus.transcripts)
+            rows = list(locus.print_metrics())
+            self.assertEqual(len(rows), 1)
+            row = rows[0]
+            for key, section in sections.items():
+                self.assertNotIn(key, locus.transcripts[self.transcript.id].attributes)
+                self.assertIn(f"attributes.{key}", row.keys())
+                self.assertEqual(row[f"attributes.{key}"],
+                                 section[f"attributes.{key}"].default)
+            for key in sections:
+                self.transcript.attributes[key] = 5
+            locus = Locus(self.transcript, configuration=checked_conf)
+            rows = list(locus.print_metrics())
+            self.assertEqual(len(rows), 1)
+            row = rows[0]
+            for key, section in sections.items():
+                self.assertIn(key, locus.transcripts[self.transcript.id].attributes)
+                self.assertIn(f"attributes.{key}", row.keys())
+                self.assertEqual(row["attributes.something"], 5)
+            # Reset the object
+            for key in sections:
+                del self.transcript.attributes[key]

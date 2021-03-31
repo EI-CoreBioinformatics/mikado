@@ -196,18 +196,18 @@ For our example, therefore, the sample sheet will look like this::
 Write this into a text file called "sample_sheet.tsv".
 Now we will configure Daijin for the run::
 
-  daijin configure --scheduler "" \
-       --scoring dmelanogaster_scoring.yaml \
+  daijin configure --scheduler "local" \
+       --scoring HISTORIC/dmelanogaster_scoring.yaml \
        --copy-scoring dmelanogaster_scoring.yaml \
        -m permissive --sample-sheet sample_sheet.tsv \
        --flank 500 -i 50 26000 --threads 2 \
        --genome Reference/Drosophila_melanogaster.BDGP6.dna.toplevel.fa \
-       -al hisat -as class stringtie -od Dmelanogaster -name Dmelanogaster \
-       -o daijin.yaml --prot-db Reference/Aedes_aegypti.fasta;
+       -al hisat -as class stringtie -od Dmelanogaster --name Dmelanogaster \
+       -o daijin.toml --prot-db Reference/Aedes_aegypti.fasta;
 
 This will create three files in the working directory:
 
-  * **daijin.yaml**, the main configuration file. This file is in `YAML format <http://www.yaml.org/spec/1.2/spec.html>`_.
+  * **daijin.yaml**, the main configuration file. This file is in `TOML format <https://toml.io/en/v1.0.0>`_.
   * *dmelanogaster.yaml*: this file is a copy of the scoring configuration file. Please refer to the :ref:`dedicated section <scoring_files>` for details.
   * *daijin_exe.yaml*: this small configuration file contains the instruction to load the necessary software into the working environment. Ignore it if you are working on a local machine. If you are working within a cluster environment, please modify this file with the normal commands you would use in a cluster script to load necessary software. For example, this is how this file looks like on our own cluster system:
 
@@ -232,7 +232,7 @@ This will create three files in the working directory:
 
   If you are operating on a cluster, instead of a local machine, you will need to specify the scheduler type. Currently we support **SLURM, PBS and LSF**. Add the following switch to the configure command above::
 
-    --scheduler <One of SLURM, PBS or LSF>
+    --scheduler <One of local, SLURM, PBS or LSF>
 
   Adding this switch will also create a default cluster configuration file, *daijin_hpc.yaml*, specifying the number of resources per job and the submission queue. This is an example of how it appears on our system:
 .. literalinclude:: ../Usage/hpc.yaml

@@ -608,10 +608,16 @@ behave as the rest of the metrics but they are gathered at runtime from the inpu
 these metrics must be equivalent in all the inputs and are by default initialised to "0" when a transcript does not have
 an attribute defining the metric. The default initialisation value can be overridden in the scoring file.
 
-Attribute metrics along with the required **rescaling** parameter, can define a *rtype* parameter as one of (float, int
-or bool) which will be used to cast the value of the attribute internally, and a *percentage* boolean which indicates
-that the values are in the 0-100 range and enables a transformation to the 0-1 range so that these can be used as 'raw'
-scores (see the :ref:`scoring algorithm section <_scoring_algorithm>`).
+Attribute metrics along with the required **rescaling** parameter, can define an *rtype* parameter as one of (float, int
+or bool) which will be used to cast the value of the attribute internally. Currently the types available are: integers
+(int), reals (float) and booleans (bool). The *rtype* will define how the value in the attribute will be represented or
+treated internally in mikado, i.e an attribute has a value of "3.2" but the *rtype* is defined as int, this value will be
+casted from a real number to an integer which usually in python just truncates to "3" for any number between 3 and 4.
+If the type was treated as a 'float' the internal value in mikado for this attribute would be "3.2", finally were this
+parameter's *rtype* be defined as bool it's value internally in mikado would be 'True' which is the case for any number
+not equal to "0". Finally, a *percentage* boolean which indicates that the values are in the 0-100 range and enables a
+transformation to the 0-1 range so that these can be used as 'raw' scores
+(see the :ref:`scoring algorithm section <_scoring_algorithm>`).
 
 An example for the usage of these metrics could be::
 
@@ -629,5 +635,6 @@ If the scoring file defines:
         - attributes.FPKM: {rescaling: max}
         - attributes.frac: {rescaling: max, use_raw: true}
         - attributes.percentage_score: {rescaling: max, use_raw: true, percentage: true}
+        - attributes.cov: {rescaling: max, use_raw: true, multiplier: 1, rtype: int, default: 1}
 
 The same scoring rules defined previously will apply to metrics obtained from the transcript's attributes.

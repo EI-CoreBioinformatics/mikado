@@ -1299,8 +1299,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             evaluated = dict()
             for key in section.parameters:
-                if "attributes" in key:
-                    key_parts = key.split('.')
+                if key.startswith("attributes.") and len(key) > len("attributes."):
+                    key_parts = key.split('.', 1)
                     default = section.parameters[key].default
                     value = self.transcripts[tid].attributes.get(key_parts[1], default)
                 else:

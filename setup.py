@@ -28,8 +28,6 @@ if sys.version_info.major != 3:
 
 
 requirements = [line.rstrip() for line in open("requirements.txt", "rt")]
-if sys.version_info.minor < 7:
-    requirements.append(["dataclasses"])
 
 
 extensions = [Extension("Mikado.utilities.overlap",
@@ -58,7 +56,7 @@ extensions = [Extension("Mikado.utilities.overlap",
 
 setup(
     name="Mikado",
-    python_requires=">=3.6",
+    python_requires=">3.6",
     version="2.2.3",
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -74,7 +72,6 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Framework :: Pytest",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.6",
         'Programming Language :: Python :: 3.7',
         "Programming Language :: Python :: 3.8",
         'Programming Language :: Python :: 3.9'

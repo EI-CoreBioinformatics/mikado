@@ -241,8 +241,10 @@ Metrics belong to one of the following categories:
           :ref:`relevant section <attributes-metrics>` for details.
 
 .. important:: Starting from Mikado 1 beta 8, it is possible to use metrics with values between 0 and 1 directly as
-               scores, without rescaling. This feature is available only for metrics whose values naturally lie between
-               0 and 1, or that are boolean in nature.
+               scores, without rescaling. From Mikado 2, it is also possible to treat values that are between 0 and 100
+               in the same way; Mikado will convert them automatically to be between 0 and 1, internally.
+               It is also possible to instruct Mikado, during scoring, to use certain values as percentages by adding the
+               :code:`percentage = True` for the scoring parameter.
 
 .. topic:: Available metrics
 
@@ -542,7 +544,7 @@ Please note the following:
 * Column names **must be unique**.
 * The transcript names present in the first column **must** be present in the FASTA file.
 * The table should be tab-separated.
-* Values can be of any numerical or boolean type. However, only values that are determined **at serialisation** to be comprised within 0 and 1 (inclusive) can be used as raw values.
+* Values can be of any numerical or boolean type. However, only values that are determined **at serialisation** to be comprised within 0 and 1 (inclusive), or between 0 and 100 (ie *percentages*) can be used as raw values.
 
 A proper way of generating and using external scores would, therefore, be the following:
 
@@ -555,6 +557,8 @@ A proper way of generating and using external scores would, therefore, be the fo
 * Call mikado serialise, specifying the location of this table either through the configuration file or on the command line invocation.
 
 Given the open ended nature of the external scores, the Daijin pipeline currently does not offer any system to generate these scores. This might change in the future.
+
+.. note:: our laboratory has implemented a novel pipeline, Minos (:ref:`https://github.com/EI-CoreBioinformatics/minos <https://github.com/EI-CoreBioinformatics/minos>`) for integrating multiple sources of evidence using Mikado. Internally, Minos makes use of the external metrics described here. We recommend having a look at the pipeline for inspiration.
 
 Adding external scores to the scoring file
 ------------------------------------------

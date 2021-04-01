@@ -9,7 +9,9 @@ Submodules
 
    Mikado.serializers.blast_serializer.aln_string_parser
    Mikado.serializers.blast_serializer.aln_string_parser
+   Mikado.serializers.blast_serializer.aln_string_parser
    Mikado.serializers.blast_serializer.blast_serialiser
+   Mikado.serializers.blast_serializer.btop_parser
    Mikado.serializers.blast_serializer.btop_parser
    Mikado.serializers.blast_serializer.btop_parser
    Mikado.serializers.blast_serializer.hit

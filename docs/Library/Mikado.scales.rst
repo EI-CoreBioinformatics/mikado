@@ -23,6 +23,7 @@ Submodules
    Mikado.scales.compare
    Mikado.scales.contrast
    Mikado.scales.contrast
+   Mikado.scales.contrast
    Mikado.scales.resultstorer
 
 Module contents

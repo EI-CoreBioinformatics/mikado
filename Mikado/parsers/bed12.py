@@ -867,11 +867,14 @@ class BED12:
             attributes["Parent"] = self.parent[0]
             assert "Parent" in attributes
         elif "parent" in attributes:
-            par = attributes["parent"] if isinstance(attributes["parent"], str) else attributes["parent"][0]
-            del attributes["parent"]
-            attributes["Parent"] = par
+            parent = attributes.pop("parent")
+            if isinstance(parent, (tuple, list)) and len(parent) > 0:
+                parent = ",".join(parent)
+            elif isinstance(parent, (tuple, list)) and len(parent) == 0:
+                parent = None
+            attributes["Parent"] = parent
         if attributes:
-            line.append(";".join(f"{key}={val}" for key, val in attributes.items()))
+            line.append(";".join(f"{key}={val}" for key, val in attributes.items() if val is not None))
         return "\t".join([str(x) for x in line])
 
     def __eq__(self, other):

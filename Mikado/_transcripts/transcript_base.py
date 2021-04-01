@@ -213,7 +213,6 @@ class TranscriptBase:
         self.__derived_children = set()
         self.__original_source = None
         self.__external_scores = Namespace(default=(0, False))
-        self.__internal_orf_transcripts = []
         self.__cds_not_maximal = None
 
         # Starting settings for everything else
@@ -230,7 +229,6 @@ class TranscriptBase:
         self.splices = set()
         self.selected_internal_orf_index = None
         self.__verified_introns = set()
-        self.segments = []
         self.intron_range = intron_range
         self.internal_orfs = []
         self.blast_hits = []
@@ -296,6 +294,30 @@ class TranscriptBase:
         else:
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
 
+    @staticmethod
+    def __parse_attributes(attributes):
+        new_attributes = dict()
+        booleans = {"True": True, "False": False, "None": None}
+        for key, val in attributes.items():
+            if not isinstance(val, Hashable):
+                pass
+            elif val in booleans:
+                val = booleans[val]
+            elif isinstance(val, bool):
+                pass
+            else:
+                try:
+                    val = int(val)
+                except (ValueError, OverflowError):
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        pass
+                except TypeError:
+                    pass
+            new_attributes[intern(key)] = val
+        return new_attributes
+
     def __initialize_with_bed12(self, transcript_row: BED12):
 
         """
@@ -333,6 +355,8 @@ class TranscriptBase:
                     cds.append((int(max(exon[0], transcript_row.thick_start)),
                                 int(min(exon[1], transcript_row.thick_end))))
             self.add_exons(cds, features="CDS")
+
+        self.attributes = self.__parse_attributes(transcript_row.attributes)
         self.finalize()
 
     def __initialize_with_bam(self, transcript_row: pysam.AlignedSegment):
@@ -423,26 +447,7 @@ class TranscriptBase:
         self.score = transcript_row.score
         self.scores = dict()
 
-        booleans = {"True": True, "False": False, "None": None}
-
-        for key, val in transcript_row.attributes.items():
-            if not isinstance(val, Hashable):
-                pass
-            elif val in booleans:
-                val = booleans[val]
-            elif isinstance(val, bool):
-                pass
-            else:
-                try:
-                    val = int(val)
-                except (ValueError, OverflowError):
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        pass
-                except TypeError:
-                    pass
-            self.attributes[intern(key)] = val
+        self.attributes = self.__parse_attributes(transcript_row.attributes)
 
         self.blast_hits = []
         if transcript_row.is_transcript is False:
@@ -794,8 +799,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             row.block_sizes = [0]
             row = BED12(row, seq,
                         coding=False, transcriptomic=True, max_regression=0, start_adjustment=False,
+                        lenient=True,
                         table=self.codon_table)
-            assert row.invalid is False, ("\n".join([str(row), row.invalid_reason]))
+            if row.invalid is True:
+                raise AssertionError("\n".join([str(row), row.invalid_reason]))
             yield row
         else:
             for index, iorf in enumerate(self.internal_orfs):
@@ -832,8 +839,10 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 new_row.phase = phase
                 # self.logger.debug(new_row)
                 new_row = BED12(new_row,
+                                lenient=False,
                                 sequence=seq,
                                 phase=phase,
+                                logger=self.logger,
                                 coding=True, transcriptomic=True, max_regression=0, start_adjustment=False,
                                 table=self.codon_table)
                 if (cds_len - phase) % 3 != 0 and cds_end not in (self.start, self.end):
@@ -889,39 +898,51 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         return self.__configuration
 
     @property
-    def frames(self):
+    def frames(self) -> dict:
         """This property will return a dictionary with three keys - the three possible frames, 0, 1 and 2 - and within
         each, a set of the positions that are in that frame. If the transcript does not have """
         self.finalize()
-        frames = {0: set(), 1: set(), 2: set()}
-        for orf in self.internal_orfs:
-            if self.strand == "-":
-                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
-                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
-                for start, end, phase in exons:
-                    frame = ((3 - phase) % 3 - 1) % 3
-                    for pos in range(end, start - 1, -1):
-                        frame = abs((frame + 1) % 3)
-                        frames[frame].add(pos)
-            else:
-                exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
-                                if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
-                for start, end, phase in exons:
-                    frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
-                    for pos in range(start, end + 1):
-                        frame = abs((frame + 1) % 3)
-                        frames[frame].add(pos)
-        return frames
+
+        @functools.lru_cache()
+        def calculate_frames(internal_orfs, strand) -> dict:
+            frames = {0: set(), 1: set(), 2: set()}
+            for orf in internal_orfs:
+                if strand == "-":
+                    exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                    if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=True)
+                    for start, end, phase in exons:
+                        frame = ((3 - phase) % 3 - 1) % 3
+                        for pos in range(end, start - 1, -1):
+                            frame = abs((frame + 1) % 3)
+                            frames[frame].add(pos)
+                else:
+                    exons = sorted([(_[1][0], _[1][1], _[2]) for _ in orf
+                                    if _[0] == "CDS"], key=operator.itemgetter(0, 1), reverse=False)
+                    for start, end, phase in exons:
+                        frame = ((3 - phase) % 3 - 1) % 3  # Previous frame before beginning of the feature
+                        for pos in range(start, end + 1):
+                            frame = abs((frame + 1) % 3)
+                            frames[frame].add(pos)
+            for frame in frames:
+                frames[frame] = frozenset(frames[frame])
+            return frames
+
+        return calculate_frames(tuple(tuple(_) for _ in self.internal_orfs), self.strand)
 
     @property
-    def framed_codons(self):
+    def framed_codons(self) -> List:
         """Return the list of codons as calculated by self.frames."""
 
-        codons = list(zip(*[sorted(self.frames[0]), sorted(self.frames[1]), sorted(self.frames[2])]))
-        if self.strand == "-":
-            codons = list(reversed(codons))
+        @functools.lru_cache()
+        def calculate_codons(frames, strand) -> list:
+            # Reconvert to dictionary. We had to turn into a tuple of items for hashing.
+            frames = dict(frames)
+            codons = list(zip(*[sorted(frames[0]), sorted(frames[1]), sorted(frames[2])]))
+            if strand == "-":
+                codons = list(reversed(codons))
+            return codons
 
-        return codons
+        return calculate_codons(tuple(self.frames.items()), self.strand)
 
     @property
     def _selected_orf_transcript(self):
@@ -939,16 +960,14 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         Note: this will exclude the UTR part, even when the transcript only has one ORF."""
 
         self.finalize()
-        if not self.is_coding:
-            return []
-        elif len(self.__internal_orf_transcripts) == len(self.internal_orfs):
-            return self.__internal_orf_transcripts
-        else:
-            for num, orf in enumerate(self.internal_orfs, start=1):
+        @functools.lru_cache()
+        def calculate_orf_transcripts(internal_orfs, chrom, strand, tid):
+            orf_transcripts = []
+            for num, orf in enumerate(internal_orfs, start=1):
                 torf = TranscriptBase()
-                torf.chrom, torf.strand = self.chrom, self.strand
-                torf.derives_from = self.id
-                torf.id = "{}.orf{}".format(self.id, num)
+                torf.chrom, torf.strand = chrom, strand
+                torf.derives_from = tid
+                torf.id = "{}.orf{}".format(tid, num)
                 __exons, __phases = [], []
                 for segment in [_ for _ in orf if _[0] == "CDS"]:
                     __exons.append(segment[1])
@@ -956,9 +975,13 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                 torf.add_exons(__exons, features="exon", phases=None)
                 torf.add_exons(__exons, features="CDS", phases=__phases)
                 torf.finalize()
-                self.__internal_orf_transcripts.append(torf)
+                orf_transcripts.append(torf)
+            return orf_transcripts
 
-        return self.__internal_orf_transcripts
+        orf_transcripts = calculate_orf_transcripts(tuple(tuple(_) for _ in self.internal_orfs),
+                                                    self.chrom, self.strand, self.id)
+
+        return orf_transcripts
 
     def as_bed12(self) -> BED12:
 
@@ -992,14 +1015,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
 
         if exon in self.exons:
             self.exons.remove(exon)
-            if ("exon", exon) in self.segments:
-                self.segments.remove(("exon", exon))
-            tr = set()
-            for segment in self.segments:
-                if self.overlap(segment[1], exon) >= 0:
-                    tr.add(segment)
-            for _ in tr:
-                self.segments.remove(_)
             tr = set()
             for segment in self.combined_cds:
                 if self.overlap(segment, exon) >= 0:
@@ -1056,7 +1071,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.start = cds_start
         self.end = cds_end
         self.internal_orfs, self.combined_utr = [], []
-        self.segments = []
         # Need to recalculate it
         self._cdna_length = None
         self.finalize()
@@ -1089,7 +1103,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self._selected_cds_introns = set()
         self.selected_internal_orf_index = None
         self.combined_utr = []
-        self.segments = []
         self.internal_orfs = []
         self.finalize()
 
@@ -1131,7 +1144,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             return
 
         self.internal_orfs = []
-        self.__internal_orf_transcripts = []
         self.combined_utr = []
         self._cdna_length = None
         self.finalized = False
@@ -1207,10 +1219,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         # Now let'add the things that we calculate with the basic lengths
         state["calculated"] = self.__get_calculated_stats()
         state["feature"] = self.feature
-        state["segments"] = []
-        for segment in self.segments:
-            segment = [segment[0], [segment[1][0], segment[1][1]]]
-            state["segments"].append(segment)
 
         for metric in mmetrics:
             state[metric] = getattr(self, metric)
@@ -1245,7 +1253,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.combined_cds = []
         self._selected_cds_introns = set()
         self._combined_cds_introns = set()
-        self.segments = []
         self._cdna_length = None
 
         for dump, store in zip(
@@ -1259,14 +1266,6 @@ exon data is on a different chromosome, {exon_data.chrom}. \
                     store.add(tuple(iv))
                 else:
                     store.append(tuple(iv))
-
-        for segment in state["segments"]:
-            if len(segment) != 2:
-                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
-            feature, (start, end) = segment
-            if not all([isinstance(feature, str), isinstance(start, int), isinstance(end, int)]):
-                raise CorruptIndex("Invalid segment values for {}: {}".format(self.id, segment))
-            self.segments.append((feature, (start, end)))
 
         self.splices = set(state["splices"])
         self._trust_orf = trust_orf
@@ -1741,10 +1740,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
     @property
     def gene(self):
 
-        if "gene_id" not in self.attributes:
-            self.attributes["gene_id"] = self.parent[0]
-
-        return self.attributes["gene_id"]
+        return self.attributes.get("gene_id", self.parent[0])
 
     @property
     def location(self):
@@ -1774,7 +1770,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
             if not isinstance(score, (float, int)):
                 try:
                     score = float(score)
-                except:
+                except (ValueError, TypeError):
                     raise ValueError(
                         "Invalid value for score: {0}, type {1}".format(score, type(score)))
         self.__score = score

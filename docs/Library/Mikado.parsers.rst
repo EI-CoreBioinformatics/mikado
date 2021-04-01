@@ -13,6 +13,7 @@ Submodules
    Mikado.parsers.bed12
    Mikado.parsers.blast_utils
    Mikado.parsers.gfannotation
+   Mikado.parsers.parser
 
 Module contents
 ---------------

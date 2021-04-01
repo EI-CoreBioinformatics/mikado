@@ -9,7 +9,7 @@ from time import sleep
 import os
 from Bio import Seq
 import Bio.SeqRecord
-from .parser import Parser
+from .parser import Parser, _attribute_definition
 from sys import intern
 import copy
 from ..exceptions import InvalidParsingFormat
@@ -339,6 +339,7 @@ class BED12:
         self.alias = None
         self.__logger = create_null_logger()
         self.logger = logger
+        self.attributes = dict()
         self.logger.debug("Set the basic properties for %s", self.chrom)
 
         if len(args) == 0:
@@ -390,6 +391,7 @@ class BED12:
             raise InvalidParsingFormat("I need an ordered array, not {0}".format(type(self._line)))
         else:
             self._fields = self._line
+            print("Line", self._fields)
             self.__set_values_from_fields()
 
         self.__check_validity(transcriptomic, fasta_index, sequence)
@@ -404,7 +406,6 @@ class BED12:
     @property
     def is_transcript(self):
         """BED12 files are always transcripts for Mikado."""
-
         return True
 
     @property
@@ -495,6 +496,7 @@ class BED12:
         """
 
         self.attribute_order = []
+        print("Parsing", attributes)
 
         infolist = self._attribute_pattern.findall(attributes.rstrip().rstrip(";"))
 
@@ -514,6 +516,8 @@ class BED12:
             elif key.lower() == "id":
                 self.name = val
             else:
+                print(key.capitalize(), val)
+                self.attributes[key.capitalize()] = _attribute_definition(val)
                 continue
 
     def __set_values_from_fields(self):
@@ -546,9 +550,10 @@ class BED12:
             self.block_starts = [int(x) for x in block_starts.split(",") if x]
         else:
             self.block_starts = [int(x) for x in block_starts]
-        self._parse_attributes(self.name)
+        to_parse = self.name
         if len(self._fields) == 13:
-            self._parse_attributes(self._fields[-1])
+            to_parse = ";".join([to_parse, self._fields[-1]])
+        self._parse_attributes(to_parse)
         self.has_start_codon = False
         self.has_stop_codon = False
         self.start_codon = None
@@ -668,7 +673,7 @@ class BED12:
                               self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
 
             # Get only a proper multiple of three
-            if self.__lenient is False:
+            if self.lenient is False and self.coding is True:
                 if self.strand != "-":
                     orf_sequence = sequence[
                                    (self.thick_start - 1 if not self.phase
@@ -685,6 +690,19 @@ class BED12:
                                                 gap='N')
 
                 self._internal_stop_codons = str(translated_seq).count("*")
+                if self._internal_stop_codons == 0 and len(orf_sequence[last_pos:]) > 3:
+                    if orf_sequence[last_pos:][:3] in self.table.stop_codons:
+                        # We need to shift either the thick start or the thick end. Note that last_pos is negative
+                        # so we need to minus it.
+                        if self.strand == "-":
+                            self.thick_start += -last_pos % 3
+                            self.logger.warning(
+                                f"Shifting the position of the thick start of {self.name} by {-last_pos % 3}")
+                        else:
+                            self.thick_end -= -last_pos % 3
+                            self.logger.warning(
+                                f"Shifting the position of the thick end of {self.name} by {-last_pos % 3}")
+
             del self.invalid
             if self.__is_invalid() is True:
                 return
@@ -743,7 +761,7 @@ class BED12:
                         self.chrom, self.invalid, self.invalid_reason)
                     break
         else:
-            self.__regression(orf_sequence)
+            self._regression(orf_sequence)
 
         if self.has_start_codon is False:
             # The validity will be automatically checked
@@ -772,7 +790,7 @@ class BED12:
             self.logger.debug("%s is not coding after checking. Reason: %s", self.chrom, self.invalid_reason)
             self.coding = False
 
-    def __regression(self, orf_sequence):
+    def _regression(self, orf_sequence):
         self.logger.debug(
             "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s; phase %s)",
             self.chrom, self.end, self.thick_start, self.thick_end, self.phase)
@@ -834,18 +852,12 @@ class BED12:
                 return "#"
 
         line = [self.chrom, self.start - 1, self.end]
-
-        if self.transcriptomic is True:
-            name = "ID={};coding={}".format(self.id, self.coding)
-            if self.coding:
-                name += ";phase={}".format(self.phase)
-            if self.alias is not None and self.alias != self.id:
-                name += ";alias={}".format(self.alias)
-
-            line.append(name)
-        else:
-            line.append(self.name)
-
+        name = "ID={};coding={}".format(self.id, self.coding)
+        if self.coding:
+            name += ";phase={}".format(self.phase)
+        if self.alias is not None and self.alias != self.id:
+            name += ";alias={}".format(self.alias)
+        line.append(name)
         if not self.score:
             line.append(0)
         else:
@@ -862,6 +874,20 @@ class BED12:
         line.append(self.block_count)
         line.append(",".join([str(x) for x in self.block_sizes]))
         line.append(",".join([str(x) for x in self.block_starts]))
+        attributes = dict((key.lower(), val) for key, val in self.attributes.items() if key.lower() not in
+                          ("geneid", "gene_id", "name", "phase", "coding", "alias", "id"))
+        if self.parent is not None:
+            attributes["Parent"] = self.parent[0]
+            assert "Parent" in attributes
+        elif "parent" in attributes:
+            parent = attributes.pop("parent")
+            if isinstance(parent, (tuple, list)) and len(parent) > 0:
+                parent = ",".join(parent)
+            elif isinstance(parent, (tuple, list)) and len(parent) == 0:
+                parent = None
+            attributes["Parent"] = parent
+        if attributes:
+            line.append(";".join(f"{key}={val}" for key, val in attributes.items() if val is not None))
         return "\t".join([str(x) for x in line])
 
     def __eq__(self, other):
@@ -1011,6 +1037,10 @@ class BED12:
     def invalid(self):
         self.__invalid = None
 
+    @property
+    def lenient(self):
+        return self.__lenient
+
     def __is_invalid(self):
 
         if self._internal_stop_codons >= 1:
@@ -1045,7 +1075,7 @@ class BED12:
                 )
                 return True
 
-            if self.__lenient is True:
+            if self.lenient is True:
                 pass
             else:
                 if (self.cds_len - self.phase) % 3 != 0:

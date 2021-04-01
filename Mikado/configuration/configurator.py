@@ -185,11 +185,14 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
                 try:
                     config = DaijinConfiguration.Schema().load(config, partial=external)
                 except marshmallow.exceptions.ValidationError as exc:
-                    logger.critical("The configuration file is invalid. Validation errors:\n%s\n%s\n\n",
-                                    pprint.pformat(mikado_exc.messages),
-                                    pprint.pformat(exc.messages))
+
+                    exc = marshmallow.exceptions.ValidationError(
+                        "The configuration file is invalid. \n"
+                        f"Validation errors if a Daijin configuration file was expected:\n{exc}\n"
+                        f"Validation errors if a Mikado configuration file was expected:\n{mikado_exc}"
+                    )
                     logger.critical(exc)
-                    raise
+                    raise exc
 
             config.filename = raw_configuration
             if config.scoring is None:
@@ -202,7 +205,7 @@ def load_and_validate_config(raw_configuration: Union[None, MikadoConfiguration,
         raise
     except Exception as exc:
         logger.exception("Loading the configuration file failed with error:\n%s\n\n\n", exc)
-        raise InvalidConfiguration("The configuration file passed is invalid. Please double check.")
+        raise InvalidConfiguration(f"The configuration file passed is invalid. Please double check. Exception: {exc}")
 
     random.seed(config.seed % (2 ** 32 - 1))
 

@@ -3,80 +3,110 @@
 Tutorial
 ========
 
-This tutorial will guide you through a simple analysis of Mikado, using a small amount of data coming from an experiment on *Arabidopsis thaliana*. RNA-Seq data was obtained from `study PRJEB7093 on ENA <http://www.ebi.ac.uk/ena/data/view/PRJEB7093>`_, aligned with STAR [STAR]_ against the `TAIR10 <http://www.arabidopsis.org>`_ reference genome, and assembled with four different programs. For this small example, we are going to focus on a small genomic region: Chr5, from 26,575,364 to 26,614,205.
+This tutorial will guide you through a simple analysis of Mikado, using a small amount of data coming from an
+experiment on *Arabidopsis thaliana*. RNA-Seq data was obtained from `study PRJEB7093 on ENA <http://www.ebi.ac
+.uk/ena/data/view/PRJEB7093>`_, aligned with STAR [STAR]_ against the `TAIR10 <http://www.arabidopsis.org>`_
+reference genome, and assembled with four different programs. For this small example, we are going to focus on a
+small genomic region: Chr5, from 26,575,364 to 26,614,205.
 
 During this analysis, you will require the following files:
 
 * :download:`chr5.fas.gz <chr5.fas.gz>`: a FASTA file containing the Chr5 of *A. thaliana*.
-* :download:`reference.gff3`: a GFF3 file with the annotation of the genomic slice we are interested in, for comparison purposes.
-* :download:`junctions.bed <junctions.bed>`: a BED12 file of reliable splicing junctions in the region, identified using Portcullis [Portcullis]_
+* :download:`reference.gff3`: a GFF3 file with the annotation of the genomic slice we are interested in, for
+  comparison purposes.
+* :download:`junctions.bed <junctions.bed>`: a BED12 file of reliable splicing junctions in the region, identified
+  using Portcullis [Portcullis]_
 * :download:`class.gtf`: a GTF file of transcripts assembled using CLASS [Class2]_
 * :download:`cufflinks.gtf`: a GTF file of transcripts assembled using Cufflinks [Cufflinks]_
 * :download:`stringtie.gtf`: a GTF file of transcripts assembled using Stringtie [StringTie]_
 * :download:`trinity.gff3`: a GFF3 file of transcripts assembled using Trinity [Trinity]_ and aligned using GMAP [GMAP]_
 * :download:`orfs.bed`: a BED12 file containing the ORFs of the above transcripts, derived using TransDecoder [Trinity]_
-* :download:`uniprot_sprot_plants.fasta.gz`: a FASTA file containing the plant proteins released with SwissProt [Uniprot]_
+* :download:`uniprot_sprot_plants.fasta.gz`: a FASTA file containing the plant proteins released with SwissProt
+  [Uniprot]_
 
-All of this data can also be found in the ``sample_data`` directory of the `Mikado source <http://www.github.com/EI-CoreBioinformatics/Mikado>`_.
+All of this data can also be found in the ``sample_data`` directory of the `Mikado source <https://www.github
+.com/EI-CoreBioinformatics/Mikado>`_.
 
 You will also require the following software:
 
 * a functioning installation of SQLite.
 * a functioning version of BLAST+ [Blastplus]_.
+* a functioning version of Prodigal [Prodigal]_.
 
 Creating the configuration file for Mikado
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the first step, we need to create a configuration file to drive Mikado. To do so, we will first create a tab-delimited file describing our assemblies (class.gtf, cufflinks.gtf, stringtie.gtf, trinity.gff3)::
+In the first step, we need to create a configuration file to drive Mikado. To do so, we will first create a
+tab-delimited file describing our assemblies (class.gtf, cufflinks.gtf, stringtie.gtf, trinity.gff3)::
 
-    class.gtf	cl	True
-    cufflinks.gtf	cuff	True
-    stringtie.gtf	st	True    1
-    trinity.gff3	tr	False   -0.5
+    class.gtf       cl      True            False   False   True
+    cufflinks.gtf   cuff    True            False   False   True
+    stringtie.gtf   st      True    1       False   True    True
+    trinity.gff3    tr      False   -0.5    False   False   True
+    reference.gff3  at      True    5       True    False   False
+    pacbio.bam      pb      True    1       False   False   False
 
-In this file, the three fields define the following:
+In this file, the first three fields define the following:
 
-#. The file location and name (if no folder is specified, Mikado will look for each file in the current working directory)
+#. The file location and name (if no folder is specified, Mikado will look for each file in the current working
+directory)
 #. An alias associated with the file, which has to be unique
 #. A binary flag (``True`` / ``False``) indicating whether the assembly is strand-specific or not
-#. An optional fourth field which defines a score associated with that sample. All transcripts associated with the label will have their score corrected by the value on this field. So eg. in this example all Stringtie models will receive an additional point, and all Trinity models will be penalised by half a point. Class and Cufflinks have no special bonus or malus associated with them.
 
-Then, we will decompress the chromosome FASTA file:
+These fields are then followed by a series of **optional** fields:
 
-.. code-block:: bash
-
-    gunzip chr5.fas.gz  # This will create the file chr5.fas
+#. A score associated with that sample. All transcripts associated with the label will have their score corrected by
+   the value on this field. So eg. in this example all Stringtie models will receive an additional point, and all
+   Trinity models will be penalised by half a point. Class and Cufflinks have no special bonus or malus associated.
+#. A binary flag (``True`` / ``False``) defining whether the sample is a reference or not.
+#. A binary flag (``True`` / ``False``) defining whether to exclude redundant models or not.
+#. A binary flag (``True`` / ``False``) indicating whether Mikado prepare should strip the CDS of faulty models, but
+   otherwise keep their cDNA structure in the final output (``True``) or whether instead it should completely discard
+   such models (``False``).
+#. A binary flag (``True`` / ``False``) instructing Mikado about whether the chimera split routine should be skipped
+   for these models (``True``) or if instead it should proceed normally (``False``).
 
 Finally, we will create the configuration file itself using ``mikado configure``:
 
 .. code-block:: bash
 
-    mikado configure --list list.txt --reference chr5.fas --mode permissive --scoring plants.yaml  --copy-scoring plants.yaml --junctions junctions.bed -bt uniprot_sprot_plants.fasta configuration.yaml
+    mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --scoring plants.yaml  --copy-scoring
+plants.yaml --junctions junctions.bed -bt uniprot_sprot_plants.fasta configuration.yaml
 
-This will create a configuration.yaml file with the parameters that were specified on the command line. This is :ref:`simplified configuration file <conf_anatomy>`, containing all the necessary parameters for the Mikado run. It will also copy the ``plants.yaml`` file from the Mikado installation to your current working directory.
-The parameters we used for the command line instruct Mikado in the following ways:
+This will create a configuration.yaml file with the parameters that were specified on the command line. This is
+:ref:`simplified configuration file <conf_anatomy>`, containing all the necessary parameters for the Mikado run. It
+will also copy the ``plants.yaml`` file from the Mikado installation to your current working directory.
 
-Alternatively, we could use a BGZIP-compressed file as input for ``mikado configure``:
+.. hint:: Mikado can accept compressed genome FASTA files, like in this example, as long as they have been compressed
+          with BGZip rather than the vanilla UNIX GZip.
 
-.. code-block:: bash
-    bgzip chr5.fas
-    samtools faidx chr5.fas.gz
-    mikado configure --list list.txt --reference chr5.fas.gz --mode permissive --scoring plants.yaml  --copy-scoring plants.yaml --junctions junctions.bed -bt uniprot_sprot_plants.fasta configuration.yaml
-
-* *--list list.txt*: this part of the command line instructs Mikado to read the file we just created to understand where the input files are and how to treat them.
+* *--list list.txt*: this part of the command line instructs Mikado to read the file we just created to understand
+  where the input files are and how to treat them.
+* *--scoring*: the scoring file to use. Mikado ships with two pre-calculated scoring files, `plant.yaml` and
+`mammalian.yaml`
+* *--copy-scoring*: instruct Mikado to copy the scoring file from the installation directory to the current
+directory, so that the experimenter can modify it as needed.
 * *--reference chr5.fas*: this part of the command line instructs Mikado on the location of the genome file.
-* *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation <chimera_splitting_algorithm>` for details.
-* *--junctions junctions.bed*: this part of the command line instructs Mikado to consider this file as the source of reliable splicing junctions.
-* *-bt uniprot_sprot_plants.fasta*: this part of the command line instructs Mikado to consider this file as the BLAST database which will be used for deriving homology information.
+* *--mode permissive*: the mode in which Mikado will treat cases of chimeras. See the :ref:`documentation
+  <chimera_splitting_algorithm>` for details.
+* *--junctions junctions.bed*: this part of the command line instructs Mikado to consider this file as the source of
+  reliable splicing junctions.
+* *-bt uniprot_sprot_plants.fasta*: this part of the command line instructs Mikado to consider this file as the BLAST
+  database which will be used for deriving homology information.
 
-.. hint:: The *--copy-scoring* argument is usually not necessary, however, it allows you to easily inspect the :ref:`scoring file <scoring_files>` we are going to use  during this run.
+.. hint:: The *--copy-scoring* argument is usually not necessary, however, it allows you to easily inspect the
+:ref:`scoring file <scoring_files>` we are going to use  during this run.
 
-.. hint:: Mikado provides a handful of pre-configured scoring files for different species. However, we do recommend inspecting and tweaking your scoring file to cater to your species. We provide a guide on how to create your own configuration files :ref:`here <configure-scoring-tutorial>`.
+.. hint:: Mikado provides a handful of pre-configured scoring files for different species. However, we do recommend
+inspecting and tweaking your scoring file to cater to your species. We provide a guide on how to create your own
+configuration files :ref:`here <configure-scoring-tutorial>`.
 
 Mikado prepare
 ~~~~~~~~~~~~~~
 
-The subsequent step involves running ``mikado prepare`` to create a :ref:`sorted, non-redundant GTF with all the input assemblies <prepare>`. As we have already created a configuration file with all the details regarding the input files, this will require us only to issue the command:
+The subsequent step involves running ``mikado prepare`` to create a :ref:`sorted, non-redundant GTF with all the
+input assemblies <prepare>`. As we have already created a configuration file with all the details regarding the input
+files, this will require us only to issue the command:
 
 .. code-block:: bash
 
@@ -117,48 +147,88 @@ To create this file, we will proceed as follows:
 
     .. code-block:: bash
 
-        blastx -max_target_seqs 5 -num_threads 10 -query mikado_prepared.fasta -outfmt 5 -db uniprot_sprot_plants.fasta -evalue 0.000001 2> blast.log | sed '/^$/d' | gzip -c - > mikado.blast.xml.gz
+        blastx -max_target_seqs 5 -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send
+evalue bitscore ppos btop"
+        -num_threads 10 -query mikado_prepared.fasta -db uniprot_sprot_plants.fasta -out mikado_prepared.blast.tsv
 
-This will produce the ``mikado.blast.xml.gz`` file, which contains the homology information for the run.
+This will produce the ``mikado_prepared.blast.tsv`` file, which contains the homology information for the run.
+
+.. warning:: Mikado requires a **custom** tabular file from BLAST, as we rely on the information on extra fields such
+             as e.g. ``btop``. Therefore the custom fields following ``-outfmt 6`` are **not** optional.
+
+ORF calculation for the transcripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many of the metrics used by Mikado to evaluate and rank transcripts rely on the definition or their coding regions
+(CDS). It is therefore *highly recommended* to use an ORF predictor to define the coding regions for each transcript
+identified by `mikado prepare`. We directly support two different products:
+
+* :ref:`Prodigal <https://github.com/hyattpd/Prodigal/>`, a fast ORF predictor, capable of calculating thousands of
+  ORFs in seconds. However, as it was originally developed for ORF calling in bacterial genomes, it may occasionally
+  not provide the best possible answer.
+* :ref:`TransDecoder <https://github.com/TransDecoder/TransDecoder/>`, a slower ORF predictor that is however more
+  specialised for eukaryotes.
+
+For this tutorial we are going to use Prodigal. Using it is very straighforward:
+
+.. code-block:: bash
+
+  prodigal -i mikado_prepared.fasta -g 1 -o mikado.orfs.gff3 -f gff
+
+
+.. warning:: Prodigal by default uses the 'Bacterial' codon translation table, which is of course not appropriate at
+             all for our eukariote genome. Therefore, it is essential to set ``-g 1`` on the command line.
+             By the same token, as prodigal normally would output the CDS prediction in GenBank format (currently not
+             supported by Mikado), we have to instruct Prodigal to emit its CDS predictions in GFF format.
+
 
 Mikado serialise
 ~~~~~~~~~~~~~~~~
 
-This step involves running ``mikado serialise`` to create a SQLite database with all the information that mikado needs to perform its analysis. As most of the parameters are already specified inside the configuration file, the command line is quite simple:
+This step involves running ``mikado serialise`` to create a SQLite database with all the information that mikado
+needs to perform its analysis. As most of the parameters are already specified inside the configuration file, the
+command line is quite simple:
 
 .. code-block:: bash
 
-    mikado serialise --json-conf configuration.yaml --xml mikado.blast.xml.gz --orfs mikado.bed --blast_targets
+    mikado serialise --json-conf configuration.yaml --xml mikado_prepared.blast.tsv --orfs mikado.orfs.gff3
+--blast_targets uniprot_sprot_plants.fasta --junctions junctions.bed
 
 After mikado serialise has run, it will have created two files:
 
 #. ``mikado.db``, the SQLite database that will be used by ``pick`` to perform its analysis.
 #. ``serialise.log``, the log of the run.
 
-If you inspect the SQLite database ``mikado.db``, you will see it contains six different tables::
+If you inspect the SQLite database ``mikado.db``, you will see it contains nine different tables::
 
-    $ sqlite3 mikado.db
-    SQLite version 3.8.2 2013-12-06 14:53:30
-    Enter ".help" for instructions
-    Enter SQL statements terminated with a ";"
-    sqlite> .tables
-    chrom      hit        hsp        junctions  orf        query      target
+    $ sqlite3 mikado.db ".tables"
+    chrom             hit               orf
+    external          hsp               query
+    external_sources  junctions         target
 
-These tables contain the information coming, in order, from the genome FAI, the BLAST XML, the junctions BED file, the ORFs BED file, and finally the input transcripts and the proteins. For more details on the database structure, please refer to the section on :ref:`this step <serialise>` in this documentation.
+These tables contain the information coming from the genome FAI, the BLAST XML, the junctions BED file,
+the ORFs BED file, and finally the input transcripts and the proteins. There are two additional tables (``external``
+and ``external_sources``) which in other runs would contain information on additional data, provided as tabular files.
+
+For more details on the database structure, please refer to the section on :ref:`this step <serialise>` in this
+documentation.
 
 Mikado pick
 ~~~~~~~~~~~
 
-Finally, during this step ``mikado pick`` will integrate the data present in the database with the positional and structural data present in the GTF file :ref:`to select the best transcript models <pick>`. The command line to be issued is the following:
+Finally, during this step ``mikado pick`` will integrate the data present in the database with the positional and
+structural data present in the GTF file :ref:`to select the best transcript models <pick>`. The command line to be
+issued is the following:
 
 .. code-block:: bash
 
-    mikado pick --json-conf configuration.yaml --subloci_out mikado.subloci.gff3
+    mikado pick --configuration configuration.yaml --subloci_out mikado.subloci.gff3
 
 At this step, we have to specify only some parameters for ``pick`` to function:
 
-* *json-conf*: the configuration file. This is the only compulsory option.
-* *subloci_out*: the partial results concerning the *subloci* step during the selection process will be written to ``mikado.subloci.gff3``.
+* *--configuration*: the configuration file. This is the only compulsory option.
+* *--subloci_out*: the partial results concerning the *subloci* step during the selection process will be written to
+``mikado.subloci.gff3``.
 
 ``mikado pick`` will produce the following output files:
 
@@ -329,7 +399,8 @@ After selecting the best transcripts in each locus, Mikado has discarded most of
 Analysing the tutorial data with Snakemake
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The workflow described in this tutorial can be executed automatically using Snakemake [Snake]_ with :download:`this Snakefile <Snakefile>`. Just execute:
+The workflow described in this tutorial can be executed automatically using Snakemake [Snake]_ with :download:`this Snakefile <Snakefile>`.
+Just execute:
 
 .. code-block:: bash
 
@@ -341,5 +412,3 @@ in the directory where you have downloaded all of the tutorial files. In graph r
         :align: center
         :scale: 50%
         :figwidth: 100%
-
-

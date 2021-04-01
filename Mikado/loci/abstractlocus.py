@@ -375,6 +375,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             comparison = (param not in conf.value)
         elif comparison_operator == "within":
             start, end = sorted([conf.value[0], conf.value[1]])
+            try:
+                float(param)
+            except (TypeError, ValueError):
+                raise ValueError(param)
             comparison = (start <= float(param) <= end)
         elif comparison_operator == "not within":
             start, end = sorted([conf.value[0], conf.value[1]])
@@ -1079,6 +1083,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 value = "NA"
             row[key] = value
 
+        # Add the attributes
+        for param_dict in [self.configuration.scoring.scoring, self.configuration.scoring.cds_requirements.parameters,
+                           self.configuration.scoring.as_requirements.parameters,
+                           self.configuration.scoring.not_fragmentary.parameters,
+                           self.configuration.scoring.requirements.parameters]:
+            for attr_name, attr_metric in [(key, metric) for key, metric in param_dict.items()
+                                           if key.startswith("attributes")]:
+                value = transcript.attributes.get(attr_name.replace("attributes.", ""), attr_metric.default)
+                if isinstance(value, float):
+                    value = round(value, 2)
+                elif value is None or value == "":
+                    value = "NA"
+                row[attr_name] = value
+
         return row
 
     def print_metrics(self):
@@ -1281,16 +1299,21 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             evaluated = dict()
             for key in section.parameters:
-                if section.parameters[key].name is not None:
-                    name = section.parameters[key].name
+                if "attributes" in key:
+                    key_parts = key.split('.')
+                    default = section.parameters[key].default
+                    value = self.transcripts[tid].attributes.get(key_parts[1], default)
                 else:
-                    name = key
-                try:
-                    value = operator.attrgetter(name)(self.transcripts[tid])
-                except AttributeError:
-                    raise AttributeError((section_name, key, section.parameters[key]))
-                if "external" in key:
-                    value = value[0]
+                    if section.parameters[key].name is not None:
+                        name = section.parameters[key].name
+                    else:
+                        name = key
+                    try:
+                        value = operator.attrgetter(name)(self.transcripts[tid])
+                    except AttributeError:
+                        raise AttributeError((section_name, key, section.parameters[key]))
+                    if "external" in key:
+                        value = value[0]
 
                 evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used

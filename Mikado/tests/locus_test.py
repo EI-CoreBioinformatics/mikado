@@ -2271,7 +2271,7 @@ class MonoHolderTester(unittest.TestCase):
             with self.subTest(min_overlap=min_overlap):
                 cds_overlap = 0
                 for frame in range(3):
-                    cds_overlap += len(set.intersection(
+                    cds_overlap += len(frozenset.intersection(
                         self.t1.frames[frame], t2.frames[frame]
                     ))
 

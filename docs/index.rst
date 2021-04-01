@@ -94,6 +94,8 @@ Availability and License
 
 Open source code available on github: `https://github.com/EI-CoreBioinformatics/mikado <https://github.com/EI-CoreBioinformatics/mikado>`_
 
+For Linux and OSX (the latter only since v2.2.3) we also provide installation through Conda: `https://anaconda.org/bioconda/mikado <https://anaconda.org/bioconda/mikado>`.
+
 Please report any issue you might encounter to the `EI-CoreBioinformatics issue tracker <https://github.com/EI-CoreBioinformatics/mikado/issues>`_.
 
 This documentation is hosted publicly on read the docs: `https://mikado.readthedocs.org/en/latest/ <https://mikado.readthedocs.org/en/latest/>`_
@@ -103,7 +105,7 @@ Mikado is available under `GNU LGLP V3 <http://www.gnu.org/licenses/lgpl.txt>`_.
 Acknowledgements
 ~~~~~~~~~~~~~~~~
 
-Mikado has greatly benefited from the public libraries, in particular [Cython]_, the [NetworkX]_ library, Scipy and Numpy ([Scipy]_, [Numpy]_), BioPython [BioPython]_, Intervaltree [PYinterval]_, and the BX library for a Cython implementation of interval trees [BXPython]_. Mikado has also been constantly optimised using Snakeviz [Snakeviz]_, a tool which proved invaluable during the development process.
+Mikado has greatly benefited from the public libraries, in particular [Cython]_, the [NetworkX]_ library, Scipy, Numpy and Pandas ([Scipy]_, [Numpy]_, [Pandas]_), BioPython [BioPython]_, Intervaltree [PYinterval]_, and the BX library for a Cython implementation of interval trees [BXPython]_. Moreover, Mikado makes liberal use of the PySAM [PySAM]_ library for analysing SAM/BAM files as well as for working with FASTA files. Mikado has also been constantly optimised using Snakeviz [Snakeviz]_, a tool which proved invaluable during the development process.
 
 
 Credits
@@ -112,6 +114,7 @@ Credits
  - Luca Venturini (The software architect and developer)
  - Shabhonam Caim (Primary tester and analytic consultancy)
  - Daniel Mapleson (Developer of PortCullis and of the Daijin pipeline)
+ - Luis Yanes (Software developer)
  - Gemy Kaithakottil (Tester and analytic consultancy)
  - David Swarbreck (Annotation guru and ideator of the pipeline)
 
@@ -130,5 +133,6 @@ Contents
    Tutorial/Adapting
    Usage/index
    Algorithms
+   Scoring_files
    References
    Library/modules

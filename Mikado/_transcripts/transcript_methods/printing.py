@@ -377,22 +377,8 @@ def as_bed12(transcript, transcriptomic=False, with_cds=True):
             except KeyError:
                 raise KeyError((transcript.selected_cds[-1], transcript.phases))
 
-        name = "ID={ID};coding={coding};phase={phase}".format(
-            ID=transcript.id,
-            coding=transcript.is_coding,
-            # Now we have to get the phase of the first CDS exon ..
-            phase=phase)
-    else:
-        name = "ID={ID};coding={coding}".format(
-            ID=transcript.id,
-            coding=transcript.is_coding,
-            # Now we have to get the phase of the first CDS exon ..
-            )
-
-    if transcript.alias is not None and transcript.alias != transcript.id:
-        name += ";alias={}".format(transcript.alias)
-
-    bed12.name = name
+    bed12.coding = transcript.is_coding
+    bed12.name = transcript.id
     bed12.score = transcript.score if transcript.score else 0
     bed12.strand = transcript.strand
     if transcript.is_coding and with_cds is True:
@@ -407,6 +393,9 @@ def as_bed12(transcript, transcriptomic=False, with_cds=True):
         bed12.thick_end = bed12.end
         bed12.coding = False
 
+    for key, val in transcript.attributes.items():
+        bed12.attributes[key] = val
+
     bed12.block_count = transcript.exon_num
     bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
     _introns = np.concatenate([np.array([intron[1] - intron[0] + 1 for intron in sorted(transcript.introns)],
@@ -419,6 +408,7 @@ def as_bed12(transcript, transcriptomic=False, with_cds=True):
         bed12 = bed12.to_transcriptomic(alias=transcript.alias, start_adjustment=False,
                                         coding=(transcript.is_coding and with_cds))
         bed12.chrom = transcript.id
+
     return bed12
 
 

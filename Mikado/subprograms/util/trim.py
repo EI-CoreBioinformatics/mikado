@@ -134,7 +134,6 @@ def trim_end(transcript, cds_end, max_length=0):
 
     transcript.end = newlast[1]
     assert all([(exon[1] <= newlast[1] for exon in transcript.exons)])
-    assert all([(segment[1][1] <= newlast[1] for segment in transcript.segments)])
     return transcript
 
 

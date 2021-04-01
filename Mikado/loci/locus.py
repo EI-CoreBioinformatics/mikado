@@ -10,6 +10,8 @@ import itertools
 import operator
 from collections import defaultdict
 import pysam
+
+from ..scales.resultstorer import ResultStorer
 from ..transcripts.pad import pad_transcript
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
@@ -580,9 +582,14 @@ class Locus(Abstractlocus):
         evaluated = dict()
         for key in section.parameters:
             name = section.parameters[key].name
-            value = operator.attrgetter(name)(transcript)
-            if "external" in key:
-                value = value[0]
+            if 'attributes' in name:
+                name_parts = name.split('.')
+                default = section.parameters[key].default
+                value = transcript.attributes.get(name_parts[1], default)
+            else:
+                value = operator.attrgetter(name)(transcript)
+                if "external" in key:
+                    value = value[0]
 
             evaluated[key] = self.evaluate(value, section.parameters[key])
             # pylint: disable=eval-used
@@ -611,7 +618,11 @@ class Locus(Abstractlocus):
         evaluated = dict()
         for key, params in self.configuration.scoring.not_fragmentary.parameters.items():
             name = params.name
-            value = operator.attrgetter(name)(self.primary_transcript)
+            if name.startswith("attributes"):
+                default = params.default
+                value = self.primary_transcript.attributes.get(name.replace("attributes.", ""), default)
+            else:
+                value = operator.attrgetter(name)(self.primary_transcript)
             if "external" in key:
                 value = value[0]
             try:
@@ -640,7 +651,7 @@ class Locus(Abstractlocus):
         assert self.id == current_id
         return fragment
 
-    def other_is_fragment(self, other):
+    def other_is_fragment(self, other) -> (bool, Union[None, ResultStorer]):
         """
         If the 'other' locus is marked as a potential fragment (see 'is_putative_fragment'), then this function
         will check whether the other locus is within the distance and with the correct comparison class code to be
@@ -655,6 +666,10 @@ class Locus(Abstractlocus):
 
         if other.primary_transcript_id == self.primary_transcript_id:
             self.logger.debug("Self-comparisons are not allowed!")
+            return False, None
+
+        if other.is_putative_fragment() is False:
+            self.logger.debug(f"{other.id} cannot be a fragment according to the scoring file definition.")
             return False, None
 
         if any(other.transcripts[tid].is_reference is True for tid in other.transcripts.keys()):

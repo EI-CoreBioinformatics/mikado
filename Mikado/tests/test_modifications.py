@@ -1,3 +1,5 @@
+import os
+
 from Mikado._transcripts.scoring_configuration import SizeFilter
 from Mikado.scales.assignment import Assigner
 import itertools
@@ -5,7 +7,7 @@ from Mikado import utilities
 from Mikado.parsers.GFF import GffLine
 from Mikado.loci import Transcript
 from ..loci.locus import Locus, pad_transcript
-from ..parsers.bed12 import BED12
+from ..parsers.bed12 import BED12, Bed12Parser
 from ..subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
 import pysam
@@ -272,14 +274,15 @@ class TestPadding(unittest.TestCase):
         locus.add_transcript_to_locus(t2_1, check_in_locus=False)
         locus.add_transcript_to_locus(t2_2, check_in_locus=False)
         self.assertTrue(locus.primary_transcript_id == t1.id)
-        locus.logger.setLevel("DEBUG")
+        locus.logger.setLevel("INFO")
         locus.finalize_alternative_splicing(_scores={t1.id: 20, t2_1.id: 15, t2_2.id: 10})
         self.assertIn(t1.id, locus.transcripts)
         if t2_1.id in locus.transcripts:
             for tid1, tid2 in itertools.combinations(locus.transcripts.keys(), 2):
                 res, _ = Assigner.compare(locus[tid1], locus[tid2])
                 print(tid1, tid2, res.ccode)
-            self.assertNotIn(t2_1.id, locus.transcripts)
+            self.assertNotIn(t2_1.id, locus.transcripts.keys(),
+                             [(key, val.start, val.end) for key, val in locus.transcripts.items()])
 
         self.assertIn(t2_2.id, locus.transcripts, "\n".join(tr.format("bed12") for tr in locus))
         self.assertTrue(locus[t2_2.id].attributes["padded"])
@@ -346,6 +349,22 @@ class TestPadding(unittest.TestCase):
                          ((locus[ref.id].end, ref.end, template2.end, template1.end),
                          (locus[ref.id].start, ref.start, template2.start, template1.start))
                          )
+
+    @unittest.skip
+    def test_failed_expansion(self):
+        logger = create_default_logger("test_failed_expansion", level="WARNING")
+        raw = [Transcript(line, logger=logger) for line in Bed12Parser(
+            open(pkg_resources.resource_filename("Mikado.tests", os.path.join("test_pick_pad", "fail.bed12"))))]
+        transcripts = dict((_.id, _) for _ in raw)
+        [_.finalize() for _ in transcripts.values()]
+        template = transcripts["template"]  # 4535908	4540293
+        candidate = transcripts["candidate"]  # 4536444	4540027
+        backup = candidate.copy()
+        fai = pysam.FastaFile(pkg_resources.resource_filename("Mikado.tests", os.path.join("test_pick_pad",
+                                                                                           "failing_seq.fa.gz")))
+        logger.setLevel("DEBUG")
+        candidate.logger.setLevel("DEBUG")
+        pad_transcript(candidate, backup, start_transcript=template, end_transcript=template, fai=fai, logger=logger)
 
 
 if __name__ == "__main__":

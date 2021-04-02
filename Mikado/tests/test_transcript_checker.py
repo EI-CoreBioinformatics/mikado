@@ -526,6 +526,57 @@ TCTTGCTCCATTTGA""".split("\n"))
         self.assertTrue(tc.has_start_codon, tc.cdna)
         self.assertTrue(tc.has_stop_codon, tc.cdna)
 
+    def test_codon_finder_negative_strip_cds(self):
+        gtf_lines = """Chr5	TAIR10	mRNA	5335	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5697	5769	.	-	0	transcript_id "AT5G01015.1"; gene_id "AT5G01015";;
+Chr5	TAIR10	exon	5697	5769	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	CDS	5335	5576	.	-	1	transcript_id "AT5G01015.1"; gene_id "AT5G01015";
+Chr5	TAIR10	exon	5335	5576	.	-	.	transcript_id "AT5G01015.1"; gene_id "AT5G01015";"""
+
+        gtf_lines = [GtfLine(_) for _ in gtf_lines.split("\n")]
+        t = Transcript(gtf_lines[0])
+        t.add_exons(gtf_lines[1:])
+        t.finalize()
+
+        seq = str(self.genome[t.chrom][t.start - 1:t.end])
+        # Basically insert an internal stop codon. This will make the ORF tests fail, leading to the ORF being stripped
+        seq = seq[:72] + Bio.Seq.reverse_complement("TAG") + seq[75:]
+        correct_seq = "".join("""ATGGAGTCTAGCTTGCATAGTGTGATTTTCTTAGGTTTGCTTGCGACGATTCTGGTTACG
+ACCAATGGCCAAGGAGACGGGACGGGGCTAAATGCAGAAGAAATGTGGCCAGTGGAGGTG
+GGGATGGAGTATAGAGTATGGAGGAGAAAGCTGATGACGCCATTGGAGCTGTGCTTGGAG
+TGCAAATGCTGCTCCTCCACCACTTGTGCCACCATGCCTTGCTGTTTCGGCATCAATTGC
+TAGCTTCCCAACAAGCCATTTGGCGTTTGTGCCTTTGTTCCCAAGTCATGCCATTGTAAT
+TCTTGCTCCATTTGA""".split("\n"))
+        logger = create_default_logger("test_codon_finder_negative_3", level="WARNING")
+
+        with self.assertRaises(InvalidTranscript):
+            for lenient in (False, True):
+                tc = TranscriptChecker(t, seq, logger=logger, lenient=lenient, strip_faulty_cds=False)
+                tc.finalize()
+                tc.check_orf()
+
+        for lenient in (False, True):
+            tc = TranscriptChecker(t, seq, logger=logger, lenient=lenient, strip_faulty_cds=True)
+            tc.finalize()
+            correct_length = (5576 - 5335 + 1) + (5769 - 5697 + 1)
+            self.assertEqual(correct_length, len(correct_seq), (correct_length, len(correct_seq)))
+            self.assertEqual(tc.cdna_length, correct_length, (correct_length, tc.cdna_length))
+            self.assertEqual(len(tc.cdna), tc.cdna_length)
+            self.assertEqual(correct_seq, tc.cdna)
+
+            tc.check_orf()
+            self.assertFalse(tc.is_coding)
+            tc_orfs = tc.find_overlapping_cds(tc.get_internal_orf_beds())
+            self.assertEqual(1, len(tc_orfs))
+            self.assertFalse(tc_orfs[0].has_stop_codon, (tc_orfs[0], tc_orfs[0].stop_codon))
+            self.assertFalse(tc_orfs[0].has_start_codon, (tc_orfs[0], tc_orfs[0].start_codon))
+
+            self.assertFalse(tc.is_coding)
+            self.assertNotIn("has_stop_codon", tc.attributes)
+            self.assertNotIn("has_start_codon", tc.attributes)
+            self.assertFalse(tc.has_start_codon, tc.cdna)
+            self.assertFalse(tc.has_stop_codon, tc.cdna)
+
 
 if __name__ == '__main__':
     unittest.main()

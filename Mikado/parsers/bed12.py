@@ -320,6 +320,8 @@ class BED12:
         self.score = 0
         self.strand = None
         self.rgb = ''
+        self.stop_codon = self.start_codon = None
+        self.__has_start = self.__has_stop = False
         self.__block_sizes = np.zeros(1, dtype=np.int64)
         self.__block_starts = np.zeros(1, dtype=np.int64)
         self.__block_count = 1

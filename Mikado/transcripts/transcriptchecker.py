@@ -50,8 +50,9 @@ class TranscriptChecker(Transcript):
         :param strand_specific: flag. If set, transcripts will not have their strand changed.
         :type strand_specific: bool
 
-        :param lenient: boolean flag. If set, incorrect transcripts will be
-        flagged rather than discarded.
+        :param lenient: boolean flag. If set, incorrect transcripts will be flagged rather than discarded.
+                        Please note that this flag will *not* be passed on to the BED12 constructor when checking the
+                        ORFs; Mikado prepare requires correct CDSs, if one has to be present at all.
         :type lenient: bool
         """
         self.__strand_specific = False
@@ -330,7 +331,7 @@ we will not reverse it")
             return
 
         try:
-            orfs = list(self.get_internal_orf_beds())
+            orfs = self.orfs
             if len(orfs) < 1:
                 raise AssertionError("No ORFs remaining.")
         except AssertionError as exc:

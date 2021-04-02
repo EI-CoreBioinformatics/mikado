@@ -233,6 +233,11 @@ class BED12:
         :param transcriptomic: boolean flag
         :type transcriptomic: bool
 
+        :param lenient: boolean flag. If set as True, the BED12 object will skip certain checks on the validity of the
+                        CDS (e.g. the CDS length being required to be a multiple of three, after accounting for the
+                        phase).
+        :type lenient: bool
+
         Constructor method.
 
         Each instance will have:

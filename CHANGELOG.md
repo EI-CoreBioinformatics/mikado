@@ -1,3 +1,13 @@
+# Version 2.2.4
+
+Fix the Github Action tests, moving to use only Python 3.7+ (due to AsyncIO), and updated the documentation.
+
+Fix [#385](https://github.com/EI-CoreBioinformatics/mikado/issues/385): clarified and corrected the tutorial for Daijin.
+Fix [#389](https://github.com/EI-CoreBioinformatics/mikado/issues/389): Mikado now can theoretically output BED12 files from Mikado prepare. This is still 
+Fix [#395](https://github.com/EI-CoreBioinformatics/mikado/issues/395): corrected an issue in mikado prepare that left models with incorrect proteins in the input annotations. This caused mikado pick to crash during the padding procedure.
+Fix [#396](https://github.com/EI-CoreBioinformatics/mikado/issues/396): corrected and clarified the errors related to missing configuration files (e.g. incorrect scoring files being provided).
+Fix [#397](https://github.com/EI-CoreBioinformatics/mikado/issues/397): corrected a small bug in mikado prepare, when providing the input files through the CLI rather than through the configuration file.
+
 # Version 2.2.3
 
 Testing Mikado also on OSX, and adding OSX to the supported OSes in Conda.

@@ -30,20 +30,27 @@ The fields in this file are as follows, for each row:
 .. <file> <label> <strandedness(def. False)> <score(optional, def. 0)> <is_reference(optional, def. False)>
                         <exclude_redundant(optional, def. True)> strandedness, is_reference and exclude_redundant must be boolean values (True, False) score must be a valid floating number.
 
-- File name of the input file. **Mandatory**
-    - The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
-- Label for the input file. **Mandatory**
-    - Each label must be **unique** within the run.
-- Strandedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
-    - Reference files will be considered as stranded even if this value is set to False.
-- Score associated to the input file. Default 0. *Optional*. Floating numbers only.
-    - The score will be used to determine tie winners during Mikado prepare in case of redundancy. It will also be applied to transcripts during the pick stage. See :ref:`<this section later on <source_score>`
-- *is_reference*: boolean flag (either True or False, capitalization is ignored), default False.. "Reference" transcripts are treated slightly differently from the others in Mikado. Specifically:
-    - During the prepare stage, reference transcripts are never discarded on account of redundancy, short size, etc.; moreover, their strand will never be reversed on account of the internal Mikado checks.
-    - During the pick stage, reference transcripts can be given an additional boost in their scoring. Moreover, it is possible to instruct Mikado to only look for alternative splicing events of the reference transcripts.
-- *exclude_redundant*: boolean flag (either True or False, capitalization is ignored), default False. If set to True, Mikado prepare will remove any transcript in this annotation that is considered redundant (ie identical or contained within another transcript).
-    - By default, Mikado will remove only ***identical*** copies of transcripts across annotations. Datasets with this flag set will be treated as if they were going through GffRead_.
-- *skip_split*: boolean flag, default False. If set, Mikado will *not* break suspected chimeras, ie transcripts with more than one internal ORF, during the pick stage.
+
+#. File name of the input file. **Mandatory**
+    * The file name must specify a valid path (either absolute or relative) from the folder where Mikado configure is launched to the file itself.
+#. Label for the input file. **Mandatory**
+    *  Each label must be **unique** within the run.
+#. Strandedness of the annotation file. Boolean (either True or False, capitalization is ignored). **Mandatory**.
+    * Reference files will be considered as stranded even if this value is set to False.
+#. Score associated to the input file. Default 0. *Optional*. Floating numbers only.
+    * The score will be used to determine tie winners during Mikado prepare :ref:`in case of redundancy redundant-transcripts-in-prepare`. It will also be applied to transcripts during the pick stage. See :ref:`this section later on <source_score>`.
+#. *is_reference*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * "Reference" transcripts are treated slightly differently from the others in Mikado. Specifically:
+       * During the prepare stage, reference transcripts are never discarded on account of redundancy, short size, etc.; moreover, their strand will never be reversed on account of the internal Mikado checks.
+       * During the pick stage, reference transcripts can be given an additional boost in their scoring. Moreover, it is possible to instruct Mikado to only look for alternative splicing events of the reference transcripts.
+#. *exclude_redundant*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, Mikado prepare will remove any transcript in this annotation that is considered redundant (ie identical or contained within another transcript).
+       * By default, Mikado will remove only ***identical*** copies of transcripts across annotations. Datasets with this flag set will be treated as if they were going through GffRead_.
+       * See the :ref:`this section for more details <redundant-transcripts-in-prepare>`.
+#. *strip_cds*: boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, transcripts from this set will have their CDS removed. This is useful e.g. when analysing transcripts coming from GMAP.
+#. *skip_split* boolean flag (either True or False, capitalization is ignored), default False. *Optional*.
+    * If set to True, Mikado will *not* break suspected chimeras for these transcripts, ie transcripts with more than one internal ORF, during the pick stage.
 
 
 Usage
@@ -57,9 +64,7 @@ Selected command line parameters:
 - *--seed*: random seed for full reproducibility of Mikado runs.
 - *--list*: the argument to this option specifies the input annotation files for Mikado. See above.
 
-Command line help:
-
-.. code-block::
+Command line help::
 
     $ mikado configure --help
     usage: Mikado configure [-h] [--full] [--seed SEED] [--minimum-cdna-length MINIMUM_CDNA_LENGTH] [--max-intron-length MAX_INTRON_LENGTH] [--scoring SCORING] [--copy-scoring COPY_SCORING]
@@ -182,6 +187,7 @@ Global options
 The following options apply to all programs in the Mikado pipeline, and they refer to general parameters such as logging verbosity, number of threads, etc.
 
 Parameters:
+
 - *threads*: this is the number of processes/threads that will be requested by the Mikado programs. This parameter can be overridden on the command line.
 - *seed*: random seed specification, to ensure maximum reproducibility of the run.
 .. _start-methods:
@@ -459,6 +465,7 @@ This section of the configuration file deals with the :ref:`picking stage of Mik
 Each subsection of the pick configuration will be explained in its own right.
 
 .. _source_score:
+
 Giving different priorities to transcripts from different assemblies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -513,6 +520,9 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
     # is retained compared to the primary or any other valid AS. Default: false.
     # - valid_ccodes: Valid class codes for AS events. Valid codes are in categories
     # 'Alternative splicing', 'Extension' (with junction F1 lower than 100%), and Overlap (exluding m). Default: j, J, g, G, C, h
+    # - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)
+    # - max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)
+    # - max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)
     # - min_score_perc: Minimum score threshold for subsequent AS events. Only transcripts with a score at least (best) * value are retained.
     # - only_confirmed_introns: bring back AS events only when their introns are either present in the primary transcript or in the set of confirmed introns.
     # - pad: boolean switch. If true, Mikado will pad all the transcript in a gene so that their ends are the same
@@ -539,8 +549,7 @@ Parameters regarding the clustering of transcripts in loci
 
 This section influences how Mikado clusters transcripts in its multi-stage selection. The available parameters are:
 
-- *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance
-between transcripts for them to be integrated within the same superlocus.
+- *flank*: numerical. When constructing :ref:`Superloci <superloci>`, Mikado will use this value as the maximum distance between transcripts for them to be integrated within the same superlocus.
 - *cds_only*: boolean. If set to true, during the :ref:`picking stage <pick-algo>` Mikado will consider only the **primary ORF** to evaluate whether two transcripts intersect. Transcripts which eg. share introns in their UTR but have completely unrelated CDSs will be clustered separately. Disabled by default.
 - *purge*: boolean. If true, any transcript failing the :ref:`specified requirements <requirements-section>` will be purged out. Otherwise, they will be assigned a score of 0 and might potentially appear in the final output, if no other transcript is present in the locus.
 - *simple_overlap_for_monoexonic*: boolean. During the :ref:`second clustering <monosubloci>`, by default monoexonic transcripts are clustered together even if they have a very slight overlap with another transcript. Manually setting this flag to *false* will cause Mikado to cluster monoexonic transcripts only if they have a minimum amount of cDNA and CDS overlap with the other transcripts in the holder.
@@ -624,8 +633,7 @@ This section determines how Mikado will deal with :ref:`chimeras <chimera_splitt
 - *execute*: boolean. If set to *false*, Mikado will operate in the *nosplit* mode. If set to *true*, the choice of the mode will be determined by the other parameters.
 - *skip*: this is list of input assemblies (identified by the label in prepare, :ref:`above <input_file_list>`) that will **never** have the transcripts split.
 
-.. hint:: cDNAs, reference transcripts, and the like should end up in the "skip" category. These are, after all, transcripts
-that are presupposed to be originated from a single RNA molecule and therefore without fusions.
+.. hint:: cDNAs, reference transcripts, and the like should end up in the "skip" category. These are, after all, transcripts that are presupposed to be originated from a single RNA molecule and therefore without fusions.
 
 - *blast_check*: boolean. Whether to execute the check on the BLAST hits. If set to *false*, Mikado will operate in the *split* mode, unless *execute* is set to *false* (execute takes precedence over the other parameters).
 - *blast_params*: this section contains the settings relative to the *permissive*, *lenient* and *stringent* mode.

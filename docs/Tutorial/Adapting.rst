@@ -249,7 +249,6 @@ Looking at the scoring section of the file, we do not need to apply anything par
     :class: toggle
 
     .. code-block:: yaml
-       :linenos:
 
         scoring:
           snowy_blast_score: {rescaling: max}

@@ -23,6 +23,24 @@ def compiler(expression):
         raise InvalidConfiguration("Invalid expression:\n{}".format(expression))
 
 
+class Unique(validate.Validator):
+    message = "{input} is Not unique"
+
+    def __init__(self, error=None):
+        self.error = error
+
+    def _repr_args(self):
+        return ""
+
+    def _format_error(self, value):
+        return self.message.format(input=value)
+
+    def __call__(self, value):
+        if len(value) != len(set(value)):
+            raise validate.ValidationError(self._format_error(value))
+        return value
+
+
 @dataclass
 class SizeFilter:
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["gt", "ge", "lt", "le"])})
@@ -30,6 +48,7 @@ class SizeFilter:
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
     source: Optional[str] = field(default=None)
+    default: Optional[float] = field(default=0)
 
 
 @dataclass
@@ -39,42 +58,28 @@ class NumBoolEqualityFilter:
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
     source: Optional[str] = field(default=None)
+    default: Optional[Union[float, bool]] = field(default=0)
 
 
 @dataclass
 class InclusionFilter:
-    value: list = field(metadata={"required": True})
+    value: list = field(metadata={"required": True, "validate": [Unique]})
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["in", "not in"])})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
     source: Optional[str] = field(default=None)
+    default: Optional[List[float]] = field(default=None)
 
 
 @dataclass
 class RangeFilter:
-    class Unique(validate.Validator):
-        message = "{input} is Not unique"
-
-        def __init__(self, error=None):
-            self.error = error
-
-        def _repr_args(self):
-            return ""
-
-        def _format_error(self, value):
-            return self.message.format(input=value)
-
-        def __call__(self, value):
-            if len(value) != len(set(value)):
-                raise validate.ValidationError(self._format_error(value))
-            return value
-
     value: List[float] = field(metadata={
         "required": True,
         "validate": [validate.Length(min=2, max=2), Unique]})
     operator: str = field(metadata={"required": True, "validate": validate.OneOf(["within", "not within"])})
     metric: Optional[str] = field(metadata={"required": False}, default=None)
     name: Optional[str] = field(default=None)
+    default: Optional[float] = field(default=0)
 
 
 @dataclass

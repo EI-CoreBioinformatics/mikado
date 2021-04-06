@@ -16,7 +16,11 @@ This Mikado utility allows the user to compare the transcripts from any two anno
   - To understand which prediction transcript best represent each reference model
   - To have a summary information about the similarity between the two annotations.
 
-Mikado compare has been directly inspired by the popular `Cuffcompare`_ [Cufflinks]_ utility and by `ParsEval`_ [ParsEval]_. Please note that while superficially similar to Cuffcompare in the style of the output files, Mikado compare is more philosophically similar to ParsEval, as it will not try to aggregate transcripts in loci but will perform a pure comparison between the two annotation files. Both GTF and GFF files are accepted, in any combination.
+Mikado compare has been directly inspired by the popular `Cuffcompare`_ [Cufflinks]_ utility and by `ParsEval`_ [ParsEval]_.
+Please note that while superficially similar to Cuffcompare in the style of the output files, Mikado compare is more
+philosophically similar to ParsEval, as it will not try to aggregate transcripts in loci but will perform a pure comparison
+between the two annotation files. Mikado compare can accept BAM, BED12, GTF and GFF files as input, both for the reference
+or for the prediction.
 
 Usage
 ~~~~~
@@ -24,13 +28,19 @@ Usage
 Mikado compare is invoked by specifying the *reference* annotation and the desired mode of analysis. There are three possible options:
 
  #. In its default mode, compare will ask for a *prediction* annotation to compare the reference against.
- #. In the *"self"* mode, compare will do a self-comparison of the reference against itself, excluding as possible results the matches between a transcript and itself. It can be useful to glean the relationships between transcripts and genes in an annotation.
- #. In the *"internal"* mode of operations, compare will again perform a self-comparison, focussed on multi-isoform genes. For those, compare will perform and report all possible comparisons. It is useful to understand the relationships between the transcripts in a single locus.
+ #. In the *"self"* mode, compare will do a self-comparison of the reference against itself, excluding as possible results
+    the matches between a transcript and itself. It can be useful to glean the relationships between transcripts and genes
+    in an annotation.
+ #. In the *"internal"* mode of operations, compare will again perform a self-comparison, focussed on multi-isoform genes.
+    For those, compare will perform and report all possible comparisons. It is useful to understand the relationships
+    between the transcripts in a single locus.
 
+Mikado stores the information of the reference in a specialised SQLite index, with a ".midx" suffix, which will be created
+by the program upon its first execution with a new reference. If the index file is already present, Mikado will try
+to use it rather than read again the annotation.
 
-Mikado stores the information of the reference in a specialised SQLite index, with a ".midx" suffix, which will be created by the program upon its first execution with a new reference. If the index file is already present, Mikado will try to use it rather than read again the annotation.
-
-.. note: Starting from version 1.5, Mikado compare supports multiprocessing. Please note that memory usage scales approximately **linearly** with the amount of processes requested.
+.. note:: Starting from version 1.5, Mikado compare supports multiprocessing. Please note that memory usage scales
+          approximately **linearly** with the amount of processes requested.
 
 Command line
 ------------
@@ -100,7 +110,8 @@ Mikado compare produces two tabular files, tmap_ and refmap_, and one :ref:`stat
 TMAP files
 ----------
 
-TMAP are tabular files that store the information regarding the best match for each prediction in the reference. The columns are as follows:
+TMAP are tabular files that store the information regarding the best match for each prediction in the reference.
+The columns are as follows:
 
 #. **ref_id**: Transcript ID of the matched reference model(s).
 #. **ref_gene**: Gene ID of the matched reference model(s).
@@ -115,7 +126,9 @@ TMAP are tabular files that store the information regarding the best match for e
 #. **j_prec**: Splice junction precision of the prediction model ( TP / (number of splice sites in the prediction))
 #. **j_recall**: Splice junction recall of the reference model ( TP / (number of splice sites in the reference))
 #. **j_f1**: `F1`_ of recall and precision at the splice junction level.
-#. **e_prec**: Exon precision of the prediction model ( TP / (number of exons in the prediction)). **NB**: this value is calculated "leniently", ie terminal exons count as a match if the *internal* border is called correctly and the exon is terminal in both prediction and reference.
+#. **e_prec**: Exon precision of the prediction model ( TP / (number of exons in the prediction)).
+   **NB**: this value is calculated "leniently", ie terminal exons count as a match if the *internal* border is called
+   correctly and the exon is terminal in both prediction and reference.
 #. **e_recall**: Exon recall of the reference model ( TP / (number of exons in the reference))
 #. **e_f1**: `F1`_ of recall and precision at the exon level.
 #. **distance**: Distance of the model from its putative match.
@@ -128,14 +141,16 @@ An example of TMAP file is as follows::
     AT5G66600.2	AT5G66600	C	cl_Chr5.6272	cl_Chr5.6272.gene	7	9	94.95	72.43	82.18	100.00	75.00	85.71	85.71	66.67	75.00	0	Chr5:26575000..26578087
     AT5G66620.1,AT5G66630.1,AT5G66631.1	AT5G66620,AT5G66630,AT5G66631	f,j,j,G	st_Stringtie_STAR.21710.15	st_Stringtie_STAR.21710.15.gene	8	11,10,1	19.13,19.95,35.98	54.57,45.65,100.00	28.33,27.76,52.92	28.57,64.29,0.00	20.00,50.00,0.00	23.53,56.25,0.00	12.50,37.50,0.00	9.09,30.00,0.00	10.53,33.33,0.00	0	Chr5:26588402..26598231
 
-You can notice that the third example is particular as the prediction transcript matches not one but multiple reference transcripts. This is a fusion_ event.
+You can notice that the third example is particular as the prediction transcript matches not one but multiple reference
+transcripts. This is a fusion_ event.
 
 .. _refmap:
 
 RefMap files
 ------------
 
-RefMap files are tabular files which store the information regarding the best match for each reference transcript, among all possible prediction models. The columns of the file are as follows:
+RefMap files are tabular files which store the information regarding the best match for each reference transcript,
+among all possible prediction models. The columns of the file are as follows:
 
 #. **ref_id**: Transcript ID of the reference model.
 #. **ccode**: class code of the match. See :ref:`the relevant section on Class codes <ccodes>`.
@@ -143,7 +158,8 @@ RefMap files are tabular files which store the information regarding the best ma
 #. **gid**: Gene ID of the prediction model.
 #. **nF1**: `F1`_ of recall and precision at the nucleotide level.
 #. **jF1**: `F1`_ of recall and precision at the splice junction level.
-#. **eF1**: `F1`_ of recall and precision at the exon level. **NB**: this value is calculated "leniently", ie terminal exons count as a match if the *internal* border is called correctly and the exon is terminal in both prediction and reference.
+#. **eF1**: `F1`_ of recall and precision at the exon level. **NB**: this value is calculated "leniently", ie terminal
+   exons count as a match if the *internal* border is called correctly and the exon is terminal in both prediction and reference.
 #. **ref_gene**: Gene ID of the reference model.
 #. **best_ccode**: Best possible class code found for any of the transcripts of the gene.
 #. **best_tid**: Transcript ID of the prediction model which fit best one of the transcript models of the reference gene.
@@ -164,6 +180,27 @@ An example of a RefMap file is as follows::
 
 Please note that the third example (AT5G66630.1) has as best possible match a fusion_ event.
 
+Extended RefMap files
+^^^^^^^^^^^^^^^^^^^^^
+
+Mikado can optionally produce more detailed RefMap files, listing the details on recall and precision for each match
+(rather than just the F1 for each level). If the flag ``-erm`` is present on the command line, the following extra-fields
+will be present in the file:
+
+#. **nRecall**: recall at the nucleotide level.
+#. **nPrecision**: precision at the nucleotide level.
+#. **jRecall**: recall at the junction level.
+#. **jPrecision**: precision at the junction level.
+#. **eRecall**: recall at the exon level.
+#. **ePrecision**: precision at the exon level.
+#. **best_nRecall**: recall at the nucleotide level, for the best possible comparison.
+#. **best_nPrecision**: precision at the nucleotide level, for the best possible comparison.
+#. **best_jRecall**: recall at the junction level, for the best possible comparison.
+#. **best_jPrecision**: precision at the junction level, for the best possible comparison.
+#. **best_eRecall**: recall at the exon level, for the best possible comparison.
+#. **best_ePrecision**: precision at the exon level, for the best possible comparison.
+
+
 .. _stats:
 
 Stats files
@@ -172,42 +209,45 @@ Stats files
 These files provide a summary of the comparison between the reference and the annotation. An example is as follows::
 
     Command line:
-    /usr/users/ga002/venturil/py351/bin/mikado compare -r reference.gff3 -p mikado.loci.gff3 -o compare -l compare.log
-    7 reference RNAs in 5 genes
-    15 predicted RNAs in  8 genes
+    /home/lucve/miniconda3/envs/mikado2/bin/mikado compare -r reference.gff3 -p Daijin/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o compare -l compare.log
+    18 reference RNAs in 12 genes
+    22 predicted RNAs in  15 genes
     --------------------------------- |   Sn |   Pr |   F1 |
-                            Base level: 85.74  64.73  73.77
-                Exon level (stringent): 63.83  42.86  51.28
-                  Exon level (lenient): 80.00  52.94  63.72
-                          Intron level: 89.47  59.65  71.58
-                    Intron chain level: 33.33  14.29  20.00
-          Transcript level (stringent): 0.00  0.00  0.00
-      Transcript level (>=95% base F1): 28.57  13.33  18.18
-      Transcript level (>=80% base F1): 42.86  20.00  27.27
-             Gene level (100% base F1): 0.00  0.00  0.00
-            Gene level (>=95% base F1): 40.00  25.00  30.77
-            Gene level (>=80% base F1): 60.00  37.50  46.15
+                            Base level: 94.90  83.22  88.68
+                Exon level (stringent): 80.56  71.60  75.82
+                  Exon level (lenient): 91.18  76.54  83.22
+                     Splice site level: 95.19  81.15  87.61
+                          Intron level: 96.84  88.19  92.31
+                     Intron level (NR): 94.34  79.37  86.21
+                    Intron chain level: 69.23  50.00  58.06
+               Intron chain level (NR): 69.23  50.00  58.06
+          Transcript level (stringent): 55.56  45.45  50.00
+      Transcript level (>=95% base F1): 72.22  59.09  65.00
+      Transcript level (>=80% base F1): 72.22  59.09  65.00
+             Gene level (100% base F1): 75.00  60.00  66.67
+            Gene level (>=95% base F1): 83.33  66.67  74.07
+            Gene level (>=80% base F1): 83.33  66.67  74.07
 
     #   Matching: in prediction; matched: in reference.
 
-                Matching intron chains: 2
-                 Matched intron chains: 2
-       Matching monoexonic transcripts: 1
-        Matched monoexonic transcripts: 1
-            Total matching transcripts: 3
-             Total matched transcripts: 3
+                Matching intron chains: 9
+                 Matched intron chains: 9
+       Matching monoexonic transcripts: 4
+        Matched monoexonic transcripts: 4
+            Total matching transcripts: 13
+             Total matched transcripts: 13
 
-              Missed exons (stringent): 17/47  (36.17%)
-               Novel exons (stringent): 40/70  (57.14%)
-                Missed exons (lenient): 9/45  (20.00%)
-                 Novel exons (lenient): 32/68  (47.06%)
-                        Missed introns: 4/38  (10.53%)
-                         Novel introns: 23/57  (40.35%)
+              Missed exons (stringent): 14/72  (19.44%)
+               Novel exons (stringent): 23/81  (28.40%)
+                Missed exons (lenient): 6/68  (8.82%)
+                 Novel exons (lenient): 19/81  (23.46%)
+                        Missed introns: 3/53  (5.66%)
+                         Novel introns: 13/63  (20.63%)
 
-                    Missed transcripts: 0/7  (0.00%)
-                     Novel transcripts: 6/15  (40.00%)
-                          Missed genes: 0/5  (0.00%)
-                           Novel genes: 2/8  (25.00%)
+           Missed transcripts (0% nF1): 0/18  (0.00%)
+            Novel transcripts (0% nF1): 3/22  (13.64%)
+                 Missed genes (0% nF1): 0/12  (0.00%)
+                  Novel genes (0% nF1): 3/15  (20.00%)
 
 The first section of the file describes:
 
@@ -215,25 +255,39 @@ The first section of the file describes:
   #. Concordance of the two annotation at the exonic level (recall, precision, and F1), in two ways:
 
      * *"stringent"*: only perfect exonic matches are considered.
-     * *"lenient"*: in this mode, terminal exons are counted as a match if the **internal** border is matched. See the RGASP paper [RGASP]_ for details on the rationale.
-
+     * *"lenient"*: in this mode, terminal exons are counted as a match if the **internal** border is matched.
+       See the RGASP paper [RGASP]_ for details on the rationale.
+  #. Concordance of the two annotations in regards with the splice junctions, analysed independently of one another.
   #. Concordance of the two annotations at the intron level.
-  #. Concordance of the two annotations at the intron chain level - how many intron chains of the reference are found identical in the prediction. Only multiexonic models are considered for this level.
+  #. Concordance of the two annotations at the intron chain level - how many intron chains of the reference are found
+     identical in the prediction. Only multiexonic models are considered for this level.
   #. Concordance of the two annotations at the transcript level, in three different modes:
 
      * *"stringent"*: in this mode, only perfect matches are considered.
-     * *"95% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *95%* and, for multiexonic transcripts, the intron chain is reconstructed perfectly.
-     * *"80% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *80%* and, for multiexonic transcripts, the intron chain is reconstructed perfectly.
+     * *"95% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *95%* and,
+       for multiexonic transcripts, the intron chain is reconstructed perfectly.
+     * *"80% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *80%* and,
+       for multiexonic transcripts, the intron chain is reconstructed perfectly.
 
   #. Concordance of the two annotations at the gene level, in three different modes:
 
-     * *"stringent"*: in this mode, we consider reference genes for which it was possible to find at least one perfect match for one of its transcripts.
-     * *"95% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *95%* and, for multiexonic transcripts, the intron chain is reconstructed perfectly.
-     * *"80% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *80%* and, for multiexonic transcripts, the intron chain is reconstructed perfectly.
+     * *"stringent"*: in this mode, we consider reference genes for which it was possible to find at least one perfect
+       match for one of its transcripts.
+     * *"95% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *95%* and, for
+       multiexonic transcripts, the intron chain is reconstructed perfectly. The best possible match is considered for
+       this statistic.
+     * *"80% base F1"*: in this mode, we only count instances where the nucleotide F1 is greater than *80%* and, for
+       multiexonic transcripts, the intron chain is reconstructed perfectly. The best possible match is considered for
+       this statistic.
 
-In the second section, the file reports how many of the intron chains, monoexonic transcripts and total transcripts in the **reference** were *matched* by at least one *matching* **prediction** transcript. Finally, in the third section the file reports the number of missed (present in the reference but not in the prediction) or novel (viceversa - present in the prediction but not in the reference) features.
+In the second section, the file reports how many of the intron chains, monoexonic transcripts and total transcripts in
+the **reference** were *matched* by at least one *matching* **prediction** transcript. Finally, in the third section the
+file reports the number of missed (present in the reference but not in the prediction) or novel (viceversa - present in
+the prediction but not in the reference) features.
 
-.. note:: Please note that a gene might be considered as "found" even if its best match is intronic, on the opposite strand, or not directly overlapping it, or is in the opposite strand (see :ref:`next section <ccodes>`, in particular the *Intronic*, *Fragment* and *No overlap* categories).
+.. note:: Please note that a gene might be considered as "found" even if its best match is intronic, on the opposite strand,
+          or not directly overlapping it, or is in the opposite strand (see :ref:`next section <ccodes>`, in particular the
+          *Intronic*, *Fragment* and *No overlap* categories).
 
 
 .. _ccodes:
@@ -241,11 +295,15 @@ In the second section, the file reports how many of the intron chains, monoexoni
 Class codes
 ~~~~~~~~~~~
 
-In addition to recall, precision and F1 values, Mikado assign each comparison between two transcripts a *class code*, which summarises the relationship between the two transcripts. The idea is lifted from the popular tool `Cuffcompare`_, although Mikado greatly extends the catalogue of possible class codes.
+In addition to recall, precision and F1 values, Mikado assign each comparison between two transcripts a *class code*,
+which summarises the relationship between the two transcripts. The idea is lifted from the popular tool `Cuffcompare`_,
+although Mikado greatly extends the catalogue of possible class codes.
 All class codes fall within one of the following categories:
 
  - **Match**: class codes of this type indicate concordance between the two transcript models.
- - **Extension**: class codes of this type indicate that one of the two models extends the intron chain of the other, without internal interruptions. The extension can be from either perspective - either the prediction extends the reference, or it is instead *contained* within the reference (so that switching perspectives, the reference would "extend" the prediction).
+ - **Extension**: class codes of this type indicate that one of the two models extends the intron chain of the other,
+   without internal interruptions. The extension can be from either perspective - either the prediction extends the
+   reference, or it is instead *contained* within the reference (so that switching perspectives, the reference would "extend" the prediction).
  - **Alternative splicing**: the two exon chains overlap but differ in significant ways.
  - **Intronic**: either the prediction is completely contained within the introns of the reference, or viceversa.
  - **Overlap**: the two transcript models generically overlap on their exonic sequence.
@@ -254,7 +312,13 @@ All class codes fall within one of the following categories:
 
  .. _fusion:
 
- - **Fusion**: this special class code is a qualifier and it never appears on its own. When a transcript is defined as a fusion,  its class code in the *tmap* file will be an "f" followed by the class codes of the individual transcript matches, sperated by comma. So a prediction which matches two reference models, one with a "j" and another with a "o", will have a class code of **"f,j,o"**. In the *refmap* file, if the fusion is the best match, the class code will be "f" followed by the class code for the individual reference transcript; e.g., **"f,j"**
+ - **Fusion**: this special class code is a qualifier and it never appears on its own. When a transcript is defined as a
+   fusion between two or more reference transcript, it will appear on *multiple lines*, one for each of the matches. In
+   each line, the class code will be a "f," followed by the class code assigned to that particular comparison.
+   So e.g. a prediction which matches two reference models, one with a "j" and another with a "o", will be present in two
+   different lines; the first one with a class code of **f,j** and the second with a class code of **f,o**.
+   In the *refmap* file, if the fusion is the best match, the class code will be "f" followed by the class code for the
+   individual reference transcript; e.g., **"f,j"**
 
 
 .. topic:: Available class codes
@@ -434,7 +498,9 @@ Each calculated match against a reference transcript is stored as a potential *b
 
 This function is used to select both for the best match *for the transcript*, as well as to select among these matches for the best match *for the gene*.
 
-The interval tree data structure is created using Cython code originally part of the `bx-python <https://bitbucket.org/james_taylor/bx-python/overview>`_, kindly provided by `Dr. Taylor <mailto:james@taylorlab.org>`_ for modification and inclusion in Mikado. The code has been slightly modified for making it Python3 compliant.
+The interval tree data structure is created using Cython code originally part of the `bx-python <https://bitbucket.org/james_taylor/bx-python/overview>`_, kindly provided by `Dr. Taylor <mailto:james@taylorlab.org>`_ for modification and inclusion in Mikado. We subsequently integrated the improvements made on the code by Dr. Brent Pedersen in his :ref:`quicksect fork <https://github.com/brentp/quicksect>`.
+
+We further modified the original code for allowing "fuzzy matches", as in, allowing some leeway on how far the edges of the query interval are from the target intervals present in the tree.
 
 The .midx files storing the annotation for repeated compare runs are SQLite files. In them, Mikado will store for each gene its coordinates, its transcripts, and the location of exons and CDS features. MIDX files make repeated runs quite faster, as the program will not have to re-parse the GFF file.
 

@@ -288,45 +288,45 @@ Running the pipeline
 
 Daijin executes the pipeline in two distinct phases, *assemble* and *mikado*. Both commands have the same command line interface, namely::
 
-     $ daijin assemble --help
-    usage: daijin assemble [-h] [-c HPC_CONF] [-d] [--jobs N] [--cores [N]]
+    $ daijin assemble --help
+       usage: daijin assemble [-h] [-c HPC_CONF] [-d] [--jobs N] [--cores [N]]
                            [--threads N] [--no_drmaa] [--rerun-incomplete]
                            [--forcerun TARGET [TARGET ...]] [--detailed-summary]
                            [--list] [--dag]
                            config
 
-    positional arguments:
-      config                Configuration file to use for running the transcript
-                            assembly pipeline.
+       positional arguments:
+          config                Configuration file to use for running the transcript
+                                assembly pipeline.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -c HPC_CONF, --hpc_conf HPC_CONF
-                            Configuration file that allows the user to override
-                            resource requests for each rule when running under a
-                            scheduler in a HPC environment.
-      -d, --dryrun          Do a dry run for testing.
-      --jobs N, -J N        Maximum number of cluster jobs to execute
-                            concurrently.
-      --cores [N], -C [N]   Use at most N cores in parallel (default: 1000).
-      --threads N, -t N     Maximum number of threads per job. Default: None (set
-                            in the configuration file)
-      --no_drmaa, -nd       Use this flag if you wish to run without DRMAA, for
-                            example, if running on a HPC and DRMAA is not
-                            available, or if running locally on your own machine
-                            or server.
-      --rerun-incomplete, --ri
-                            Re-run all jobs the output of which is recognized as
-                            incomplete.
-      --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
-                            Force the re-execution or creation of the given rules
-                            or files. Use this option if you changed a rule and
-                            want to have all its output in your workflow updated.
-      --detailed-summary, -D
-                            Print detailed summary of all input and output files
-      --list, -l            List resources used in the workflow
-      --dag                 Do not execute anything and print the redirected
-                            acylic graph of jobs in the dot language.
+       optional arguments:
+          -h, --help            show this help message and exit
+          -c HPC_CONF, --hpc_conf HPC_CONF
+                                Configuration file that allows the user to override
+                                resource requests for each rule when running under a
+                                scheduler in a HPC environment.
+          -d, --dryrun          Do a dry run for testing.
+          --jobs N, -J N        Maximum number of cluster jobs to execute
+                                concurrently.
+          --cores [N], -C [N]   Use at most N cores in parallel (default: 1000).
+          --threads N, -t N     Maximum number of threads per job. Default: None (set
+                                in the configuration file)
+          --no_drmaa, -nd       Use this flag if you wish to run without DRMAA, for
+                                example, if running on a HPC and DRMAA is not
+                                available, or if running locally on your own machine
+                                or server.
+          --rerun-incomplete, --ri
+                                Re-run all jobs the output of which is recognized as
+                                incomplete.
+          --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
+                                Force the re-execution or creation of the given rules
+                                or files. Use this option if you changed a rule and
+                                want to have all its output in your workflow updated.
+          --detailed-summary, -D
+                                Print detailed summary of all input and output files
+          --list, -l            List resources used in the workflow
+          --dag                 Do not execute anything and print the redirected
+                                acylic graph of jobs in the dot language.
 
 
 The available command parameters are:

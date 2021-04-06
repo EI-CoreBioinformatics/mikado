@@ -349,6 +349,10 @@ class LociProcesser(Process):
         self.__close_handles()
         super().terminate()
 
+    def kill(self) -> None:
+        self.__close_handles()
+        super(LociProcesser, self).kill()
+
     def __close_handles(self):
         """Private method to flush and close all handles."""
         if self.engine is not None:
@@ -437,10 +441,12 @@ class LociProcesser(Process):
                 self.status_queue.put(accumulator)
                 self.logger.debug("Put all the remaining results into the queue for %s (size %s)", self.name,
                                   sys.getsizeof(accumulator))
-                self.locus_queue.task_done()
+                # self.locus_queue.task_done()
                 self.locus_queue.put((counter, None))
+                accumulator = []
                 break
-            else:
+
+            try:
                 try:
                     transcripts = msgpack.loads(transcripts, raw=False)
                 except TypeError as err:
@@ -487,6 +493,8 @@ class LociProcesser(Process):
 
                 if len(stranded_loci) == 0:
                     self.logger.warning("No loci left for index %d", counter)
+                    accumulator = serialise_locus([], accumulator, counter, print_cds=print_cds,
+                                                  print_monosubloci=print_monoloci, print_subloci=print_subloci)
                 else:
                     if len(accumulator) >= 100:
                         accumulator = zlib.compress(msgpack.dumps(accumulator))
@@ -496,6 +504,19 @@ class LociProcesser(Process):
                     accumulator = serialise_locus(
                         stranded_loci, accumulator, counter, print_cds=print_cds,
                         print_monosubloci=print_monoloci, print_subloci=print_subloci)
+            except (InvalidTranscript, InvalidCDS, AssertionError, ValueError, RuntimeError, TypeError) as exc:
+                self.logger.error(f"{self.name} has encountered an error, details:\n{exc}")
+                current = len(accumulator)
+                accumulator = serialise_locus([], accumulator, counter, print_cds=print_cds,
+                                              print_monosubloci=print_monoloci, print_subloci=print_subloci)
+                assert len(accumulator) > current
+            finally:
                 self.locus_queue.task_done()
 
+        if accumulator:
+            assert isinstance(accumulator, list)
+            self.logger.error(accumulator)
+            accumulator = zlib.compress(msgpack.dumps(accumulator))
+            self.status_queue.put(accumulator)
+        self.logger.info(f"{self.name} has finished")
         return

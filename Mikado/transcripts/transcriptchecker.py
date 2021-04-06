@@ -50,8 +50,9 @@ class TranscriptChecker(Transcript):
         :param strand_specific: flag. If set, transcripts will not have their strand changed.
         :type strand_specific: bool
 
-        :param lenient: boolean flag. If set, incorrect transcripts will be
-        flagged rather than discarded.
+        :param lenient: boolean flag. If set, incorrect transcripts will be flagged rather than discarded.
+                        Please note that this flag will *not* be passed on to the BED12 constructor when checking the
+                        ORFs; Mikado prepare requires correct CDSs, if one has to be present at all.
         :type lenient: bool
         """
         self.__strand_specific = False
@@ -324,19 +325,20 @@ we will not reverse it")
                 self.finalize()
             else:
                 self.logger.warning("Transcript %s has an invalid CDS and must therefore be discarded.", self.id)
+                raise InvalidTranscript("Transcript %s has an invalid CDS and must therefore be discarded.")
 
         if self.is_coding is False:
             return
 
         try:
-            orfs = list(self.get_internal_orf_beds())
-            assert len(orfs) >= 1
-        except AssertionError as exc:  # Invalid ORFs found
+            orfs = self.orfs
+            if len(orfs) < 1:
+                raise AssertionError("No ORFs remaining.")
+        except AssertionError as exc:
             if self.strip_faulty_cds is False:
-                raise InvalidTranscript("Invalid ORF(s) for {}. Discarding it. Error: {}".format(self.id, exc))
+                raise InvalidTranscript(f"Invalid ORF(s) for {self.id}. Discarding it. Error: {exc}")
             else:
-                self.logger.warning("Invalid ORF(s) for %s. Stripping it of its CDS. Error: %s",
-                                    self.id, exc)
+                self.logger.warning(f"Invalid ORF(s) for {self.id}. Stripping it of its CDS. Error: {exc}")
                 self.strip_cds()
             return
 
@@ -361,7 +363,9 @@ we will not reverse it")
                 self.has_stop_codon = orf.has_stop_codon
                 self.attributes["has_start_codon"] = orf.has_start_codon
                 self.attributes["has_stop_codon"] = orf.has_stop_codon
-                return
+
+        self.strip_cds()
+        self.load_orfs(orfs)
 
     @property
     def cdna(self) -> str:

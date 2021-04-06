@@ -1,6 +1,15 @@
 Mikado.daijin package
 =====================
 
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   Mikado.daijin.assemble
+   Mikado.daijin.mikado
+
 Module contents
 ---------------
 

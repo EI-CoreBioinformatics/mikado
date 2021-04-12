@@ -168,7 +168,7 @@ def makeAsmRunArray(assembler):
 CUFFLINKS_RUNS = makeAsmRunArray("cufflinks")
 TRINITY_RUNS = makeAsmRunArray("trinity")
 STRINGTIE_RUNS = makeAsmRunArray("stringtie")
-CLASS_RUNS = makeAsmRunArray("class")
+CLASS_RUNS = makeAsmRunArray("class2")
 SCALLOP_RUNS = makeAsmRunArray("scallop")
 
 SAMPLE_STR = ",".join(SAMPLES)
@@ -181,12 +181,12 @@ for a in ALIGN_RUNS :
     PORTCULLIS_IN[a] = os.path.join(ALIGN_DIR, "output", a + ".sorted.bam")
 
 aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst", "gmap":"gmp"}
-asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn", "scallop": "scl"}
+asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class2":"cls", "trinity":"trn", "scallop": "scl"}
     
 GTF_ASSEMBLY_METHODS = []
 GFF_ASSEMBLY_METHODS = []
 for asm in ASSEMBLY_METHODS:
-    if asm in ("cufflinks", "stringtie", "class", "scallop"):
+    if asm in ("cufflinks", "stringtie", "class2", "scallop"):
         GTF_ASSEMBLY_METHODS.append(asm)
     elif asm == "trinity":
         GFF_ASSEMBLY_METHODS.append(asm)
@@ -447,7 +447,7 @@ def gmap_intron_lengths(command, MAX_INTRON):
 # Rules
 
 localrules: mikado_cfg, tophat_all, gsnap_all, gsnap_index, star_all, hisat_all, cufflinks_all, trinity_all,
-            stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
+            stringtie_all, class2_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
 
 rule all:
     input:
@@ -868,28 +868,28 @@ rule stringtie_all:
     output: os.path.join(ASM_DIR, "stringtie.done")
     shell: "touch {output}"
 
-rule asm_class:
+rule asm_class2:
     input:
         bam=os.path.join(ALIGN_DIR, "output", "{alrun}.sorted.bam"),
         align=rules.align_all.output,
         ref=rules.uncompress_genome.output.genome
     output:
-        link=os.path.join(ASM_DIR, "output", r"class-{run2,\d+}-{alrun}.gtf"),
-        gtf=os.path.join(ASM_DIR, "class", r"class-{run2,\d+}-{alrun}", r"class-{run2}-{alrun}.gtf")
+        link=os.path.join(ASM_DIR, "output", r"class2-{run2,\d+}-{alrun}.gtf"),
+        gtf=os.path.join(ASM_DIR, "class2", r"class2-{run2,\d+}-{alrun}", r"class2-{run2}-{alrun}.gtf")
     params:
-        outdir=os.path.join(ASM_DIR, "class", "class-{run2}-{alrun}"),
-        load=loadPre(config, "class"),
-        extra=lambda wildcards: config["asm_methods"]["class"][int(wildcards.run2)],
-        link_src=os.path.join("..", "class", "class-{run2}-{alrun}", "class-{run2}-{alrun}.gtf")
-    log: os.path.join(ASM_DIR, "logs", "class", "class-{run2}-{alrun}.log")
+        outdir=os.path.join(ASM_DIR, "class2", "class2-{run2}-{alrun}"),
+        load=loadPre(config, "class2"),
+        extra=lambda wildcards: config["asm_methods"]["class2"][int(wildcards.run2)],
+        link_src=os.path.join("..", "class2", "class2-{run2}-{alrun}", "class2-{run2}-{alrun}.gtf")
+    log: os.path.join(ASM_DIR, "logs", "class2", "class2-{run2}-{alrun}.log")
     threads: THREADS
-    message: "Using class to assemble (run {wildcards.run2}): {input.bam}"
+    message: "Using class2 to assemble (run {wildcards.run2}): {input.bam}"
     shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} \
 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
-rule class_all:
-    input: expand(os.path.join(ASM_DIR, "output", "class-{run2}-{alrun}.gtf"), run2=CLASS_RUNS, alrun=ALIGN_RUNS)
-    output: os.path.join(ASM_DIR, "class.done")
+rule class2_all:
+    input: expand(os.path.join(ASM_DIR, "output", "class2-{run2}-{alrun}.gtf"), run2=CLASS_RUNS, alrun=ALIGN_RUNS)
+    output: os.path.join(ASM_DIR, "class2.done")
     shell: "touch {output}"
 
 rule lr_gmap:

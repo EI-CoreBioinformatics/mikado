@@ -199,7 +199,7 @@ Now we will configure Daijin for the run::
        -m permissive --sample-sheet sample_sheet.tsv \
        --flank 500 -i 50 26000 --threads 2 \
        --genome Reference/Drosophila_melanogaster.BDGP6.dna.toplevel.fa \
-       -al hisat -as class stringtie -od Dmelanogaster --name Dmelanogaster \
+       -al hisat -as class2 stringtie -od Dmelanogaster --name Dmelanogaster \
        -o daijin.toml --prot-db Reference/Aedes_aegypti.fasta;
 
 This will create three files in the working directory:
@@ -211,7 +211,7 @@ This will create three files in the working directory:
 .. code-block:: yaml
 
     blast: 'source blast-2.3.0'
-    class: 'source class-2.12'
+    class2: 'source class-2.12'
     cufflinks: ''
     gmap: ''
     hisat: 'source HISAT-2.0.4'
@@ -256,15 +256,15 @@ You can also ask Daijin to display the steps to be executed, inclusive of their 
 
 When Daijin is finished, have a look inside the folder Dmelanogaster/3-assemblies/output/; you will find the following GTF files:
 
-* Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662533-0.gtf
-* Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662534-0.gtf
+* Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662533-0.gtf
+* Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662534-0.gtf
 * Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662533-0.gtf
 * Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662534-0.gtf
 
 These are standard `GTF files <http://www.ensembl.org/info/website/upload/gff.html>`_ reporting the assembled transcripts for each method. We can have a feel for how they compare with our reference annotation by, again, using ``mikado util stats``. Conveniently, Daijin has already performed this analysis for us, and the files will be present in the same folder:
 
-* Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662533-0.gtf.stats
-* Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662534-0.gtf.stats
+* Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662533-0.gtf.stats
+* Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662534-0.gtf.stats
 * Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662533-0.gtf.stats
 * Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662534-0.gtf.stats
 
@@ -273,9 +273,9 @@ Daijin has also created a summary of these statistics in Dmelanogaster/3-assembl
 +------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
 | File                                     |   genes |   monoexonic_genes |   transcripts |   transcripts_per_gene |   transcript_len_mean |   monoexonic_transcripts |   exons |   exons_per_transcript |   exon_len_mean |
 +==========================================+=========+====================+===============+========================+=======================+==========================+=========+========================+=================+
-| class-0-hisat-ERR1662533-0.gtf.stats     |   11535 |                852 |         13958 |                   1.2  |               1429.86 |                      852 |   57554 |                   4.12 |          346.77 |
+| class2-0-hisat-ERR1662533-0.gtf.stats     |   11535 |                852 |         13958 |                   1.2  |               1429.86 |                      852 |   57554 |                   4.12 |          346.77 |
 +------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
-| class-0-hisat-ERR1662534-0.gtf.stats     |   11113 |                884 |         13341 |                   1.19 |               1448.07 |                      884 |   55123 |                   4.13 |          350.47 |
+| class2-0-hisat-ERR1662534-0.gtf.stats     |   11113 |                884 |         13341 |                   1.19 |               1448.07 |                      884 |   55123 |                   4.13 |          350.47 |
 +------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
 | stringtie-0-hisat-ERR1662533-0.gtf.stats |   15490 |               6252 |         18995 |                   1.22 |               1668.17 |                     6446 |   63798 |                   3.36 |          496.67 |
 +------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
@@ -292,8 +292,8 @@ We can assess the similarity of these assemblies to the reference annotation by 
   mkdir -p Comparisons;
   mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf --index -l Reference/index.log;
   # Compare the CLASS2 assemblies against the reference
-  mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/class_ERR1662533.log -o Comparisons/class_ERR1662533 -p Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662533-0.gtf;
-  mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/class_ERR1662534.log -o Comparisons/class_ERR1662534 -p Dmelanogaster/3-assemblies/output/class-0-hisat-ERR1662534-0.gtf;
+  mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/class2_ERR1662533.log -o Comparisons/class2_ERR1662533 -p Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662533-0.gtf;
+  mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/class2_ERR1662534.log -o Comparisons/class2_ERR1662534 -p Dmelanogaster/3-assemblies/output/class2-0-hisat-ERR1662534-0.gtf;
   # Compare the StringTie assemblies against the reference:
   mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/stringtie_ERR1662534.log -o Comparisons/stringtie_ERR1662534 -p Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662534-0.gtf;
   mikado compare -r Reference/Drosophila_melanogaster.BDGP6.89.gtf -l Comparisons/stringtie_ERR1662533.log -o Comparisons/stringtie_ERR1662533 -p Dmelanogaster/3-assemblies/output/stringtie-0-hisat-ERR1662533-0.gtf;

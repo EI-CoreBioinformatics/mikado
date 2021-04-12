@@ -159,7 +159,7 @@ Daijin can be configured so to run each assembler and/or aligner multiple times,
       - ''
       - "-k 10"
     asm_methods:
-      class:
+      class2:
       - ''
       - "--set-cover"
       stringtie:

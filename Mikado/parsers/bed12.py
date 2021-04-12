@@ -503,7 +503,6 @@ class BED12:
         """
 
         self.attribute_order = []
-        print("Parsing", attributes)
 
         infolist = self._attribute_pattern.findall(attributes.rstrip().rstrip(";"))
 

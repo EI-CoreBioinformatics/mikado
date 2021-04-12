@@ -189,7 +189,7 @@ default. If one of --json, --yaml, --toml flags is specified, it will override t
                         required=False, default=[], nargs="*",
                         help="Aligner(s) to use for long reads. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=False,
-                        choices=["class", "cufflinks", "stringtie", "trinity", "scallop"],
+                        choices=["class2", "cufflinks", "stringtie", "trinity", "scallop"],
                         default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
     mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
     # scoring = parser.add_argument_group("Options related to the scoring system")

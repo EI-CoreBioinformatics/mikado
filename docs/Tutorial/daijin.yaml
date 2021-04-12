@@ -6,7 +6,7 @@ align_methods:
   hisat:
   - ''
 asm_methods:
-  class:
+  class2:
   - ''
   stringtie:
   - ''

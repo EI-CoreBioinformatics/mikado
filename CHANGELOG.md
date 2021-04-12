@@ -1,3 +1,9 @@
+# Version 2.2.5
+
+Fixes class2 for the Daijin pipeline and removes a noisy print in BED12 parsing
+
+Fix [#401](https://github.com/EI-CoreBioinformatics/mikado/issues/401): Cannot run Class2 in Daijin pipeline
+
 # Version 2.2.4
 
 Fix the Github Action tests, moving to use only Python 3.7+ (due to AsyncIO), and updated the documentation.

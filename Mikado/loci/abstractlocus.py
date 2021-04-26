@@ -775,14 +775,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
         )
 
-        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
-        # As sets are not hashable!
-        ancestors, descendants = _get_intron_ancestors_descendants(tuple(introns), digraph)
-
         if not found_introns:
             return is_retained, cds_broken
 
         # logger.debug("Found introns for %s: %s", exon, found_introns)
+        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
+        # As sets are not hashable!
+        ancestors, descendants = _get_intron_ancestors_descendants(tuple(found_introns), digraph)
 
         for intron in found_introns:
             # Only consider exons for which there is an overlap.

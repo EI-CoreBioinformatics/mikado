@@ -46,10 +46,19 @@ def pad_transcript(transcript: Transcript,
     transcript.unfinalize()
     assert strand == transcript.strand
 
-    upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
-    downstream, up_exons, down_exons, new_exon, down_remove = _enlarge_end(transcript,
-                                                                           backup, end_transcript, up_exons, new_first_exon)
-
+    upstream = 0
+    up_exons = []
+    up_remove = False
+    downstream = 0
+    down_exons = []
+    down_remove = False
+    new_exon = None
+    try:
+        upstream, up_exons, new_first_exon, up_remove = _enlarge_start(transcript, backup, start_transcript)
+        downstream, up_exons, down_exons, new_exon, down_remove = _enlarge_end(transcript,
+                                                                               backup, end_transcript, up_exons, new_first_exon)
+    except KeyError as e:
+        logger.error(f"{e}")
     # first_exon, last_exon = transcript.exons[0], transcript.exons[-1]
 
     assert upstream >= 0 and downstream >= 0

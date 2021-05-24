@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import logging
 
-import Mikado
+from Mikado import utilities
+
 import pyfaidx
 import argparse
 import sys
@@ -14,9 +16,11 @@ import gzip
 
 __doc__ = """Little script to extract promoter regions from genes."""
 
+from Mikado.scales.assignment import Assigner
+from Mikado.scales.reference_preparation.indexing import load_index
+
 
 def main():
-
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("-o", "--out", type=str, default="promoters")
     parser.add_argument("-l", "--log", default=None)
@@ -33,10 +37,12 @@ def main():
     parser.add_argument("gene_list")
     args = parser.parse_args()
 
-    logger = Mikado.utilities.log_utils.create_logger_from_conf({"log_settings": {"log": args.log,
-                                                                                  "log_level": args.log_level}},
-                                                                "extractor",
-                                                                mode="w")
+    logging.basicConfig(filename=args.log,
+                        format="{asctime} - {name} - {filename}:{lineno} - {levelname} - "
+                               "{funcName} - {processName} - {message}",
+                        style="{",
+                        level=args.log_level)
+    logger = logging.getLogger('extract_promoter_regions')
 
     max_distance = max(args.distances)
     out_files = dict()
@@ -50,8 +56,7 @@ def main():
             out_files[distance] = gzip.open("{}-{}bp.fasta.gz".format(os.path.splitext(args.out)[0],
                                                                       distance), "wt")
         else:
-            out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0],
-                                                     distance), "wt")
+            out_files[distance] = open("{}-{}bp.fasta".format(os.path.splitext(args.out)[0], distance), "wt")
 
     logger.info("Starting to load the genome")
     genome = pyfaidx.Fasta(args.genome)
@@ -66,7 +71,7 @@ def main():
         # Use Mikado compare functions to load the index from the GFF3
         # "genes" is a dictionary of Gene objects, having as keys the gene names
         # "positions" is a dictionary of the form: [chrom][(start, end)] = [GID1, GID2, ...]
-        genes, positions = Mikado.scales.compare.load_index(args, logger)
+        genes, positions = load_index(args, logger)
         # Create a dictionary of interval trees, one per chromosome
         indexer = collections.defaultdict(list).fromkeys(positions)
         for chrom in indexer:
@@ -100,17 +105,17 @@ def main():
             # Find all genes which are near
             if args.no_neighbours is False:
 
-                neighbours = Mikado.scales.assignment.assigner.Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
-                                                                                        key, distance=0)
+                neighbours = Assigner.find_neighbours(indexer.get(chrom, IntervalTree()),
+                                                      key, distance=0)
                 # This is a list of the form [((start, end), distance), ...] where "(start, end)" is a key for the
                 # "positions" dictionary, above
 
                 # Find all the genes which are in the neighbourhood, remove the obvious case of the identity ..
-                def is_before(gid_coords, key, strand):
-                    if strand == "-":
-                        return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[1] < key[0]
+                def is_before(gid_coords, fkey, fstrand):
+                    if fstrand == "-":
+                        return (utilities.overlap(gid_coords, fkey) >= 0) or gid_coords[1] < fkey[0]
                     else:
-                        return (Mikado.utilities.overlap(gid_coords, key) >= 0) or gid_coords[0] > key[1]
+                        return (utilities.overlap(gid_coords, fkey) >= 0) or gid_coords[0] > fkey[1]
 
                 neighbours = [_[0] for _ in neighbours if
                               is_before((start, end), _[0], strand) and gid not in positions[chrom][_[0]]]
@@ -138,7 +143,7 @@ def main():
             else:
                 # We have some neighbours, we have to select the maximum distance we can go to
                 logger.warning("{} neighbours found for {}: {}".format(len(neighbours), gid, neighbours))
-                if any([Mikado.utilities.overlap((start, end), _) >= 0 for _ in neighbours]):
+                if any([utilities.overlap((start, end), _) >= 0 for _ in neighbours]):
                     logger.warning("Overlapping genes found for {}. Skipping".format(gid))
                     continue
                 for distance in args.distances:
@@ -166,12 +171,11 @@ def main():
                                      gid, distance, err)
                         continue
 
-
     logger.info("Finished")
     return
+
 
 main.__doc__ = __doc__
 
 if __name__ == "__main__":
     main()
-

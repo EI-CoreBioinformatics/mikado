@@ -71,7 +71,7 @@ def main():
         # Use Mikado compare functions to load the index from the GFF3
         # "genes" is a dictionary of Gene objects, having as keys the gene names
         # "positions" is a dictionary of the form: [chrom][(start, end)] = [GID1, GID2, ...]
-        genes, positions = load_index(args, logger)
+        genes, positions = load_index(namespace, logger)
         # Create a dictionary of interval trees, one per chromosome
         indexer = collections.defaultdict(list).fromkeys(positions)
         for chrom in indexer:

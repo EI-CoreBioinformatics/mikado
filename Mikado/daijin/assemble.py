@@ -46,7 +46,7 @@ def assemble_transcripts_pipeline(args):
         else:
             loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.exe) as _:
-            doc["load"] = loader(_)
+            doc["load_cmd"] = loader(_)
 
     # print(doc["load"])
     # Check the configuration

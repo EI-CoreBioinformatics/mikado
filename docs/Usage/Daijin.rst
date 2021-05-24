@@ -176,7 +176,7 @@ If you are running Daijin on a cluster and the software tools have to be sourced
 
 .. code-block:: yaml
 
-    load:
+    load_cmd:
       #  Commands to use to load/select the versions of the programs to use. Leave an empty
       #  string if no loading is necessary.
       blast: 'source blast-2.3.0'

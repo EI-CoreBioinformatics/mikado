@@ -167,7 +167,7 @@ class DaijinConfiguration(MikadoConfiguration):
 Mikado itself.
     """
 
-    load: ProgramLoader = field(default_factory=ProgramLoader, metadata={
+    load_cmd: ProgramLoader = field(default_factory=ProgramLoader, metadata={
                 "metadata": {
             "description": "Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."},
     })

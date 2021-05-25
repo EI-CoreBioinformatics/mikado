@@ -1,3 +1,11 @@
+# Version 2.3.0
+
+Fix [#404](https://github.com/EI-CoreBioinformatics/mikado/issues/404): Error in extract_promoter_regions.py helper script
+
+Fix [#405](https://github.com/EI-CoreBioinformatics/mikado/issues/405): Error in remove_utrs.py helper script
+
+Also fixes a name clashing issue in daijin's configuration object and other small bugs
+
 # Version 2.2.5
 
 Fixes class2 for the Daijin pipeline and removes a noisy print in BED12 parsing

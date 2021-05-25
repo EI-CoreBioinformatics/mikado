@@ -301,5 +301,144 @@ class TestLoadJunction(unittest.TestCase):
         self.dbfile_handle.close()
 
 
+class TestLoadDuplicateJunction(unittest.TestCase):
+
+    logger = utilities.log_utils.create_null_logger("test_duplicate_junctions")
+
+    def setUp(self):
+        self.dbfile_handle = tempfile.NamedTemporaryFile(suffix=".db")
+        self.dbfile = self.dbfile_handle.name
+        self.configuration = configuration.configurator.load_and_validate_config(None)
+        self.configuration.db_settings.dbtype = "sqlite"
+        self.configuration.db_settings.db = self.dbfile
+        self.configuration.reference.genome_fai = os.path.join(
+            os.path.dirname(__file__),
+            "genome.fai")
+        self.session = utilities.dbutils.connect(self.configuration)
+        self.junction_file = os.path.join(
+            os.path.dirname(__file__),
+            "junctions_duplicates.bed"
+        )
+        self.junction_serialiser = serializers.junction.JunctionSerializer(
+            self.junction_file,
+            configuration=self.configuration,
+        )
+
+        self.junction_parser = parsers.bed12.Bed12Parser(
+            self.junction_file,
+            fasta_index=None,
+            transcriptomic=False
+        )
+        self.junction_serialiser()
+
+
+    def __create_session(self):
+        engine = utilities.dbutils.connect(
+            self.configuration, self.logger)
+        sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
+        session = sessionmaker()
+        return session
+
+    def test_serialise(self):
+
+        session = self.__create_session()
+        self.assertEqual(
+            session.query(serializers.junction.Junction).count(),
+            7,
+            session.query(serializers.junction.Junction).count()
+        )
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                serializers.junction.Junction.chrom != "Chr5"
+            ).count(), 1,
+            [_.chrom for _ in
+                session.query(serializers.junction.Junction).filter(
+                    serializers.junction.Junction.chrom != "Chr5"
+            )])
+
+        # It's a BED file translated into 1-based, so add 1 to starts
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.start == 26510619,
+                )
+            ).count(), 0,
+            [str(_) for _ in
+                session.query(serializers.junction.Junction).filter(
+                    and_(
+                        serializers.junction.Junction.name == "portcullis_junc_0",
+                    )
+            )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 2,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
+
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                and_(
+                    serializers.junction.Junction.chrom == "Chr5",
+                    serializers.junction.Junction.start == 26510752,
+                )
+            ).count(), 1,
+            [str(_) for _ in
+             session.query(serializers.junction.Junction).filter(
+                 and_(
+                     serializers.junction.Junction.chrom == "Chr5",
+                     serializers.junction.Junction.start == 26510752,
+                 )
+             )])
+
+    def test_double_thick_end(self):
+
+        session = self.__create_session()
+        self.assertEqual(
+            session.query(serializers.junction.Junction).filter(
+                serializers.junction.Junction.junction_end == 26510991
+            ).count(), 2,
+            session.query(serializers.junction.Junction).filter(
+                serializers.junction.Junction.junction_end == 26510991
+            )
+        )
+
+        first = session.query(serializers.junction.Junction).filter(
+                    and_(
+                        serializers.junction.Junction.name == "portcullis_junc_0",
+                    )).one()
+        first_double = session.query(serializers.junction.Junction).filter(
+                        and_(
+                            serializers.junction.Junction.name == "portcullis_junc_0",
+                        )).one()
+        second = session.query(serializers.junction.Junction).filter(
+                    and_(
+                        serializers.junction.Junction.name == "portcullis_junc_1",
+                    )).one()
+
+        self.assertTrue(first.is_equal(first_double.chrom,
+                                       first_double.start,
+                                       first_double.end,
+                                       first_double.strand))
+        self.assertFalse(first.is_equal(second.chrom,
+                                        second.start,
+                                        second.end,
+                                        second.strand))
+
+    def tearDown(self):
+        self.junction_serialiser.close()
+        self.junction_parser.close()
+        self.dbfile_handle.close()
+
+
 if __name__ == "__main__":
     unittest.main()

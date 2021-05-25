@@ -50,7 +50,7 @@ def mikado_pipeline(args):
         else:
             loader = functools.partial(yaml.load, Loader=yLoader)
         with open(args.exe) as _:
-            daijin_config["load"] = loader(_)
+            daijin_config["load_cmd"] = loader(_)
 
     daijin_config = DaijinConfiguration.Schema().load(daijin_config)
 

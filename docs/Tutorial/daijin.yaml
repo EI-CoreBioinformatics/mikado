@@ -19,7 +19,7 @@ blastx:
 extra:
   #  Options related to indexing.
   star_index: ''
-load:
+load_cmd:
   #  Commands to use to load/select the versions of the programs to use. Leave an empty
   #  string if no loading is necessary.
   blast: 'source blast+-2.3.0'

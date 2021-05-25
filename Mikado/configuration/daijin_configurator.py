@@ -258,7 +258,7 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
 
     if args.exe:
         with open(args.exe, "wt") as out:
-            for key, val in dataclasses.asdict(final_config.load).items():
+            for key, val in dataclasses.asdict(final_config.load_cmd).items():
                 print("{}: \"{}\"".format(key, val), file=out)
 
     if piped is True:

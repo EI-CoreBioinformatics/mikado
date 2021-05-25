@@ -98,6 +98,12 @@ class Junction(DBBASE):
         self.strand = strand
         self.score = score
 
+    def __eq__(self, other):
+        return (self.chrom_id, self.start, self.end, self.strand) == (other.chrom_id, other.start, other.end, other.strand)
+
+    def __hash__(self):
+        return hash((self.chrom_id, self.start, self.end, self.strand))
+
     def __str__(self):
         return "{chrom}\t{start}\t{end}\t{strand}".format(
             chrom=self.chrom,
@@ -251,11 +257,11 @@ class JunctionSerializer:
             if len(objects) >= self.maxobjects:
                 self.logger.debug("Serializing %d objects", len(objects))
                 self.session.begin(subtransactions=True)
-                self.session.bulk_save_objects(objects)
+                self.session.bulk_save_objects(set(objects))
                 self.session.commit()
                 objects = []
 
-        self.session.bulk_save_objects(objects)
+        self.session.bulk_save_objects(set(objects))
         self.logger.debug("Serialised %s junctions into %s.", counter, self.db_settings)
         self.session.commit()
         self.close()

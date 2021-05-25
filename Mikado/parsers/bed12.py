@@ -522,7 +522,6 @@ class BED12:
             elif key.lower() == "id":
                 self.name = val
             else:
-                print(key.capitalize(), val)
                 self.attributes[key.capitalize()] = _attribute_definition(val)
                 continue
 

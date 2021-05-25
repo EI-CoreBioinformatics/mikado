@@ -150,7 +150,7 @@ If you are executing this program on a cluster, you will have to modify the "loa
 
 .. code-block:: yaml
 
-  load:
+  load_cmd:
       #  Commands to use to load/select the versions of the programs to use. Leave an empty
       #  string if no loading is necessary.
       blast: 'source blast-2.3.0'

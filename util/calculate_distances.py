@@ -12,6 +12,8 @@ import tempfile
 from scipy.stats.mstats import mquantiles
 from numpy import arange
 
+from Mikado.scales.reference_preparation.indexing import load_index
+from Mikado.utilities import log_utils
 from Mikado.utilities.log_utils import LoggingConfiguration
 
 
@@ -109,7 +111,7 @@ def main():
     args = parser.parse_args()
 
     conf = LoggingConfiguration(log=args.log, log_level=args.log_level)
-    logger = Mikado.utilities.log_utils.create_logger_from_conf(conf, "geomancer", mode="w")
+    logger = log_utils.create_logger_from_conf(conf, "geomancer", mode="w")
     logger.info("Starting to load the GFF3 index")
     with open(args.gff3) as gff3:
         namespace = argparse.Namespace
@@ -119,7 +121,7 @@ def main():
         # Use Mikado compare functions to load the index from the GFF3
         # "genes" is a dictionary of Gene objects, having as keys the gene names
         # "positions" is a dictionary of the form: [chrom][(start, end)] = [GID1, GID2, ...]
-        genes, positions = Mikado.scales.compare.load_index(args, logger)
+        genes, positions = load_index(args, logger)
         # Create a dictionary of interval trees, one per chromosome
         indexer = collections.defaultdict(list).fromkeys(positions)
         for chrom in indexer:

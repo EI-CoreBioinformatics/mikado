@@ -4,7 +4,6 @@ import re
 import argparse
 import csv
 import pickle
-from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from scipy.stats import hmean
 from Mikado.scales.resultstorer import ResultStorer

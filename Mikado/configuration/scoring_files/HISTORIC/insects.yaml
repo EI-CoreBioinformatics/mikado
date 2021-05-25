@@ -41,10 +41,6 @@ scoring:
     filter: {operator: lt, value: 3}
     rescaling: target
     value: 1
-  three_utr_num:
-    filter: {operator: lt, value: 3}
-    rescaling: target
-    value: 1
   five_utr_num:
     filter: {operator: lt, value: 4}
     rescaling: target

@@ -3,12 +3,13 @@
 from Mikado.loci import Transcript, Gene
 import argparse
 import sys
+
+from Mikado.parsers import parser_factory
 from Mikado.parsers.GFF import GFF3
-from Mikado.utilities import to_gff
-from intervaltree import Interval
-from Mikado.utilities.log_utils import create_default_logger
 
 __doc__ = """This script truncates transcript with UTR exons separated by long introns."""
+
+from Mikado.utilities import Interval
 
 
 def remove_introns_from_transcr(transcript, args):
@@ -78,7 +79,7 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("-mi", "--max-intron", default=10000, dest="max_intron",
                         type=int, help="Maximum intron length for UTR introns.")
-    parser.add_argument("gff", type=to_gff)
+    parser.add_argument("gff", type=parser_factory)
     parser.add_argument("out", default=sys.stdout, type=argparse.FileType("wt"), nargs="?")
     args = parser.parse_args()
 

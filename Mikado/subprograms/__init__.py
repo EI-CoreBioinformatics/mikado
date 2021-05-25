@@ -2,7 +2,6 @@
 
 """This module contains the subprograms launched by the Mikado suite"""
 
-# from ..parsers import GTF, GFF, to_gff
 # noinspection PyPep8
 from . import configure
 # noinspection PyPep8

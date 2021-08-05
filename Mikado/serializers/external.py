@@ -162,7 +162,7 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
 
         try:
             self.data = pd.read_csv(self.handle, delimiter=delimiter, index_col=["tid"])
-        except (ValueError, pd.errors.ParserError) as exc:
+        except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as exc:
             self.logger.critical("Invalid input file!")
             self.logger.critical(exc)
             raise

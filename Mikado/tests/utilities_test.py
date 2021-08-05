@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import itertools
 import re
+from collections import Counter
 
 import pkg_resources
+from pysam import AlignmentFile
 
 from Mikado.configuration import MikadoConfiguration, parse_list_file
+from Mikado.transcripts import Transcript
 from Mikado.utilities.log_utils import LoggingConfiguration, create_logger_from_conf, create_default_logger
 from Mikado import utilities
 import unittest
@@ -16,6 +19,34 @@ import queue
 
 class UtilTester(unittest.TestCase):
 
+    def test_bam2gff(self):
+        name_counter = Counter()
+        transcripts = []
+        bam_file = pkg_resources.resource_filename("Mikado.tests", "test.reads.bam")
+        for record in AlignmentFile(bam_file, mode="rb"):
+            if record.is_unmapped is True:
+                continue
+            transcript = Transcript(record)
+            if name_counter.get(record.query_name):
+                name = "{}_{}".format(record.query_name, name_counter.get(record.query_name))
+            else:
+                name = record.query_name
+
+            if name != transcript.id:
+                transcript.alias = transcript.id
+                transcript.id = name
+
+            transcript.parent = transcript.attributes["gene_id"] = "{0}.gene".format(name)
+            name_counter.update([record.query_name])
+            transcript.source = "bam2gtf"
+            transcripts.append(transcript)
+
+        self.assertEqual(len(transcripts), 4)
+        self.assertEqual(transcripts[0].strand, '-')
+        self.assertEqual(transcripts[1].strand, '+')
+        self.assertEqual(transcripts[2].strand, '+')
+        self.assertEqual(transcripts[3].strand, '-')
+
     def test_path(self):
 
         nonabs = os.path.basename(__file__)
@@ -25,23 +56,6 @@ class UtilTester(unittest.TestCase):
         self.assertEqual(os.path.join(cur_dir, nonabs),
                          utilities.path_join(cur_dir, nonabs))
         self.assertEqual(absolute, utilities.path_join(".", absolute))
-
-    def test_memoizer(self):
-
-        @utilities.memoize
-        def tester(num):
-
-            return num ** 2
-
-        self.assertEqual(tester.cache, {})
-        tester(10)
-        self.assertIn("(10,){}", tester.cache)
-        self.assertNotIn("(20,){}", tester.cache)
-        tester(20)
-        self.assertIn("(20,){}", tester.cache)
-        tester.cache.clear()
-        self.assertNotIn("(20,){}", tester.cache)
-        self.assertNotIn("(10,){}", tester.cache)
 
     def test_check_to_regions(self):
         for invalid in [0, b"Chr1:100.1000", "Chr1:100.1000", "Chr1:1500-1000", None, "Chr1::1400-2000"]:

@@ -413,17 +413,17 @@ class TranscriptBase:
             del tags["MD"]
 
         # Set the strand
+        if transcript_row.is_reverse:
+            self.strand = "-"
+        else:
+            self.strand = "+"
+
         if "XS" in tags:
             self.strand = tags["XS"]
             del tags["XS"]
         elif "ts" in tags:
-            self.strand = tags["ts"]  # Minimap2
+            self.strand = self.strand if tags["ts"] == '+' else self.reverse_strand()  # Minimap2
             del tags["ts"]
-        else:
-            if transcript_row.is_reverse:
-                self.strand = "-"
-            else:
-                self.strand = "+"
 
         self.attributes.update(tags)
         self.attributes["coverage"] = coverage
@@ -1160,7 +1160,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.strip_cds()
         self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
                             self.id)
-        return
+        return self.strand
 
     def as_dict(self, remove_attributes=False):
 

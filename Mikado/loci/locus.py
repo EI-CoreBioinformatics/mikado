@@ -576,7 +576,7 @@ class Locus(Abstractlocus):
         to_be_added = True
         if is_reference is True and self.configuration.pick.run_options.check_references is False:
             return True
-        # TODO where are we going to put the as_requirements?
+
         section = self.configuration.scoring.as_requirements
 
         evaluated = dict()

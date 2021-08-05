@@ -681,7 +681,6 @@ def prepare(mikado_config: MikadoConfiguration, logger):
 
         perform_check(divide_by_chrom(), shelve_names, mikado_config, logger)
     except Exception as exc:
-        # TODO: Consider using stderr to signal errors here too?
         logger.exception(exc)
         __cleanup(mikado_config, shelve_names)
         errored = True

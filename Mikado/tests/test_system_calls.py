@@ -215,7 +215,7 @@ class PrepareCheck(unittest.TestCase):
     def setUp(self):
 
         self.conf = configurator.load_and_validate_config(None)
-        self.conf.filename = "nofile"  # FIXME: Filename is added dynamically to this obj and not validated
+        self.conf.filename = "nofile"
         self.conf.seed = 1066
         self.conf.reference.genome = self.fai.filename.decode()
         assert isinstance(self.conf.reference.genome, str)

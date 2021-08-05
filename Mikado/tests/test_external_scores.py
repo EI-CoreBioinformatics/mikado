@@ -69,7 +69,7 @@ class ExternalTester(unittest.TestCase):
         logger = create_default_logger("test_no_fasta", level="DEBUG")
         with self.assertRaises(AssertionError), self.assertLogs(logger.name, level="CRITICAL") as cmo:
             ExternalSerializer(logger=logger, configuration=load_and_validate_config(None),
-                               handle="trinity.bed12")  # TODO change
+                               handle="trinity.bed12")
         self.assertTrue(any([record.msg == """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
 Please run mikado serialise in the folder with the correct files, and/or modify the configuration or the command line options."""
                              for record in cmo.records]))

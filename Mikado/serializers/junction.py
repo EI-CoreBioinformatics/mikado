@@ -75,7 +75,7 @@ class Junction(DBBASE):
         "junction_index", "chrom_id", "junction_start", "junction_end"), {"extend_existing": True})
 
     chrom_object = relationship(Chrom, uselist=False)
-    chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id))
+    chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id).scalar_subquery())
 
     def __init__(self, junction_start, junction_end, name, strand, score, chrom_id):
         """

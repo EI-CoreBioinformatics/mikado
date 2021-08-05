@@ -30,7 +30,7 @@ def xml_pickler(configuration, filename, default_header,
                 cache=None,
                 max_target_seqs=10):
     valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    engine = connect(configuration, strategy="threadlocal")
+    engine = connect(configuration)
     session = Session(bind=engine)
 
     if not valid:

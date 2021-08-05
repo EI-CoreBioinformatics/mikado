@@ -60,7 +60,7 @@ class Orf(DBBASE):
                                 backref=backref("orfs"), lazy="joined", innerjoin=True)
 
     query = column_property(select([Query.query_name]).where(
-        Query.query_id == query_id))
+        Query.query_id == query_id).scalar_subquery())
 
     def __init__(self, bed12_object, query_id):
         if not isinstance(bed12_object, bed12.BED12):

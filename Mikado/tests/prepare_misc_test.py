@@ -282,3 +282,29 @@ class MiscTest(unittest.TestCase):
             os.remove(faix.name + ".fai")
 
         listener.stop()
+
+    def test_lowercase_ref_splice_site(self):
+        reference = pkg_resources.resource_filename("Mikado.tests", "NC_037283.1.fa.gz")
+        fasta = pyfaidx.Fasta(reference)
+        fai = pysam.FastaFile(reference)
+
+        lines = dict()
+        lines["chrom"] = "NC_037283.1"
+        lines["strand"] = '-'
+        lines["start"] = 200431
+        lines["end"] = 204262
+        lines["attributes"] = dict()
+        lines["tid"], lines["parent"] = "STRG.4616.1", "STRG.4616"
+        lines["features"] = dict()
+        lines["features"]["exon"] = [(200431, 200919), (201096, 201282), (201446, 201512),
+                                     (201776, 203421), (203570, 204262)]
+
+        seq = str(fasta[lines["chrom"]][lines["start"] - 1:lines["end"]])
+
+        logger, listener, logging_queue = self.create_logger("test_example_model")
+
+        res = checking.create_transcript(lines, seq, lines["start"], lines["end"],
+                                         logger=logger)
+        listener.stop()
+        self.assertIsInstance(res, transcripts.TranscriptChecker)
+        self.assertEqual(res.attributes["canonical_number"], 4)

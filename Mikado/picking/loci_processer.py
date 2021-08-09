@@ -1,4 +1,5 @@
 import zlib
+from time import perf_counter
 from multiprocessing import Process
 from typing import Union
 from multiprocessing.managers import AutoProxy
@@ -244,6 +245,8 @@ def analyse_locus(slocus: Superlocus,
 
     slocus.logger = logger
     slocus.source = configuration.pick.output_format.source
+    logger.info("Starting to process %s", slocus.id)
+    start_time = perf_counter()
     slocus.load_all_transcript_data(engine=engine, session=session)
     logger.debug("Loading transcript data for %s", slocus.id)
 
@@ -285,7 +288,8 @@ def analyse_locus(slocus: Superlocus,
     if len(stranded_loci) > 0:
         stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
     logger.debug("Size of the loci to send: {0}, for {1} loci".format(sys.getsizeof(stranded_loci), len(stranded_loci)))
-    logger.debug("Finished with %s, counter %d", slocus.id, counter)
+    end_time = perf_counter()
+    logger.info("Finished with locus %s, counter %d in %f seconds", slocus.id, counter, end_time - start_time)
     logger.removeHandler(handler)
     handler.close()
     return stranded_loci

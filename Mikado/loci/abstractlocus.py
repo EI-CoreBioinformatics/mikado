@@ -584,6 +584,43 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             return transcript.monoexonic
 
+    def remove_transcripts_from_locus(self, tids: set):
+        for tid in tids:
+            if tid not in self.transcripts:
+                self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
+                continue
+            self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+            del self.transcripts[tid]
+
+        for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+            setattr(self, locattr,
+                    set.union(*[set()] + [  # The [set()] is necessary to prevent a crash from set.union for empty lists
+                        set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
+                              ))
+
+        if self.transcripts:
+            for tid in self.transcripts:
+                self.transcripts[tid].parent = self.id
+            self.end = max(self.transcripts[_].end for _ in self.transcripts)
+            self.start = min(self.transcripts[_].start for _ in self.transcripts)
+        else:
+            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+
+            self.start, self.end, self.strand = maxsize, -maxsize, None
+            self.stranded = False
+            self.initialized = False
+
+        self.logger.debug("Deleted %s from %s", *tids, self.id)
+
+        for tid in tids:
+            if tid in self._metrics:
+                del self._metrics[tid]
+            if tid in self.scores:
+                del self.scores[tid]
+
+        self.metrics_calculated = False
+        self.scores_calculated = False
+
     def remove_transcript_from_locus(self, tid: str):
         """
         This method will remove a transcript from an Abstractlocus-like instance and reset appropriately
@@ -1637,17 +1674,15 @@ Scoring configuration: {param_conf}
         The weight corresponds to how many transcripts contain a specific exon-intron junction.
         """
 
-        weights = networkx.get_node_attributes(graph, "weight")
-
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
-        # Add path FAILS if the transcript is monoexonic!
-        graph.add_nodes_from(segments)
         networkx.add_path(graph, segments)
 
         for segment in segments:
-            weights[segment] = weights.get(segment, 0) + 1
+            try:
+                graph.nodes[segment]['weight'] += 1
+            except KeyError:
+                graph.nodes[segment]['weight'] = 1
 
-        networkx.set_node_attributes(graph, name="weight", values=weights)
         return
 
     @staticmethod
@@ -1657,18 +1692,16 @@ Scoring configuration: {param_conf}
         that particular junction) will be removed from the graph.
         """
 
-        weights = networkx.get_node_attributes(graph, "weight")
         segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
         for segment in segments:
-            weights[segment] = weights.get(segment, 1) - 1
-
-        nodes_to_remove = [interval for interval, weight in weights if weight == 0]
-        graph.remove_nodes_from(nodes_to_remove)
-        assert all([node not in graph.nodes() for node in nodes_to_remove])
-
-        networkx.set_node_attributes(graph,
-                                     name="weight",
-                                     values=dict((k, v) for k, v in weights.items() if v > 0))
+            try:
+                node = graph.nodes[segment]
+                if node['weight'] == 1:
+                    graph.remove_node(segment)
+                else:
+                    node['weight'] -= 1
+            except KeyError:
+                pass
         return
 
     @classmethod

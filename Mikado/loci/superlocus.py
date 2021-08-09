@@ -680,6 +680,7 @@ class Superlocus(Abstractlocus):
 
         # Before starting to load: let's reduce the loci.
         if len(self.transcripts) >= self._complex_limit[0]:
+            self.logger.warning("Complex locus %s with %d transcripts", self.id, len(self.transcripts))
             self.approximation_level = 1
             self.reduce_method_one(None)
 
@@ -840,8 +841,8 @@ class Superlocus(Abstractlocus):
             [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s",
                               self.id, ", ".join(to_remove))
-            for tid in to_remove:
-                self.remove_transcript_from_locus(tid)
+
+            self.remove_transcripts_from_locus(to_remove)
 
         max_edges = max([d for n, d in transcript_graph.degree]) if transcript_graph else 0
         return transcript_graph, max_edges

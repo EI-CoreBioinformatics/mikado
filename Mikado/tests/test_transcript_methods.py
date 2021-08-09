@@ -5,16 +5,12 @@ import re
 import unittest
 import random
 import pandas as pd
-from pytest import mark
-
-from Mikado.exceptions import InvalidTranscript, InvalidCDS
-from Mikado._transcripts.transcript_methods.finalizing import _check_completeness, _check_internal_orf, \
-    _check_phase_correctness, _calculate_phases, _calculate_introns, _basic_final_checks, _verify_boundaries, \
-    _check_cdna_vs_utr, _fix_stop_codon
+from Mikado.exceptions import InvalidTranscript
+from Mikado._transcripts.transcript_methods.finalizing import _calculate_introns, _basic_final_checks
 from Mikado.configuration import MikadoConfiguration
-from sqlalchemy.engine import reflection
+from sqlalchemy import inspect
 import itertools
-from Mikado.utilities import Interval, IntervalTree
+from Mikado.utilities import IntervalTree
 from ..configuration.configurator import load_and_validate_config
 from ..loci import Transcript
 from ..parsers.bed12 import BED12
@@ -791,7 +787,7 @@ class TestRetrieval(unittest.TestCase):
     def test_connect(self):
 
         retrieval._connect_to_db(self.tr)
-        reflector = reflection.Inspector.from_engine(self.tr.engine)
+        reflector = inspect(self.tr.engine)
 
 
 class TestMiscellanea(unittest.TestCase):

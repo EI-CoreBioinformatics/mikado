@@ -4,6 +4,10 @@ TestCase to test the DButils module
 
 import os
 import unittest
+
+from sqlalchemy import inspect
+from sqlalchemy.engine import Inspector
+
 from ..utilities import dbutils
 from ..configuration import configurator
 import sqlalchemy
@@ -35,7 +39,7 @@ class TestDbConnect(unittest.TestCase):
         self.assertIsInstance(engine, sqlalchemy.engine.base.Engine)
         table_names = ['chrom', 'hit', "orf", "external",
                        "external_sources", 'hsp', 'junctions', 'query', 'target']
-        self.assertEqual(sorted(list(engine.table_names())), sorted(table_names))
+        self.assertEqual(sorted(inspect(engine).get_table_names()), sorted(table_names))
 
     def test_content(self):
 

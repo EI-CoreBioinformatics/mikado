@@ -3,6 +3,7 @@
 """
 Module that defines the blueprint for all loci classes.
 """
+import collections
 import dataclasses
 import abc
 import functools
@@ -585,16 +586,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return transcript.monoexonic
 
     def remove_transcripts_from_locus(self, tids: set):
+
+        segments = collections.Counter()
         for tid in tids:
             if tid not in self.transcripts:
                 self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
                 continue
-            self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+            segments.update(list(self.transcripts[tid].exons) + list(self.transcripts[tid].introns))
             del self.transcripts[tid]
+
+        for segment, count in segments.items():
+            try:
+                node = self._internal_graph.nodes[segment]
+                if node["weight"] == count:
+                    self._internal_graph.remove_node(segment)
+                else:
+                    self._internal_graph["weight"] -= count
+            except KeyError:
+                pass
 
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
-                    set.union(*[set()] + [  # The [set()] is necessary to prevent a crash from set.union for empty lists
+                    # The [set()] is necessary to prevent a crash from set.union for empty lists
+                    set.union(*[set()] + [
                         set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
                               ))
 

@@ -12,7 +12,7 @@ from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, 
 import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy import select
+from sqlalchemy import select, inspect
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12  # , GFF
 from .blast_serializer.query import Query
@@ -242,7 +242,7 @@ class OrfSerializer:
         session = Session()
         # session.configure(bind=self.engine)
 
-        inspector = Inspector.from_engine(self.engine)
+        inspector = inspect(self.engine)
         if Orf.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)
         self.session = session

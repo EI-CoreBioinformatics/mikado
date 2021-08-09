@@ -9,13 +9,12 @@ will have a tag, and internally the files will be TAB-delimited
 
 import os
 import pyfaidx
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, inspect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, Index
-from sqlalchemy.orm import column_property, relationship, backref
-from sqlalchemy.orm.session import Session  # sessionmaker
-from sqlalchemy import select
-from ..utilities.dbutils import DBBASE, Inspector, connect
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm.session import Session
+from ..utilities.dbutils import DBBASE, connect
 from .blast_serializer.query import Query
 from ..utilities.log_utils import check_logger, create_default_logger
 import numbers
@@ -178,7 +177,7 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
         self.engine = connect(configuration, logger=logger)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
-        inspector = Inspector.from_engine(self.engine)
+        inspector = inspect(self.engine)
         if External.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 

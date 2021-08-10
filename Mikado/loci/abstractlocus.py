@@ -550,6 +550,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         assert transcript.monoexonic or len(self.introns) > 0
         self.add_path_to_graph(transcript, self._internal_graph)
+        assert set(list(transcript.introns) + list(transcript.exons)).issubset(self._internal_graph.nodes())
+        assert all(self._internal_graph.nodes()[node]["weight"] >= 1 for node in self._internal_graph.nodes())
         assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
         assert len(self.locus_verified_introns) >= transcript.verified_introns_num
 
@@ -596,14 +598,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del self.transcripts[tid]
 
         for segment, count in segments.items():
-            try:
-                node = self._internal_graph.nodes[segment]
-                if node["weight"] == count:
-                    self._internal_graph.remove_node(segment)
-                else:
-                    self._internal_graph["weight"] -= count
-            except KeyError:
-                pass
+            node = self._internal_graph.nodes()[segment]
+            if node["weight"] == count:
+                self._internal_graph.remove_node(segment)
+            else:
+                self._internal_graph.nodes()[segment]["weight"] -= count
 
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
@@ -1692,11 +1691,7 @@ Scoring configuration: {param_conf}
         networkx.add_path(graph, segments)
 
         for segment in segments:
-            try:
-                graph.nodes[segment]['weight'] += 1
-            except KeyError:
-                graph.nodes[segment]['weight'] = 1
-
+            graph.nodes()[segment]['weight'] = graph.nodes()[segment].get("weight", 0) + 1
         return
 
     @staticmethod

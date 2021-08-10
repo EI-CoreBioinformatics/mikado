@@ -282,12 +282,17 @@ def analyse_locus(slocus: Superlocus,
                      stranded_locus.start,
                      stranded_locus.end,
                      stranded_locus.strand)
+        assert all(locus.metrics_calculated is True for locus in stranded_locus.loci.values()), \
+            "Metrics not calculated after analysis in analyse_locus."
+        assert all(locus.scores_calculated is True for locus in stranded_locus.loci.values()), \
+            "Scores not calculated after analysis in analyse_locus."
 
     assert len(stranded_loci) + failed == original_size, (len(stranded_loci), failed, original_size)
     # Check if any locus is a fragment, if so, tag/remove it
     if len(stranded_loci) > 0:
         stranded_loci = sorted(list(remove_fragments(stranded_loci, configuration, logger)))
-    logger.debug("Size of the loci to send: {0}, for {1} loci".format(sys.getsizeof(stranded_loci), len(stranded_loci)))
+    logger.debug("Size of the loci to send: {0}, for {1} loci".format(sys.getsizeof(stranded_loci),
+                                                                      len(stranded_loci)))
     end_time = perf_counter()
     logger.info("Finished with locus %s, counter %d in %f seconds", slocus.id, counter, end_time - start_time)
     logger.removeHandler(handler)

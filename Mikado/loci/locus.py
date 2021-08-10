@@ -233,6 +233,8 @@ class Locus(Abstractlocus):
         # Now that we have added the padding ... time to remove redundant alternative splicing events.
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
                           ", ".join(list(self.transcripts.keys())))
+        self.metrics_calculated = True
+        self.scores_calculated = True
         self._finalized = True
         return
 
@@ -333,7 +335,7 @@ class Locus(Abstractlocus):
             self.logger.debug("Removed: %s; Templates: %s; Primary: %s", ",".join(removed), ",".join(templates),
                               self.primary_transcript_id)
             self.transcripts = backup
-            [self.remove_transcript_from_locus(tid) for tid in set.intersection(templates, removed)]
+            self.remove_transcripts_from_locus(set.intersection(templates, removed))
             self.metrics_calculated = False
             self.scores_calculated = False
             self.filter_and_calculate_scores()
@@ -789,6 +791,8 @@ class Locus(Abstractlocus):
                     del self.transcripts[partial]
                 if partial in self.scores:
                     del self.scores[partial]
+        assert self.metrics_calculated is True
+        assert self.scores_calculated is True
 
     def print_metrics(self):
         """Overloading of the base method as in loci we might want to print data for the double ORFs."""

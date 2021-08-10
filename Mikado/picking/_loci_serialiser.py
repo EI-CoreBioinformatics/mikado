@@ -17,6 +17,8 @@ def serialise_locus(stranded_loci: [Superlocus],
     subloci = []
     monoloci = []
     for stranded_locus in sorted(stranded_loci):
+        assert all(locus.metrics_calculated is True for locus in stranded_locus.loci.values())
+        assert all(locus.scores_calculated is True for locus in stranded_locus.loci.values())
         loci.append([json.dumps(locus.as_dict(), default=default_for_serialisation)
                      for locus in stranded_locus.loci.values()])
 

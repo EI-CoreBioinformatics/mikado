@@ -1310,7 +1310,6 @@ class Superlocus(Abstractlocus):
                               reverse=True):
                 self.logger.debug("Adding %s to %s", tid, lid)
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
-            self.loci[lid].finalize_alternative_splicing()
 
         # Now we have to recheck that no AS event is linking more than one locus.
         to_remove = collections.defaultdict(list)
@@ -1325,17 +1324,17 @@ class Superlocus(Abstractlocus):
                         to_remove[lid].append(tid)
 
         for lid in to_remove:
-            for tid in to_remove[lid]:
-                self.loci[lid].remove_transcript_from_locus(tid)
-
-            self.loci[lid].finalize_alternative_splicing()
+            self.loci[lid].remove_transcripts_from_locus(to_remove[lid])
 
         # This is *necessary* because the names of the loci *MIGHT HAVE CHANGED*!
         new = dict()
         for lid in self.loci:
+            self.loci[lid].finalize_alternative_splicing()
             new[lid] = self.loci[lid]
 
         self.loci = new
+        assert all(locus.metrics_calculated is True for locus in self.loci.values()), \
+            "Loci not properly marked as defined after defining the alternative splicing."
         return
 
     def calculate_mono_metrics(self, check_requirements=True):

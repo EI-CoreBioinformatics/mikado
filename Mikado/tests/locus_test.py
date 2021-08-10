@@ -3,6 +3,7 @@
 """
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
+import collections
 import dataclasses
 import operator
 import random
@@ -14,6 +15,8 @@ from collections import namedtuple
 from copy import deepcopy
 
 import io
+from sys import maxsize
+
 import marshmallow
 import pkg_resources
 import pytest
@@ -497,9 +500,9 @@ class AbstractLocusTester(unittest.TestCase):
             self.transcript1.add_exon(exon)
         self.transcript1.finalize()
 
-        gff_transcript2 = """Chr1\tfoo\ttranscript\t1001\t1400\t.\t+\t.\tID=t0
-            Chr1\tfoo\texon\t1001\t1400\t.\t+\t.\tID=t0:exon1;Parent=t0
-            Chr1\tfoo\tCDS\t1001\t1350\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+        gff_transcript2 = """Chr1\tfoo\ttranscript\t1001\t1400\t.\t+\t.\tID=t1
+            Chr1\tfoo\texon\t1001\t1400\t.\t+\t.\tID=t1:exon1;Parent=t1
+            Chr1\tfoo\tCDS\t1001\t1350\t.\t+\t.\tID=t1:exon1;Parent=t1""".split("\n")
         gff_transcript2 = [GFF.GffLine(x) for x in gff_transcript2]
         self.assertEqual(gff_transcript2[0].chrom, "Chr1", gff_transcript2[0])
         self.transcript2 = Transcript(gff_transcript2[0])
@@ -517,6 +520,19 @@ class AbstractLocusTester(unittest.TestCase):
         self.transcript1.configuration = self.configuration
         self.transcript2.configuration = self.configuration
         self.assertEqual(self.transcript1.configuration.seed, self.transcript2.configuration.seed)
+
+        gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t400\t.\t+\t.\tID=t2
+    Chr1\tfoo\texon\t101\t400\t.\t+\t.\tID=t2:exon1;Parent=t2
+    Chr1\tfoo\tCDS\t101\t350\t.\t+\t.\tID=t2:exon1;Parent=t2""".split("\n")
+        gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
+        self.assertEqual(gff_transcript3[0].chrom, "Chr1", gff_transcript3[0])
+        self.transcript3 = Transcript(gff_transcript3[0])
+        for exon in gff_transcript3[1:]:
+            self.transcript3.add_exon(exon)
+        self.transcript3.finalize()
+        self.transcript3.configuration = self.configuration
+        # Check that the IDs are *different*!
+        self.assertEqual(len({self.transcript3.id, self.transcript1.id, self.transcript2.id}), 3)
 
     def test_create_metrics_row(self):
 
@@ -561,7 +577,7 @@ class AbstractLocusTester(unittest.TestCase):
                 else:
                     self.assertEqual(row["score"], 1.57, locus)
 
-    def test_removal(self):
+    def test_remove_all(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
             obj = cls(self.transcript1, configuration=self.configuration)
             if cls != Monosublocus:
@@ -570,9 +586,54 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertEqual(obj.chrom, "Chr1")
             obj._remove_all()
             self.assertEqual(obj.chrom, None)
-            self.assertEqual(obj.start, float("Inf"))
-            self.assertEqual(obj.end, float("-Inf"))
+            self.assertEqual(obj.start, maxsize)
+            self.assertEqual(obj.end, -maxsize)
             self.assertEqual(len(obj.transcripts), 0)
+
+    def test_remove_transcripts(self):
+        t1_segments = set(list(self.transcript1.exons) + list(self.transcript1.introns))
+        t2_segments = set(list(self.transcript2.exons) + list(self.transcript2.introns))
+        t3_segments = set(list(self.transcript3.exons) + list(self.transcript3.introns))
+        counted = collections.Counter()
+        counted.update(t1_segments)
+        counted.update(t2_segments)
+        counted.update(t3_segments)
+        self.assertGreater(counted.most_common(1)[0][1], 1)
+        for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
+            obj = cls(self.transcript1, configuration=self.configuration)
+            if cls != Monosublocus:
+                obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+                obj.add_transcript_to_locus(self.transcript3, check_in_locus=False)
+                self.assertEqual(set(obj._internal_graph.nodes()),
+                                 set(counted.keys()))
+                self.assertEqual(sorted(counted.items()),
+                                 sorted({(node, obj._internal_graph.nodes()[node]["weight"])
+                                         for node in obj._internal_graph.nodes()}))
+                self.assertEqual(obj.start, min(self.transcript2.start, self.transcript1.start,
+                                                self.transcript3.start))
+            self.assertEqual(obj.chrom, "Chr1")
+            if cls != Monosublocus:
+                self.assertEqual(len(obj.transcripts), 3, obj.transcripts.keys())
+                obj.remove_transcripts_from_locus([self.transcript2.id, self.transcript3.id])
+                self.assertEqual(list(obj.transcripts.keys())[0], self.transcript1.id)
+                self.assertEqual((obj.start, obj.end, obj.strand), (self.transcript1.start,
+                                                                    self.transcript1.end,
+                                                                    self.transcript1.strand))
+                self.assertEqual(set(obj._internal_graph.nodes()),
+                                 t1_segments)
+                self.assertEqual(sorted({segment: 1 for segment in list(self.transcript1.exons) +
+                                            list(self.transcript1.introns)}.items()),
+                                 sorted({(node, obj._internal_graph.nodes()[node]["weight"])
+                                         for node in obj._internal_graph.nodes()}))
+                obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
+                obj.add_transcript_to_locus(self.transcript3, check_in_locus=False)
+
+            obj.remove_transcripts_from_locus(list(obj.transcripts.keys()))
+            self.assertEqual(obj.chrom, None)
+            self.assertEqual(obj.start, maxsize)
+            self.assertEqual(obj.end, -maxsize)
+            self.assertEqual(len(obj.transcripts), 0)
+            self.assertEqual(len(obj._internal_graph.nodes()), 0)
 
     def test_invalid_conf(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:
@@ -1408,6 +1469,7 @@ Chr1\tfoo\texon\t801\t1000\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\
         t2.thick_start += 10000
         t2.thick_end += 1000
         t2 = Transcript(t2)
+        t2.id = "T2"
         for flank in [0, 1000, 10000, 20000]:
             with self.subTest(flank=flank):
                 sl = Superlocus(t1, flank=flank)
@@ -3002,6 +3064,8 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
         transcripts = dict((bed.id, Transcript(bed)) for bed in beds if not bed.header)
         sl = Superlocus(transcripts["test_0"])
         for tid in transcripts:
+            if tid == "test_0":
+                continue
             sl.add_transcript_to_locus(transcripts[tid], check_in_locus=False)
 
         sl.filter_and_calculate_scores()

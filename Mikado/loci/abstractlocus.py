@@ -500,7 +500,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, **kwargs):
+    def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, overwrite=False, **kwargs):
         """
         This method checks that a transcript is contained within the locus
         (using the "in_locus" class method) and upon a successful check extends the locus with the new transcript.
@@ -514,10 +514,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param check_in_locus: flag to indicate whether the function should check the transcript before adding it
         or instead whether to trust the assignment to be correct.
         :type check_in_locus: bool
+
+        :param overwrite: boolean flag. If true, re-adding a transcript to the locus will cause the original transcript
+                          already present to be removed and re-added. Otherwise, an error will be raised.
+        :type overwrite: bool
         """
 
         transcript.finalize()
         self.monoexonic = self.monoexonic and self._is_transcript_monoexonic(transcript)
+        if transcript.id in self.transcripts and overwrite is False:
+            raise KeyError(f"Trying to add {transcript.id} to {self.id}, but this transcript is already present "
+                           "in the locus. Please double check your IDs.")
+        elif transcript.id in self.transcripts and overwrite is True:
+            self.logger.warning(f"{transcript.id} is already present in {self.id}. Removing it and readding it.")
+            self.remove_transcript_from_locus(transcript.id)
 
         if self.initialized is True:
             if check_in_locus is False:
@@ -611,15 +621,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
                               ))
 
-        if self.transcripts:
+        if len(self.transcripts) > 0:
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
             self.end = max(self.transcripts[_].end for _ in self.transcripts)
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
-            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-
-            self.start, self.end, self.strand = maxsize, -maxsize, None
+            self.chrom, self.start, self.end, self.strand = None, maxsize, -maxsize, None
             self.stranded = False
             self.initialized = False
 
@@ -685,7 +693,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__internal_graph = networkx.DiGraph()
         self.transcripts = dict()
         self.chrom = None
-        self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+        self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = False
         self.initialized = False
         self.metrics_calculated = False

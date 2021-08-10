@@ -604,11 +604,11 @@ class AbstractLocusTester(unittest.TestCase):
             if cls != Monosublocus:
                 obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
                 obj.add_transcript_to_locus(self.transcript3, check_in_locus=False)
-                self.assertEqual(set(obj._internal_graph.nodes()),
+                self.assertEqual(set(obj.internal_graph.nodes()),
                                  set(counted.keys()))
                 self.assertEqual(sorted(counted.items()),
-                                 sorted({(node, obj._internal_graph.nodes()[node]["weight"])
-                                         for node in obj._internal_graph.nodes()}))
+                                 sorted({(node, obj.internal_graph.nodes()[node]["weight"])
+                                         for node in obj.internal_graph.nodes()}))
                 self.assertEqual(obj.start, min(self.transcript2.start, self.transcript1.start,
                                                 self.transcript3.start))
             self.assertEqual(obj.chrom, "Chr1")
@@ -619,12 +619,12 @@ class AbstractLocusTester(unittest.TestCase):
                 self.assertEqual((obj.start, obj.end, obj.strand), (self.transcript1.start,
                                                                     self.transcript1.end,
                                                                     self.transcript1.strand))
-                self.assertEqual(set(obj._internal_graph.nodes()),
+                self.assertEqual(set(obj.internal_graph.nodes()),
                                  t1_segments)
                 self.assertEqual(sorted({segment: 1 for segment in list(self.transcript1.exons) +
                                             list(self.transcript1.introns)}.items()),
-                                 sorted({(node, obj._internal_graph.nodes()[node]["weight"])
-                                         for node in obj._internal_graph.nodes()}))
+                                 sorted({(node, obj.internal_graph.nodes()[node]["weight"])
+                                         for node in obj.internal_graph.nodes()}))
                 obj.add_transcript_to_locus(self.transcript2, check_in_locus=False)
                 obj.add_transcript_to_locus(self.transcript3, check_in_locus=False)
 
@@ -633,7 +633,7 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertEqual(obj.start, maxsize)
             self.assertEqual(obj.end, -maxsize)
             self.assertEqual(len(obj.transcripts), 0)
-            self.assertEqual(len(obj._internal_graph.nodes()), 0)
+            self.assertEqual(len(obj.internal_graph.nodes()), 0)
 
     def test_invalid_conf(self):
         for cls in [Superlocus, Sublocus, Monosublocus, Locus]:

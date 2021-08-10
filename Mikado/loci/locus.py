@@ -4,6 +4,7 @@
 This module defines the last object to be created during the picking,
 i.e. the locus.
 """
+import copy
 from typing import Union, Dict, List, Set
 import collections
 import itertools
@@ -265,9 +266,10 @@ class Locus(Abstractlocus):
         backup = dict()
         for tid in self.transcripts:
             backup[tid] = self.transcripts[tid].deepcopy()
-
+        backup_graph = nx.DiGraph(incoming_graph_data=self.internal_graph)
+        self.logger.warning(f"Checking the graph for {backup.keys()}")
         # The "templates" are the transcripts that we used to expand the others.
-        templates = self.pad_transcripts(backup)
+        templates = self.pad_transcripts(copy.deepcopy(backup))
         # First off, let us update the transcripts.
         tid_keys = list(self.transcripts.keys())
         for tid in tid_keys:
@@ -284,11 +286,12 @@ class Locus(Abstractlocus):
         self._check_requirements()  # Populate self._not_passing with things that fail the requirements
         # If we would have to remove the primary transcript we have done something wrong
         if self.primary_transcript_id in self._not_passing or len(set.intersection(templates, self._not_passing)) > 0:
-            self.logger.debug(
+            self.logger.warning(
                 "Either the primary or some template transcript has not passed the muster. Removing, restarting.")
             if self._not_passing == {self.primary_transcript_id}:
-                self.logger.info("The primary transcript %s is invalidated by the other transcripts in the locus.\
-                Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
+                self.logger.warning(
+                    "The primary transcript %s is invalidated by the other transcripts in the locus. "
+                    "Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
                 self._not_passing = set(self.transcripts.keys()) - {self.primary_transcript_id}
             # Remove transcripts *except the primary* that do not pass the muster
             for tid in self._not_passing - {self.primary_transcript_id}:
@@ -335,6 +338,13 @@ class Locus(Abstractlocus):
             self.logger.debug("Removed: %s; Templates: %s; Primary: %s", ",".join(removed), ",".join(templates),
                               self.primary_transcript_id)
             self.transcripts = backup
+            self.logger.warning(f"Checking the graph for {backup.keys()}")
+            assert backup_graph != self.internal_graph
+            self._internal_graph = backup_graph
+            self.logger.warning(f"Checking the graph for {backup.keys()}")
+            assert self._internal_graph == backup_graph
+            assert self.internal_graph == self._internal_graph
+            self.logger.warning(f"Removing: {set.intersection(templates, removed)}")
             self.remove_transcripts_from_locus(set.intersection(templates, removed))
             self.metrics_calculated = False
             self.scores_calculated = False

@@ -124,7 +124,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.metrics_calculated = False
         self._metrics = dict()
         self.__scores = dict()
-        self.__internal_graph = networkx.DiGraph()
+        self._internal_graph = networkx.DiGraph()
         self.configuration = configuration
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
             self.add_transcript_to_locus(transcript_instance)
@@ -214,13 +214,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             state["sessionmaker"] = None
             state["session"] = None
 
-        if self.__internal_graph.nodes():
-            nodes = dumper(list(self.__internal_graph.nodes())[0])
+        if self._internal_graph.nodes():
+            nodes = dumper(list(self._internal_graph.nodes())[0])
         else:
             nodes = "[]"
         state["_Abstractlocus__internal_nodes"] = nodes
 
-        edges = [edge for edge in self.__internal_graph.edges()]
+        edges = [edge for edge in self._internal_graph.edges()]
         # Remember that the graph is in form [((start, end), (start, end)), etc.]
         # So that each edge is composed by a couple of tuples.
         state["_Abstractlocus__internal_edges"] = dumper(edges)
@@ -228,7 +228,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
-        del state["_Abstractlocus__internal_graph"]
         assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
@@ -236,7 +235,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
         self.__segmenttree = IntervalTree()
-        self.__internal_graph = networkx.DiGraph()
+        self._internal_graph = networkx.DiGraph()
         assert state["json_conf"] is not None
         self.configuration = state["json_conf"]
         assert self.configuration is not None
@@ -244,8 +243,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = []
         for edge in json.loads(state["_Abstractlocus__internal_edges"]):
             edges.append((tuple(edge[0]), tuple(edge[1])))
-        self.__internal_graph.add_nodes_from(nodes)
-        self.__internal_graph.add_edges_from(edges)
+        self._internal_graph.add_nodes_from(nodes)
+        self._internal_graph.add_edges_from(edges)
 
         # Recalculate the segment tree
         _ = self.__segmenttree
@@ -559,9 +558,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             getattr(self, locattr).update(set(getattr(transcript, tranattr)))
 
         assert transcript.monoexonic or len(self.introns) > 0
-        self.add_path_to_graph(transcript, self._internal_graph)
-        assert set(list(transcript.introns) + list(transcript.exons)).issubset(self._internal_graph.nodes())
-        assert all(self._internal_graph.nodes()[node]["weight"] >= 1 for node in self._internal_graph.nodes())
+        self.add_path_to_graph(transcript, self.internal_graph)
+        assert set(list(transcript.introns) + list(transcript.exons)).issubset(self.internal_graph.nodes())
+        assert all(self.internal_graph.nodes()[node]["weight"] >= 1 for node in self.internal_graph.nodes())
         assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
         assert len(self.locus_verified_introns) >= transcript.verified_introns_num
 
@@ -608,11 +607,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del self.transcripts[tid]
 
         for segment, count in segments.items():
-            node = self._internal_graph.nodes()[segment]
+            node = self.internal_graph.nodes()[segment]
             if node["weight"] == count:
-                self._internal_graph.remove_node(segment)
+                self.internal_graph.remove_node(segment)
             else:
-                self._internal_graph.nodes()[segment]["weight"] -= count
+                self.internal_graph.nodes()[segment]["weight"] -= count
 
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
@@ -658,7 +657,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return
 
         self.logger.debug("Deleting %s from %s", tid, self.id)
-        self.remove_path_from_graph(self.transcripts[tid], self._internal_graph)
+        self.remove_path_from_graph(self.transcripts[tid], self.internal_graph)
         del self.transcripts[tid]
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
@@ -690,7 +689,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _remove_all(self):
         """This method will remove all transcripts from the locus."""
         self.logger.warning("Removing all transcripts from %s", self.id)
-        self.__internal_graph = networkx.DiGraph()
+        self._internal_graph = networkx.DiGraph()
         self.transcripts = dict()
         self.chrom = None
         self.start, self.end, self.strand = maxsize, -maxsize, None
@@ -962,7 +961,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 exon=exon,
                 strand=self.strand,
                 segmenttree=self.segmenttree,
-                digraph=self._internal_graph,
+                digraph=self.internal_graph,
                 frags=frags,
                 internal_splices=internal_splices,
                 introns=self.introns,
@@ -1873,9 +1872,9 @@ Scoring configuration: {param_conf}
         return self.__source
 
     @property
-    def _internal_graph(self):
+    def internal_graph(self):
         """The exon-intron directed graph representation for the locus."""
-        return self.__internal_graph
+        return self._internal_graph
 
     @source.setter
     def source(self, value):

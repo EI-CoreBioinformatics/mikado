@@ -269,7 +269,7 @@ class Locus(Abstractlocus):
         backup_graph = nx.DiGraph(incoming_graph_data=self.internal_graph)
         self.logger.warning(f"Checking the graph for {backup.keys()}")
         # The "templates" are the transcripts that we used to expand the others.
-        templates = self.pad_transcripts(copy.deepcopy(backup))
+        templates = self.pad_transcripts(backup=None)
         # First off, let us update the transcripts.
         tid_keys = list(self.transcripts.keys())
         for tid in tid_keys:

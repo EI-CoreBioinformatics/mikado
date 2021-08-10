@@ -228,6 +228,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             del state["engine"]
 
         del state["_Abstractlocus__segmenttree"]
+        del state["_internal_graph"]
         assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state
 
@@ -243,8 +244,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         edges = []
         for edge in json.loads(state["_Abstractlocus__internal_edges"]):
             edges.append((tuple(edge[0]), tuple(edge[1])))
-        self._internal_graph.add_nodes_from(nodes)
-        self._internal_graph.add_edges_from(edges)
+        self.internal_graph.add_nodes_from(nodes)
+        self.internal_graph.add_edges_from(edges)
 
         # Recalculate the segment tree
         _ = self.__segmenttree

@@ -32,7 +32,11 @@ def main():
     target_chrom, target_start, target_end = to_region(args.region)
 
     # Extract region from genome
-    seq = args.reference.get_seq(target_chrom, target_start-args.window, target_end+args.window).seq
+    min_seq_pos = max(1, target_start-args.window)
+    max_seq_pos = min(len(args.reference[target_chrom]), target_end+args.window)
+    seq = args.reference.get_seq(target_chrom,
+                                 min_seq_pos,
+                                 max_seq_pos).seq
     print(f">{args.region}\n{seq}", file=open(args.output_prefix+'.fasta', 'w'))
 
     # Extract transcripts from prepare
@@ -46,10 +50,11 @@ def main():
                     if row.is_transcript:
                         # Generate a list of transcripts and get their query.ID from db
                         id_list.append(row.id)
-                    row.start -= target_start + args.window
-                    row.end -= target_start + args.window
+                    row.start -= min_seq_pos
+                    row.end -= min_seq_pos
+                    row.chrom = args.region
                     print(row, file=gtf_output)
-                elif in_region and row.end >= target_end or target_chrom != row.chrom:
+                elif in_region and (row.start >= target_end or target_chrom != row.chrom):
                     break
 
     input_db = sqlite3.connect(database=args.db)

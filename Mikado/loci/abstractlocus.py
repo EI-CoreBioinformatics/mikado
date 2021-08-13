@@ -631,7 +631,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.stranded = False
             self.initialized = False
 
-        self.logger.debug("Deleted %s from %s", *tids, self.id)
+        self.logger.debug(f"Deleted {', '.join(tids)} from {self.id}")
 
         for tid in tids:
             if tid in self._metrics:

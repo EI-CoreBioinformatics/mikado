@@ -1315,8 +1315,10 @@ class Locus(Abstractlocus):
         self.primary_transcript_id = primary_id
         assert self.transcripts[primary_id].selected_cds_introns == self.transcripts[old_primary].selected_cds_introns
         del self.transcripts[old_primary]
-        self._orf_doubles[primary_id] = set([_.replace(old_primary, primary_id)
-                                             for _ in self._orf_doubles.pop(old_primary, set())])
+        self._orf_doubles[primary_id] = {
+            _.replace(old_primary, primary_id)
+            for _ in self._orf_doubles.pop(old_primary, set())
+        }
 
         order = sorted([k for k in self.transcripts.keys() if k != primary_id],
                        key=lambda xtid: self.transcripts[xtid])
@@ -1330,15 +1332,26 @@ class Locus(Abstractlocus):
             self.transcripts[tid].id = new_id
             self.transcripts[new_id] = self.transcripts.pop(tid)
             olds = self._orf_doubles.pop(tid, set())
-            self._orf_doubles[new_id] = set([_.replace(tid, new_id) for _ in self._orf_doubles.pop(tid, set())])
+            self._orf_doubles[new_id] = {
+                _.replace(tid, new_id) for _ in self._orf_doubles.pop(tid, set())
+            }
+
             news = self._orf_doubles.pop(tid, set())
             self.logger.debug("Changed the old ORF IDs for %s from %s to %s", tid, olds, news)
             assert self._orf_doubles[new_id] is not None
             mapper[tid] = new_id
 
         if self.scores_calculated is True:
-            new_scores = dict()
+            new_scores = {}
             for tid in mapper:
+                if tid not in self.scores:
+                    error = (f"ID {tid} not found in {self.id} scores! Available IDs:\n"
+                            f"{', '.join(self.scores.keys())}\n"
+                            f"Mapper: {mapper.items()}\n"
+                            f"Primary transcript ID: {self.primary_transcript_id}\n"
+                            f"Old primary: {old_primary}")
+                    self.logger.critical(error)
+                    raise KeyError(error)
                 values = self.scores[tid].copy()
                 values["tid"] = mapper[tid]
                 values["alias"] = tid
@@ -1346,16 +1359,13 @@ class Locus(Abstractlocus):
             self.scores = new_scores
 
         if self.metrics_calculated is True:
-            new_metrics = dict()
+            new_metrics = {}
             for tid in mapper:
                 values = self._metrics[tid].copy()
                 values["tid"] = mapper[tid]
                 values["alias"] = tid
                 new_metrics[mapper[tid]] = values
             self._metrics = new_metrics
-
-        # self.scores_calculated = False
-        # self.metrics_calculated = False
 
     # pylint: enable=invalid-name,arguments-differ
 

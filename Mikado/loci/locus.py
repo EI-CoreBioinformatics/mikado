@@ -167,16 +167,18 @@ class Locus(Abstractlocus):
             self.logger.debug("Re-calculated metrics and scores for %s", self.id)
 
         max_isoforms = self.configuration.pick.alternative_splicing.max_isoforms
-        original = dict((tid, self.transcripts[tid].copy()) for tid in self.transcripts)
+        original = {tid: self.transcripts[tid].copy() for tid in self.transcripts}
 
         # *Never* lose the primary transcript
-        reference_sources = set(source for source, is_reference in zip(
-            self.configuration.prepare.files.labels,
-            self.configuration.prepare.files.reference
-        ))
-        reference_transcripts = dict(
-            (tid, self.transcripts[tid].is_reference or self.transcripts[tid].original_source in reference_sources)
-            for tid in self.transcripts)
+        reference_sources = {source for source, is_reference in zip(
+                self.configuration.prepare.files.labels,
+                self.configuration.prepare.files.reference
+            )}
+        reference_transcripts = {
+            tid: self.transcripts[tid].is_reference
+            or self.transcripts[tid].original_source in reference_sources
+            for tid in self.transcripts
+        }
 
         order = sorted([(tid, self.transcripts[tid].score, self.transcripts[tid]) for tid in self.transcripts
                         if tid != self.primary_transcript_id and
@@ -186,7 +188,7 @@ class Locus(Abstractlocus):
         threshold = self.configuration.pick.alternative_splicing.min_score_perc * self.primary_transcript.score
 
         score_passing = [_ for _ in order if _[1] >= threshold]
-        removed = set([_[0] for _ in order if _[1] < threshold])
+        removed = {_[0] for _ in order if _[1] < threshold}
 
         remainder = score_passing[max_isoforms:]
         score_passing = score_passing[:max_isoforms]
@@ -194,7 +196,8 @@ class Locus(Abstractlocus):
         [self.remove_transcript_from_locus(tid) for tid in removed]
         [self.remove_transcript_from_locus(tup[0]) for tup in remainder]
 
-        self.logger.debug("Kept %s transcripts out of %s (threshold: %s)", len(score_passing), len(order), threshold)
+        self.logger.debug("Kept %s transcripts out of %s (threshold: %s)",
+                          len(score_passing), len(order), threshold)
 
         iteration = 0
         while True:
@@ -204,8 +207,6 @@ class Locus(Abstractlocus):
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.filter_and_calculate_scores(check_requirements=check_requirements)
-            else:
-                pass
             with_retained = self._remove_retained_introns()
             if len(with_retained) > 0:
                 self.logger.debug("Transcripts with retained introns: %s", ", ".join(list(with_retained)))
@@ -217,29 +218,33 @@ class Locus(Abstractlocus):
                 if failed:
                     # Restart the padding procedure
                     continue
-                else:
-                    removed.update(self._remove_redundant_after_padding())
-                    self.primary_transcript.attributes.pop("ccode", None)
-                    self.logger.debug("Updated removal set: %s", ", ".join(removed))
+                removed.update(self._remove_redundant_after_padding())
+                self.primary_transcript.attributes.pop("ccode", None)
+                self.logger.debug("Updated removal set: %s", ", ".join(removed))
             missing = len(self.transcripts) - max_isoforms
-            if missing > 0 and remainder:
-                __to_add = remainder[:missing]
-                for tid, score, obj in __to_add:
-                    self.add_transcript_to_locus(obj, check_in_locus=False)
-                remainder = remainder[missing:]
-            else:
+            if missing <= 0 or not remainder:
                 break
-
+            __to_add = remainder[:missing]
+            for tid, score, obj in __to_add:
+                self.add_transcript_to_locus(obj, check_in_locus=False)
+            remainder = remainder[missing:]
         self._mark_padded_transcripts(original)
         # Now that we have added the padding ... time to remove redundant alternative splicing events.
         self.logger.debug("%s has %d transcripts (%s)", self.id, len(self.transcripts),
                           ", ".join(list(self.transcripts.keys())))
-        self.metrics_calculated = True
-        self.scores_calculated = True
+        self.metrics_calculated = False
+        self.scores_calculated = False
+        self.filter_and_calculate_scores(check_requirements=check_requirements)
+        assert self.primary_transcript_id in self._metrics, (self.primary_transcript_id,
+                                                             self._metrics.keys(),
+                                                             self.transcripts.keys())
+        assert self.primary_transcript_id in self.scores, (self.primary_transcript_id,
+                                                           self.scores.keys(),
+                                                           self.transcripts.keys())
         self._finalized = True
         return
 
-    def _mark_padded_transcripts(self, original):
+    def _mark_padded_transcripts(self, original: dict):
         for tid in self.transcripts:
             # For each transcript check if they have been padded
             assert tid in original
@@ -247,15 +252,21 @@ class Locus(Abstractlocus):
             transcript = self.transcripts[tid]
             if (transcript.start, transcript.end) != (backup.start, backup.end):
                 self.transcripts[tid].attributes["padded"] = True
-                message = "{transcript.id} is now padded and has now start {transcript.start}, end {transcript.end}"
-                if (backup.is_coding and ((backup.combined_cds_end != transcript.combined_cds_end) or
-                                          (backup.combined_cds_start != transcript.combined_cds_start))):
-                    transcript.attributes["cds_padded"] = True
-                    message += "; CDS moved to {transcript.combined_cds_start}, end {transcript.combined_cds_end}"
-                elif backup.is_coding:
-                    transcript.attributes["cds_padded"] = False
+                message = (f"{transcript.id} is now padded and has now start "
+                           "{transcript.start}, end {transcript.end}")
+                if backup.is_coding:
+                    if (
+                        backup.combined_cds_end != transcript.combined_cds_end
+                        or backup.combined_cds_start
+                        != transcript.combined_cds_start
+                    ):
+                        transcript.attributes["cds_padded"] = True
+                        message += (f"; CDS moved to {transcript.combined_cds_start}, "
+                                    "end {transcript.combined_cds_end}")
+                    else:
+                        transcript.attributes["cds_padded"] = False
                 message += "."
-                self.logger.info(message.format(**locals()))
+                self.logger.info(message)
 
     def launch_padding(self):
 
@@ -379,16 +390,17 @@ class Locus(Abstractlocus):
                     cds_disrupted.add(tid)
             if max(len(retained_introns), len(cds_disrupted)) == 0:
                 break
-            if self.configuration.pick.alternative_splicing.keep_cds_disrupted_by_ri is False:
+            if self.configuration.pick.alternative_splicing.keep_cds_disrupted_by_ri is False and cds_disrupted:
                 self.logger.debug("Removing {} because their CDS is disrupted by retained introns".format(
                     ", ".join(list(cds_disrupted))))
                 to_remove.update(cds_disrupted)
                 retained_introns -= cds_disrupted
-            if self.configuration.pick.alternative_splicing.keep_retained_introns is False:
+            if self.configuration.pick.alternative_splicing.keep_retained_introns is False and retained_introns:
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(retained_introns))))
                 to_remove.update(retained_introns)
-            if len(to_remove) > 0:
+            if to_remove:
+                self.logger.debug(f"Removing from {self.id}: {' '.join(to_remove)}")
                 removed.update(to_remove)
                 for tid in to_remove:
                     self.remove_transcript_from_locus(tid)
@@ -433,7 +445,7 @@ class Locus(Abstractlocus):
             if comparison.n_f1[0] == 100:
                 if self.primary_transcript_id in couple:
                     removal = [_ for _ in couple if _ != self.primary_transcript_id][0]
-                elif len([_ for _ in couple if self[_].is_reference]) == 1:
+                elif len([_ for _ in couple if self[_].is_reference]) >= 1:
                     removal = [_ for _ in couple if self[_].is_reference is False][0]
                 elif self[couple[0]].score != self[couple[1]].score:
                     removal = sorted([(_, self[_].score) for _ in couple],

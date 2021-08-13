@@ -662,7 +662,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         del self.transcripts[tid]
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
-                    set.union(*[set()] + [  # The [set()] is necessary to prevent a crash from set.union for empty lists
+                    # The [set()] is necessary to prevent a crash from set.union for empty lists
+                    set.union(*[set()] + [
                         set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
                               ))
 
@@ -672,8 +673,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.end = max(self.transcripts[_].end for _ in self.transcripts)
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
         else:
-            # self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
-
             self.start, self.end, self.strand = maxsize, -maxsize, None
             self.stranded = False
             self.initialized = False

@@ -363,7 +363,9 @@ class Locus(Abstractlocus):
             assert self.internal_graph == self._internal_graph
             self.__segmenttree = backup_segmenttree
             self.logger.warning(f"Removing: {set.intersection(templates, removed)}")
+            self.filter_and_calculate_scores()
             self.remove_transcripts_from_locus(set.intersection(templates, removed))
+
             self.metrics_calculated = False
             self.scores_calculated = False
             self.filter_and_calculate_scores()

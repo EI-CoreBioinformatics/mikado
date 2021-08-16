@@ -276,9 +276,7 @@ class Locus(Abstractlocus):
 
         self.logger.debug("Launched padding for %s", self.id)
         failed = False
-        backup = dict()
-        for tid in self.transcripts:
-            backup[tid] = self.transcripts[tid].deepcopy()
+        backup = {tid: self.transcripts[tid].deepcopy() for tid in self.transcripts}
         backup_graph = nx.DiGraph(incoming_graph_data=self.internal_graph)
         l = []
         self.segmenttree.traverse(l.append)
@@ -327,7 +325,10 @@ class Locus(Abstractlocus):
                         if tid != self.primary_transcript_id],
                        key=operator.itemgetter(1), reverse=True)
 
-        self.logger.debug("Transcripts potentially kept in the locus: %s", ",".join([_[0] for _ in order]))
+        self.logger.debug(
+            "Transcripts potentially kept in the locus: %s",
+            ",".join(_[0] for _ in order),
+        )
 
         # Now that we are sure that we have not ruined the primary transcript, let us see whether
         # we should discard any other transcript.

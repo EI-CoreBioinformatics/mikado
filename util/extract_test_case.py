@@ -12,7 +12,7 @@ from Mikado.utilities import to_region
 
 
 def generate_in_argument(id_list):
-    return ','.join([f"'{name}'" for name in id_list])
+    return ','.join(f"'{name}'" for name in id_list)
 
 
 def main():
@@ -32,10 +32,10 @@ def main():
     target_chrom, target_start, target_end = to_region(args.region)
 
     # Extract region from genome
-    min_seq_pos = max(1, target_start-args.window-1)
-    max_seq_pos = min(len(args.reference[target_chrom]), target_end+args.window)
+    min_seq_pos = max(1, target_start - 1 - args.window)
+    max_seq_pos = min(len(args.reference[target_chrom]), target_end + args.window)
     seq = args.reference.get_seq(target_chrom,
-                                 min_seq_pos,
+                                 min_seq_pos + 1,
                                  max_seq_pos).seq
     print(f">{args.region}\n{seq}", file=open(args.output_prefix+'.fasta', 'w'))
 
@@ -64,14 +64,13 @@ def main():
     chroms.loc[(chroms.name == target_chrom), 'name'] = args.region
     chroms.to_sql("chrom", output_db, if_exists='replace')
 
-
     # Extract db junctions from region remembering to shift by the same amount the genome is 'shifted'
     junctions = pd.read_sql_query(f"SELECT junctions.* FROM junctions "
                                   f"JOIN chrom ON junctions.chrom_id == chrom.chrom_id "
                                   f"WHERE "
                                   f"junctions.start >= {target_start} "
                                   f"AND junctions.end <= {target_end} AND "
-                                  f"chrom.name == {target_chrom}", input_db)
+                                  f"chrom.name == \"{target_chrom}\"", input_db)
 
     # Transform junctions to location in the extracted region including the window
     junctions['start'] -= min_seq_pos

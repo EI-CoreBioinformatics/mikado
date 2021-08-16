@@ -604,8 +604,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         segments = collections.Counter()
         for tid in tids:
             if tid not in self.transcripts:
-                self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
-                continue
+                msg = (f"I was asked to remove {tid} from {self.id}, but it is not present. " 
+                       f"Available transcripts: {', '.join(self.transcripts.keys())}")
+                self.logger.critical(msg)
+                raise KeyError(msg)
             segments.update(list(self.transcripts[tid].exons) + list(self.transcripts[tid].introns))
             del self.transcripts[tid]
 
@@ -840,6 +842,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # logger.debug("Found introns for %s: %s", exon, found_introns)
         # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
         # As sets are not hashable!
+        assert all(intron in introns for intron in found_introns), (found_introns, introns)
+        assert all(intron in digraph.nodes() for intron in found_introns), (found_introns, digraph.nodes())
         ancestors, descendants = _get_intron_ancestors_descendants(tuple(found_introns), digraph)
 
         for intron in found_introns:

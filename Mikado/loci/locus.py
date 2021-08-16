@@ -21,6 +21,8 @@ from ..scales.assignment.assigner import Assigner
 import networkx as nx
 import random
 
+from ..utilities import IntervalTree, Interval
+
 
 class Locus(Abstractlocus):
     """Class that defines the final loci.
@@ -278,6 +280,9 @@ class Locus(Abstractlocus):
         for tid in self.transcripts:
             backup[tid] = self.transcripts[tid].deepcopy()
         backup_graph = nx.DiGraph(incoming_graph_data=self.internal_graph)
+        l = []
+        self.segmenttree.traverse(l.append)
+        backup_segmenttree = IntervalTree.from_intervals(l)
         self.logger.warning(f"Checking the graph for {backup.keys()}")
         # The "templates" are the transcripts that we used to expand the others.
         templates = self.pad_transcripts(backup=None)
@@ -355,6 +360,7 @@ class Locus(Abstractlocus):
             self.logger.warning(f"Checking the graph for {backup.keys()}")
             assert self._internal_graph == backup_graph
             assert self.internal_graph == self._internal_graph
+            self.__segmenttree = backup_segmenttree
             self.logger.warning(f"Removing: {set.intersection(templates, removed)}")
             self.remove_transcripts_from_locus(set.intersection(templates, removed))
             self.metrics_calculated = False

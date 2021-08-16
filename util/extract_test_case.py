@@ -21,7 +21,7 @@ def main():
     parser.add_argument("-db", "--db", help="Mikado populated database (after serialise)")
     parser.add_argument("-ref", "--reference", type=pyfaidx.Fasta, help="Fasta reference file")
     parser.add_argument("-r", "--region", type=str, help="Region of interest to extract")
-    parser.add_argument("-w", "--window", type=int, default=100,
+    parser.add_argument("-w", "--window", type=int, default=0,
                         help="Window up/down stream of the gene start/end to extract")
     parser.add_argument("-o", "--output_prefix", type=str, help="Output files prefix", default="test")
     args = parser.parse_args()
@@ -32,7 +32,7 @@ def main():
     target_chrom, target_start, target_end = to_region(args.region)
 
     # Extract region from genome
-    min_seq_pos = max(1, target_start-args.window)
+    min_seq_pos = max(1, target_start-args.window-1)
     max_seq_pos = min(len(args.reference[target_chrom]), target_end+args.window)
     seq = args.reference.get_seq(target_chrom,
                                  min_seq_pos,
@@ -61,7 +61,9 @@ def main():
     output_db = sqlite3.connect(database=args.output_prefix+'.db')
 
     chroms = pd.read_sql_query(f"SELECT * FROM chrom", input_db)
+    chroms.loc[(chroms.name == target_chrom), 'name'] = args.region
     chroms.to_sql("chrom", output_db, if_exists='replace')
+
 
     # Extract db junctions from region remembering to shift by the same amount the genome is 'shifted'
     junctions = pd.read_sql_query(f"SELECT junctions.* FROM junctions "
@@ -72,8 +74,10 @@ def main():
                                   f"chrom.name == {target_chrom}", input_db)
 
     # Transform junctions to location in the extracted region including the window
-    junctions['start'] = junctions['start'] - target_start + args.window
-    junctions['end'] = junctions['end'] - target_start + args.window
+    junctions['start'] -= min_seq_pos
+    junctions['end'] -= min_seq_pos
+    junctions['junction_start'] -= min_seq_pos
+    junctions['junction_end'] -= min_seq_pos
 
     # Store junctions
     junctions.to_sql('junctions', output_db, if_exists='replace')

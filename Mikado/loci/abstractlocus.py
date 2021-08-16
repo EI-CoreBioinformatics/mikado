@@ -12,6 +12,8 @@ import logging
 from sys import maxsize
 import marshmallow
 import networkx
+from networkx import NetworkXError
+
 from ..utilities import to_bool
 from .._transcripts.clique_methods import find_communities, define_graph
 from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
@@ -642,24 +644,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.metrics_calculated = False
         self.scores_calculated = False
 
-    def remove_transcript_from_locus(self, tid: str):
+    def remove_transcript_from_locus(self, tid_to_remove: str):
         """
         This method will remove a transcript from an Abstractlocus-like instance and reset appropriately
         all derived attributes (e.g. introns, start, end, etc.).
         If the transcript ID is not present in the locus, the function will return silently after emitting a DEBUG
         message.
 
-        :param tid: name of the transcript to remove
-        :type tid: str
+        :param tid_to_remove: name of the transcript to remove
+        :type tid_to_remove: str
         """
 
-        if tid not in self.transcripts:
-            self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid)
+        if tid_to_remove not in self.transcripts:
+            self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid_to_remove)
             return
 
-        self.logger.debug("Deleting %s from %s", tid, self.id)
-        self.remove_path_from_graph(self.transcripts[tid], self.internal_graph)
-        del self.transcripts[tid]
+        self.logger.debug("Deleting %s from %s", tid_to_remove, self.id)
+        self.remove_path_from_graph(self.transcripts[tid_to_remove], self.internal_graph)
+        del self.transcripts[tid_to_remove]
         for locattr, tranattr in self.__locus_to_transcript_attrs.items():
             setattr(self, locattr,
                     # The [set()] is necessary to prevent a crash from set.union for empty lists
@@ -677,11 +679,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.stranded = False
             self.initialized = False
 
-        self.logger.debug("Deleted %s from %s", tid, self.id)
-        if tid in self._metrics:
-            del self._metrics[tid]
-        if tid in self.scores:
-            del self.scores[tid]
+        self.logger.debug("Deleted %s from %s", tid_to_remove, self.id)
+        if tid_to_remove in self._metrics:
+            del self._metrics[tid_to_remove]
+        if tid_to_remove in self.scores:
+            del self.scores[tid_to_remove]
 
         self.metrics_calculated = False
         self.scores_calculated = False
@@ -1971,7 +1973,11 @@ Scoring configuration: {param_conf}
 def _get_intron_ancestors_descendants(introns, internal_graph) -> [Dict[(tuple, set)], Dict[(tuple, set)]]:
     ancestors, descendants = dict(), dict()
     introns = set(introns)
-    for intron in introns:
-        ancestors[intron] = {_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns}
-        descendants[intron] = {_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns}
+
+    try:
+        for intron in introns:
+            ancestors[intron] = {_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns}
+            descendants[intron] = {_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns}
+    except NetworkXError as e:
+        raise
     return ancestors, descendants

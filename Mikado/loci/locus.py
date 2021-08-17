@@ -354,18 +354,15 @@ class Locus(Abstractlocus):
         if len(set.intersection(set.union(set(templates), {self.primary_transcript_id}), removed)) > 0:
             self.logger.debug("Removed: %s; Templates: %s; Primary: %s", ",".join(removed), ",".join(templates),
                               self.primary_transcript_id)
+            assert all(transcript.finalized is True for transcript in self.transcripts.values())
+            assert all(transcript.finalized is True for transcript in backup.values())
             self.transcripts = backup
-            self.logger.warning(f"Checking the graph for {backup.keys()}")
             assert backup_graph != self.internal_graph
             self._internal_graph = backup_graph
-            self.logger.warning(f"Checking the graph for {backup.keys()}")
             assert self._internal_graph == backup_graph
-            assert self.internal_graph == self._internal_graph
             self.__segmenttree = backup_segmenttree
-            self.logger.warning(f"Removing: {set.intersection(templates, removed)}")
-            self.filter_and_calculate_scores()
+            self.logger.debug(f"Removing: {set.intersection(templates, removed)}")
             self.remove_transcripts_from_locus(set.intersection(templates, removed))
-
             self.metrics_calculated = False
             self.scores_calculated = False
             self.filter_and_calculate_scores()

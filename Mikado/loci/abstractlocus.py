@@ -842,6 +842,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # logger.debug("Found introns for %s: %s", exon, found_introns)
         # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
         # As sets are not hashable!
+        found_introns = set.intersection(introns, found_introns)
         assert all(intron in introns for intron in found_introns), (found_introns, introns)
         assert all(intron in digraph.nodes() for intron in found_introns), (found_introns, digraph.nodes())
         ancestors, descendants = _get_intron_ancestors_descendants(tuple(found_introns), digraph)
@@ -1411,11 +1412,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         assert isinstance(self.scores, dict)
                         assert isinstance(self.scores[tid], dict)
                         self.transcripts[tid].score = self.scores[tid]["score"]
-                return
             else:
                 self.logger.debug("Scores calculation already effectuated for %s", self.id)
-                return
-
+            return
         assert self.scores_calculated is False
         self.get_metrics()
         self.logger.debug("Calculating scores for {0}".format(self.id))
@@ -1428,10 +1427,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                 self.configuration.scoring.requirements)
             self.scores_calculated = True
             return
-        self.scores = dict()
+        self.scores = {}
 
         for tid in self.transcripts:
-            self.scores[tid] = dict()
+            self.scores[tid] = {}
             # Add the score for the transcript source
             self.scores[tid]["source_score"] = self.transcripts[tid].source_score or 0
 
@@ -1455,9 +1454,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self._not_passing.add(tid)
             assert self.transcripts[tid].score is not None
 
-            if tid in self._not_passing:
-                pass
-            else:
+            if tid not in self._not_passing:
                 assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
                     tid, self.transcripts[tid].score, sum(self.scores[tid].values())
                 )

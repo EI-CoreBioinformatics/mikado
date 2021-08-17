@@ -195,8 +195,8 @@ class Locus(Abstractlocus):
         remainder = score_passing[max_isoforms:]
         score_passing = score_passing[:max_isoforms]
 
-        [self.remove_transcript_from_locus(tid) for tid in removed]
-        [self.remove_transcript_from_locus(tup[0]) for tup in remainder]
+        self.remove_transcripts_from_locus(removed)
+        self.remove_transcripts_from_locus([tup[0] for tup in remainder])
 
         self.logger.debug("Kept %s transcripts out of %s (threshold: %s)",
                           len(score_passing), len(order), threshold)
@@ -308,8 +308,7 @@ class Locus(Abstractlocus):
                     "Leaving only the main transcript in %s.", self.primary_transcript_id, self.id)
                 self._not_passing = set(self.transcripts.keys()) - {self.primary_transcript_id}
             # Remove transcripts *except the primary* that do not pass the muster
-            for tid in self._not_passing - {self.primary_transcript_id}:
-                self.remove_transcript_from_locus(tid)
+            self.remove_transcripts_from_locus(self._not_passing - {self.primary_transcript_id})
             # Restore the *non-failed* transcripts *and* the primary transcript to their original state
             for tid in set(backup.keys()) - (self._not_passing - {self.primary_transcript_id}):
                 self._swap_transcript(self.transcripts[tid], backup[tid])
@@ -405,18 +404,16 @@ class Locus(Abstractlocus):
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(retained_introns))))
                 to_remove.update(retained_introns)
-            if to_remove:
-                self.logger.debug(f"Removing from {self.id}: {' '.join(to_remove)}")
-                removed.update(to_remove)
-                for tid in to_remove:
-                    self.remove_transcript_from_locus(tid)
-                self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
-                self.metrics_calculated = False
-                self.scores_calculated = False
-                self.filter_and_calculate_scores()
-            else:
+            if not to_remove:
                 break
 
+            self.logger.debug(f"Removing from {self.id}: {' '.join(to_remove)}")
+            removed.update(to_remove)
+            self.remove_transcripts_from_locus(to_remove)
+            self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
+            self.metrics_calculated = False
+            self.scores_calculated = False
+            self.filter_and_calculate_scores()
         return removed
 
     def _remove_redundant_after_padding(self):
@@ -465,8 +462,7 @@ class Locus(Abstractlocus):
 
         if to_remove_redundant:
             self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove_redundant))
-            for tid in to_remove_redundant:
-                self.remove_transcript_from_locus(tid)
+            self.remove_transcripts_from_locus(to_remove_redundant)
 
         [self._add_to_redundant_splicing_codes(_) for _ in ("=", "_", "n", "c")]
         [self._remove_from_alternative_splicing_codes(_) for _ in ("=", "_", "n", "c")]
@@ -487,8 +483,7 @@ class Locus(Abstractlocus):
 
         if to_remove_alt_splice:
             self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove_alt_splice))
-            for tid in to_remove_alt_splice:
-                self.remove_transcript_from_locus(tid)
+            self.remove_transcripts_from_locus(to_remove_alt_splice)
 
         return to_remove_redundant.union(to_remove_alt_splice)
 

@@ -714,8 +714,7 @@ class Superlocus(Abstractlocus):
         if len(to_remove) > 0:
             self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
                               len(to_remove))
-            for tid in to_remove:
-                self.remove_transcript_from_locus(tid)
+            self.remove_transcripts_from_locus(to_remove)
             for tid, transcript in to_add.items():
                 self.logger.debug("Adding %s to %s", tid, self.id)
                 self.add_transcript_to_locus(transcript, check_in_locus=False)
@@ -917,9 +916,7 @@ class Superlocus(Abstractlocus):
             transcript_graph.remove_nodes_from(to_remove)
             [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.logger.debug("Removing the following transcripts from %s: %s", self.id, ", ".join(to_remove))
-            for tid in to_remove:
-                self.logger.debug("Removing %s", tid)
-                self.remove_transcript_from_locus(tid)
+            self.remove_transcripts_from_locus(to_remove)
 
         max_edges = max([d for n, d in transcript_graph.degree])
         return transcript_graph, max_edges

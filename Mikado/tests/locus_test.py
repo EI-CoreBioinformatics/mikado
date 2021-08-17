@@ -586,9 +586,7 @@ class AbstractLocusTester(unittest.TestCase):
             self.assertEqual(obj.start, min(self.transcript2.start, self.transcript1.start))
             self.assertEqual(obj.chrom, "Chr1")
             obj._remove_all()
-            self.assertEqual(obj.chrom, None)
-            self.assertEqual(obj.start, maxsize)
-            self.assertEqual(obj.end, -maxsize)
+            self.assertEqual(obj.chrom, "Chr1")
             self.assertEqual(len(obj.transcripts), 0)
 
     def test_remove_transcripts(self):
@@ -630,9 +628,7 @@ class AbstractLocusTester(unittest.TestCase):
                 obj.add_transcript_to_locus(self.transcript3, check_in_locus=False)
 
             obj.remove_transcripts_from_locus(list(obj.transcripts.keys()))
-            self.assertEqual(obj.chrom, None)
-            self.assertEqual(obj.start, maxsize)
-            self.assertEqual(obj.end, -maxsize)
+            self.assertEqual(obj.chrom, "Chr1")
             self.assertEqual(len(obj.transcripts), 0)
             self.assertEqual(len(obj.internal_graph.nodes()), 0)
 

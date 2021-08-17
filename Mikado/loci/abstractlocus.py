@@ -629,10 +629,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 self.transcripts[tid].parent = self.id
             self.end = max(self.transcripts[_].end for _ in self.transcripts)
             self.start = min(self.transcripts[_].start for _ in self.transcripts)
-        else:
-            self.chrom, self.start, self.end, self.strand = None, maxsize, -maxsize, None
-            self.stranded = False
-            self.initialized = False
+        # else:
+        #     self.chrom, self.start, self.end, self.strand = None, maxsize, -maxsize, None
+        #     self.stranded = False
+        #     self.initialized = False
 
         self.logger.debug(f"Deleted {', '.join(tids)} from {self.id}")
 
@@ -696,8 +696,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.logger.warning("Removing all transcripts from %s", self.id)
         self._internal_graph = networkx.DiGraph()
         self.transcripts = {}
-        self.chrom = None
-        self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = False
         self.initialized = False
         self.metrics_calculated = False
@@ -1482,16 +1480,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 return
             self.metrics_calculated = not ((len(not_passing) > 0) and self.purge)
             self._not_passing.update(not_passing)
-            for tid in not_passing:
-                if self.purge is False:
+            if self.purge is False:
+                for tid in not_passing:
                     self.logger.debug("%s has been assigned a score of 0 because it fails basic requirements",
                                       self.id)
                     self.transcripts[tid].score = 0
-                else:
-                    self.logger.debug("Excluding %s from %s because of failed requirements", tid, self.id)
-                    self._excluded_transcripts[tid] = self.transcripts[tid]
-                    self.remove_transcript_from_locus(tid)
-                    assert self.metrics_calculated is False
+            else:
+                self.logger.warning(f"Excluding from {self.id} because of failed requirements "
+                                    f"{len(not_passing)} transcripts out of {len(self.transcripts)}: "
+                                    f"{', '.join(not_passing)}")
+                self._excluded_transcripts.update({tid: self.transcripts[tid] for tid in not_passing})
+                self.remove_transcripts_from_locus(not_passing)
+                # for tid in not_passing:
+                #     self.remove_transcript_from_locus(tid)
+                assert self.metrics_calculated is False
 
             assert self.purge or (not self.purge and len(self.transcripts) == beginning)
 

@@ -121,7 +121,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.scores_calculated = False
         self.scores = dict()
-        self.__segmenttree = IntervalTree()
+        self._segmenttree = IntervalTree()
         self.session = None
         self.metrics_calculated = False
         self._metrics = dict()
@@ -237,7 +237,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def __setstate__(self, state):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
-        self.__segmenttree = IntervalTree()
+        self._segmenttree = IntervalTree()
         self._internal_graph = networkx.DiGraph()
         assert state["json_conf"] is not None
         self.configuration = state["json_conf"]
@@ -250,7 +250,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.internal_graph.add_edges_from(edges)
 
         # Recalculate the segment tree
-        _ = self.__segmenttree
+        _ = self._segmenttree
         self.logger = None
 
     def as_dict(self) -> dict:
@@ -643,6 +643,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if tid in self.scores:
                 del self.scores[tid]
 
+        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         self.metrics_calculated = False
         self.scores_calculated = False
 
@@ -687,6 +688,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if tid_to_remove in self.scores:
             del self.scores[tid_to_remove]
 
+        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         self.metrics_calculated = False
         self.scores_calculated = False
 
@@ -694,7 +696,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """This method will remove all transcripts from the locus."""
         self.logger.warning("Removing all transcripts from %s", self.id)
         self._internal_graph = networkx.DiGraph()
-        self.transcripts = dict()
+        self.transcripts = {}
         self.chrom = None
         self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = False
@@ -842,7 +844,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # logger.debug("Found introns for %s: %s", exon, found_introns)
         # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
         # As sets are not hashable!
-        found_introns = set.intersection(introns, found_introns)
+        # found_introns = set.intersection(introns, found_introns)
         assert all(intron in introns for intron in found_introns), (found_introns, introns)
         assert all(intron in digraph.nodes() for intron in found_introns), (found_introns, digraph.nodes())
         ancestors, descendants = _get_intron_ancestors_descendants(tuple(found_introns), digraph)
@@ -1908,10 +1910,10 @@ Scoring configuration: {param_conf}
     def segmenttree(self):
         """The interval tree structure derived from the exons and introns of the locus."""
 
-        if len(self.__segmenttree) != len(self.exons) + len(self.introns):
-            self.__segmenttree = self._calculate_segment_tree(self.exons, self.introns)
+        if len(self._segmenttree) != len(self.exons) + len(self.introns):
+            self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
-        return self.__segmenttree
+        return self._segmenttree
 
     @staticmethod
     def _calculate_segment_tree(exons: Union[list, tuple, set], introns: Union[list, tuple, set]):

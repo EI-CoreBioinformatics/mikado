@@ -574,7 +574,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.scores[transcript.id] = transcript.score
             self.scores_calculated = True
-
+        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         return
 
     def _swap_transcript(self,

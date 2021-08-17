@@ -229,7 +229,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "engine"):
             del state["engine"]
 
-        del state["_Abstractlocus__segmenttree"]
+        del state["_segmenttree"]
         del state["_internal_graph"]
         assert isinstance(state["json_conf"], (MikadoConfiguration, DaijinConfiguration))
         return state

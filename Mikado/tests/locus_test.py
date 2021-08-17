@@ -4,6 +4,7 @@
 Very basic, all too basic test for some functionalities of locus-like classes.
 """
 import collections
+import copy
 import dataclasses
 import operator
 import random
@@ -4882,6 +4883,27 @@ class PaddingTester(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             locus._swap_transcript(transcript, new2)
+
+    def test_swap_segmenttree(self):
+            reference = "Chr5\t26574999\t26578625\tID=AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t411,126,87,60,100,809,126,72,82,188,107\t0,495,711,885,1035,1261,2163,2378,2856,3239,3519"
+            modified = "Chr5\t26574899\t26578725\tID=AT5G66600.3;coding=True;phase=0\t0\t-\t26575104\t26578315\t0\t11\t511,126,87,60,100,809,126,72,82,188,207\t0,595,811,985,1135,1361,2263,2478,2956,3339,3619"
+
+            ref_transcript = Transcript(BED12(reference))
+            ref_transcript.finalize()
+            mod_transcript = Transcript(BED12(modified))
+            mod_transcript.finalize()
+            self.assertEqual(mod_transcript.id, ref_transcript.id)
+            self.assertEqual(mod_transcript.introns, ref_transcript.introns)
+            self.assertFalse(set(mod_transcript.exons) == set(ref_transcript.exons))
+            for loc_class in Superlocus, Locus, Monosublocus, Excluded:
+                loc = loc_class(ref_transcript)
+                nodes = set()
+                loc.segmenttree.traverse(lambda x: nodes.add(x))
+                loc._swap_transcript(ref_transcript, mod_transcript)
+                new_nodes = set()
+                loc.segmenttree.traverse(lambda x: new_nodes.add(x))
+                self.assertEqual(len(new_nodes), len(nodes))
+                self.assertNotEqual(new_nodes, nodes)
 
     def test_swap_see_metrics(self):
 

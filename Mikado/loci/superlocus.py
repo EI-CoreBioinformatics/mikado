@@ -950,7 +950,8 @@ class Superlocus(Abstractlocus):
             for excluded_tid in excluded_tids:
                 to_remove = self._excluded_transcripts[excluded_tid]
                 self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
-                self.remove_transcript_from_locus(to_remove.id)
+                if to_remove.id in self.transcripts:
+                    self.remove_transcript_from_locus(to_remove.id)
                 if excluded_tid in self._excluded_transcripts:
                     del self._excluded_transcripts[excluded_tid]
 
@@ -1312,7 +1313,7 @@ class Superlocus(Abstractlocus):
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
 
         # Now we have to recheck that no AS event is linking more than one locus.
-        to_remove = collections.defaultdict(list)
+        to_remove = collections.defaultdict(set)
         for lid in self.loci:
             for tid, transcript in [_ for _ in self.loci[lid].transcripts.items() if
                                     _[0] != self.loci[lid].primary_transcript_id]:
@@ -1321,7 +1322,7 @@ class Superlocus(Abstractlocus):
                                                                 transcript)
                     if is_compatible is True:
                         self.logger.debug("%s is compatible with more than one locus. Removing it.", tid)
-                        to_remove[lid].append(tid)
+                        to_remove[lid].add(tid)
 
         for lid in to_remove:
             self.loci[lid].remove_transcripts_from_locus(to_remove[lid])

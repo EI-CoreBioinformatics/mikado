@@ -240,7 +240,8 @@ class Sublocus(Abstractlocus):
             for excluded_tid in excluded_tids:
                 self.excluded.add_transcript_to_locus(self._excluded_transcripts[excluded_tid],
                                                       check_in_locus=False)
-                self.remove_transcript_from_locus(excluded_tid)
+                if excluded_tid in self.transcripts.keys():
+                    self.remove_transcript_from_locus(excluded_tid)
                 del self._excluded_transcripts[excluded_tid]
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))

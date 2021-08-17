@@ -657,7 +657,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if tid_to_remove not in self.transcripts:
-            self.logger.debug("Transcript %s is not present in the Locus. Ignoring it.", tid_to_remove)
+            msg = f"Transcript {tid_to_remove} is not present in the Locus. Ignoring it."
+            self.logger.critical(msg, exc_info=KeyError(msg))
+            raise KeyError(msg)
             return
 
         self.logger.debug("Deleting %s from %s", tid_to_remove, self.id)

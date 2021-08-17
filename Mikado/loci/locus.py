@@ -424,10 +424,10 @@ class Locus(Abstractlocus):
         """Private method to remove duplicate copies of transcripts after the padding procedure."""
 
         # First thing: calculate the class codes
-        to_remove = set()
+        to_remove_redundant = set()
         if len(self.transcripts) == 1:
             self.logger.debug(f"{self.id} only has one transcript, no redundancy removal needed.")
-            return to_remove
+            return to_remove_redundant
 
         self.logger.debug("Starting to remove redundant transcripts from %s", self.id)
 
@@ -459,13 +459,13 @@ class Locus(Abstractlocus):
                 else:
                     removal = random.choice(sorted(couple))
                 if removal:
-                    to_remove.add(removal)
+                    to_remove_redundant.add(removal)
                     self.logger.debug("Removing %s from locus %s because after padding it is redundant with %s",
                                       removal, self.id, (set(couple) - {removal}).pop())
 
-        if to_remove:
-            self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove))
-            for tid in to_remove:
+        if to_remove_redundant:
+            self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove_redundant))
+            for tid in to_remove_redundant:
                 self.remove_transcript_from_locus(tid)
 
         [self._add_to_redundant_splicing_codes(_) for _ in ("=", "_", "n", "c")]
@@ -474,6 +474,7 @@ class Locus(Abstractlocus):
                        key=operator.itemgetter(1))
         others = set(self.transcripts.keys())
 
+        to_remove_alt_splice = set()
         for tid, score in order:
             if self[tid].is_reference:
                 continue
@@ -481,15 +482,15 @@ class Locus(Abstractlocus):
             if is_valid is False:
                 self.logger.debug("Removing %s from %s as it is a redundant splicing isoform after padding.",
                                   tid, self.id)
-                to_remove.add(tid)
+                to_remove_alt_splice.add(tid)
                 others.remove(tid)
 
-        if to_remove:
-            self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove))
-            for tid in to_remove:
+        if to_remove_alt_splice:
+            self.logger.debug("Removing from %s: %s", self.id, ", ".join(to_remove_alt_splice))
+            for tid in to_remove_alt_splice:
                 self.remove_transcript_from_locus(tid)
 
-        return to_remove
+        return to_remove_redundant.union(to_remove_alt_splice)
 
     def remove_transcript_from_locus(self, tid: str):
 

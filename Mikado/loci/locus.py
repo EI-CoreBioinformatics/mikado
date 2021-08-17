@@ -175,7 +175,7 @@ class Locus(Abstractlocus):
         reference_sources = {source for source, is_reference in zip(
                 self.configuration.prepare.files.labels,
                 self.configuration.prepare.files.reference
-            )}
+            ) if is_reference is True}
         reference_transcripts = {
             tid: self.transcripts[tid].is_reference
             or self.transcripts[tid].original_source in reference_sources

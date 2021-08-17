@@ -574,7 +574,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.scores[transcript.id] = transcript.score
             self.scores_calculated = True
-        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         return
 
     def _swap_transcript(self,
@@ -643,7 +642,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if tid in self.scores:
                 del self.scores[tid]
 
-        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         self.metrics_calculated = False
         self.scores_calculated = False
 
@@ -688,7 +686,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if tid_to_remove in self.scores:
             del self.scores[tid_to_remove]
 
-        self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
         self.metrics_calculated = False
         self.scores_calculated = False
 
@@ -1910,10 +1907,22 @@ Scoring configuration: {param_conf}
     def segmenttree(self):
         """The interval tree structure derived from the exons and introns of the locus."""
 
-        if len(self._segmenttree) != len(self.exons) + len(self.introns):
+        if not self._is_tree_unchanged(frozenset(self.exons), frozenset(self.introns), self._segmenttree):
             self._segmenttree = self._calculate_segment_tree(self.exons, self.introns)
 
         return self._segmenttree
+
+    @staticmethod
+    @functools.lru_cache(maxsize=100, typed=True)
+    def _is_tree_unchanged(exons: frozenset, introns: frozenset, tree):
+        """Static method to ensure that the """
+        if len(tree) != len(exons) + len(introns):
+            return False
+        check_exons = set()
+        check_introns = set()
+        tree.traverse(lambda x: check_introns.add((x.start, x.end))
+                      if x.value == 'intron' else check_exons.add((x.start, x.end)))
+        return check_exons == exons and introns == check_introns
 
     @staticmethod
     def _calculate_segment_tree(exons: Union[list, tuple, set], introns: Union[list, tuple, set]):

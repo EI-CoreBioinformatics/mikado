@@ -319,8 +319,7 @@ class Superlocus(Abstractlocus):
     def add_locus(self, locus: Locus):
         """Method to add a Locus instance to the Superlocus instance."""
 
-        for transcript in locus.transcripts.values():
-            self.add_transcript_to_locus(transcript, check_in_locus=False)
+        self.add_transcripts_to_locus(locus.transcripts.values(), check_in_locus=False)
 
         # self.source = locus.source
         self.configuration = locus.configuration
@@ -426,11 +425,14 @@ class Superlocus(Abstractlocus):
                                            logger=self.logger
                                            )
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
+                    to_add = []
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
-                            new_locus.add_transcript_to_locus(cdna)
+                            to_add.append(cdna)
                         else:
                             assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
+                            new_locus.add_transcripts_to_locus(to_add)
+                            to_add = []
                             new_loci.append(new_locus)
                             new_locus = Superlocus(cdna,
                                                    stranded=True,
@@ -711,17 +713,16 @@ class Superlocus(Abstractlocus):
 
         assert len(to_remove) < len(to_add) + len(self.transcripts)
 
-        if len(to_remove) > 0:
+        if to_remove:
             self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
                               len(to_remove))
             self.remove_transcripts_from_locus(to_remove)
-            for tid, transcript in to_add.items():
-                self.logger.debug("Adding %s to %s", tid, self.id)
-                self.add_transcript_to_locus(transcript, check_in_locus=False)
+            self.logger.debug(f"Adding {', '.join(to_add.keys())} to self.id")
+            self.add_transcripts_to_locus(to_add.values(), check_in_locus=False)
 
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
-            [self.excluded.add_transcript_to_locus(_) for _ in to_remove]
+            self.excluded.add_transcripts_to_locus(to_remove)
             self._remove_all()
 
         del data_dict
@@ -914,7 +915,7 @@ class Superlocus(Abstractlocus):
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
-            [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
+            self.excluded.adds_transcript_to_locus([self.transcripts[tid] for tid in to_remove])
             self.logger.debug("Removing the following transcripts from %s: %s", self.id, ", ".join(to_remove))
             self.remove_transcripts_from_locus(to_remove)
 
@@ -944,13 +945,11 @@ class Superlocus(Abstractlocus):
         if check_requirements is True:
             self._check_requirements()
             excluded_tids = list(self._excluded_transcripts.keys())
-            for excluded_tid in excluded_tids:
-                to_remove = self._excluded_transcripts[excluded_tid]
-                self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
-                if to_remove.id in self.transcripts:
-                    self.remove_transcript_from_locus(to_remove.id)
-                if excluded_tid in self._excluded_transcripts:
-                    del self._excluded_transcripts[excluded_tid]
+            self.excluded.add_transcripts_to_locus([self._excluded_transcripts[excluded_tid]
+                                                    for excluded_tid in excluded_tids])
+            to_remove = set.intersection(set(self.transcripts.keys()), set(excluded_tids))
+            self.remove_transcripts_from_locus(to_remove)
+            [self._excluded_transcripts.pop(excluded_tid, None) for excluded_tid in excluded_tids]
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -999,7 +998,7 @@ class Superlocus(Abstractlocus):
                                     use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
-            [new_sublocus.add_transcript_to_locus(ttt) for ttt in subl[1:]]
+            new_sublocus.add_transcripts_to_locus(subl[1:])
             new_sublocus.parent = self.id
             new_sublocus.metrics_calculated = False
             new_sublocus.get_metrics()
@@ -1025,8 +1024,7 @@ class Superlocus(Abstractlocus):
         for sublocus_instance in sorted(self.subloci):
             sublocus_instance.logger = self.logger
             sublocus_instance.define_monosubloci(purge=self.purge, check_requirements=check_requirements)
-            for transcript in sublocus_instance.excluded.transcripts.values():
-                self.excluded.add_transcript_to_locus(transcript)
+            self.excluded.add_transcripts_to_locus(sublocus_instance.excluded.transcripts.values())
             for tid in sublocus_instance.transcripts:
                 # Update the score
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
@@ -1169,19 +1167,16 @@ class Superlocus(Abstractlocus):
         self._find_lost_transcripts()
         while len(self.lost_transcripts):
             new_locus = None
-            for transcript in self.lost_transcripts.values():
-                if new_locus is None:
-                    new_locus = Superlocus(transcript,
-                                           configuration=self.configuration,
-                                           use_transcript_scores=self._use_transcript_scores,
-                                           stranded=self.stranded,
-                                           verified_introns=self.locus_verified_introns,
-                                           logger=self.logger,
-                                           source=self.source
-                                           )
-                else:
-                    new_locus.add_transcript_to_locus(transcript,
-                                                      check_in_locus=False)
+            lost_transcripts = list(self.lost_transcripts.values())
+            new_locus = Superlocus(lost_transcripts[0],
+                                   configuration=self.configuration,
+                                   use_transcript_scores=self._use_transcript_scores,
+                                   stranded=self.stranded,
+                                   verified_introns=self.locus_verified_introns,
+                                   logger=self.logger,
+                                   source=self.source
+                                   )
+            new_locus.add_transcripts_to_locus(lost_transcripts[1:], check_in_locus=False)
             new_locus.define_loci(check_requirements=check_requirements)
             self.loci.update(new_locus.loci)
             self.__lost = new_locus.lost_transcripts

@@ -29,7 +29,7 @@ import random
 from functools import partial, lru_cache
 import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
-from typing import Union, Dict
+from typing import Union, Dict, List, Iterable
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
@@ -501,6 +501,96 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return chosen
 
     # ###### Class instance methods  #######
+
+    def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
+                                 check_in_locus=True, overwrite=False,
+                                 sort_transcripts=True, **kwargs):
+        """
+
+        :param transcripts:
+        :param check_in_locus:
+        :param overwrite:
+        :param sort_transcripts:
+        :param kwargs:
+        :return:
+        """
+
+        if not transcripts:
+            self.logger.debug(f"No transcripts to add for {self.id}. Returning")
+            return
+
+        paths = set()
+        nodes = collections.Counter()
+        to_remove = set()
+        found = set()
+        if sort_transcripts is True:
+            transcripts = sorted(transcripts)
+
+        for transcript in transcripts:
+            transcript.finalize()
+            assert transcript.chrom is not None, f"{transcript.id} has an invalid null chromosome"
+            if self.chrom is None:
+                self.chrom = transcript.chrom
+            elif self.chrom != transcript.chrom:
+                chromosomes = collections.Counter()
+                chromosomes.update([transcript.chrom for transcript in transcripts])
+                raise NotInLocusError(f"The transcripts provided are from different chromosomes. This is "
+                                      f"invalid. Chromosomes: {chromosomes}\n"
+                                      f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
+            if transcript.id in self.transcripts:
+                if overwrite is False:
+                    raise KeyError(f"Trying to add {transcript.id} to {self.id}, but this transcript is "
+                                   "already present in the locus. Please double check your IDs.")
+                elif overwrite is True:
+                    self.logger.warning(f"{transcript.id} is already present in {self.id}. Removing it and readding it.")
+                    to_remove.add(transcript.id)
+            elif transcript.id in found:
+                ids = collections.Counter()
+                ids.update([transcript.id for transcript in transcripts])
+                raise KeyError(f"There are multiple transcripts with the same name in this batch. "
+                               f"Please double check. IDs: {ids}")
+            if check_in_locus is False:
+                pass
+            elif self.initialized and not self.in_locus(self, transcript, flank=self.flank, **kwargs):
+                raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
+                Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
+                Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
+                """.format(
+                    lchrom=self.chrom, lstart=self.start, lend=self.end, lstrand=self.strand,
+                    tchrom=transcript.chrom,
+                    tstart=transcript.start,
+                    tend=transcript.end,
+                    tstrand=transcript.strand,
+                    tid=transcript.id,
+                    stids=", ".join(list(self.transcripts.keys())),
+
+                ))
+            elif not self.initialized:
+                self.strand = transcript.strand
+                self.chrom = transcript.chrom
+
+            self.start = min(self.start, transcript.start)
+            self.end = max(self.end, transcript.end)
+            self.initialized = True
+            for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+                getattr(self, locattr).update(set(getattr(transcript, tranattr)))
+
+            segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
+            nodes.update(set(segments))
+            paths.update(zip(segments[:-1], segments[1:]))
+            if self._use_transcript_scores is True:
+                self.scores[transcript.id] = transcript.score
+
+        if to_remove:
+            self.remove_transcripts_from_locus(to_remove)
+
+        self._internal_graph.add_nodes_from(nodes.keys())
+        self._internal_graph.add_edges_from(paths)
+        for node in nodes:
+            self._internal_graph.nodes()[node]["weight"] = self._internal_graph.nodes()[node].get("weight", 0) \
+                                                           + nodes[node]
+        self.metrics_calculated = False
+        self.scores_calculated = self._use_transcript_scores
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, overwrite=False, **kwargs):
         """

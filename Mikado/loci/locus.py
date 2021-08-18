@@ -5,7 +5,7 @@ This module defines the last object to be created during the picking,
 i.e. the locus.
 """
 import copy
-from typing import Union, Dict, List, Set
+from typing import Union, Dict, List, Set, Iterable
 import collections
 import itertools
 import operator
@@ -497,6 +497,11 @@ class Locus(Abstractlocus):
 
         super().remove_transcript_from_locus(tid)
         self._finalized = False
+
+    def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
+                                 check_in_locus=True, overwrite=False,
+                                 sort_transcripts=True, **kwargs):
+        raise NotImplementedError("Locus classes require transcripts to be added one by one.")
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True,
                                 **kwargs):

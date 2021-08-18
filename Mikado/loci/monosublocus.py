@@ -35,7 +35,7 @@ class Monosublocus(Abstractlocus):
             self.monoexonic = transcript_instance.monoexonic
         self.feature = "Monosublocus"
         self.parent = None
-        self.attributes = dict()
+        self.attributes = {}
 
     # pylint: disable=arguments-differ
     def __str__(self, print_cds=True, source_in_name=True):

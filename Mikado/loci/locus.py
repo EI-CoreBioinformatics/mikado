@@ -556,7 +556,11 @@ class Locus(Abstractlocus):
                 (transcript.is_reference is True or transcript.original_source in self._reference_sources):
             reference_pass = True
 
-        if self.configuration.pick.alternative_splicing.only_confirmed_introns is True and reference_pass is False:
+        if (
+            self.configuration.pick.alternative_splicing.only_confirmed_introns
+            is True
+            and not reference_pass
+        ):
             to_check = (transcript.introns - transcript.verified_introns) - self.primary_transcript.introns
             to_be_added = len(to_check) == 0
             if not to_be_added:
@@ -588,10 +592,7 @@ class Locus(Abstractlocus):
                           transcript.id, self.id)
         transcript.attributes["primary"] = False
 
-        if transcript.is_coding:
-            transcript.feature = "mRNA"
-        else:
-            transcript.feature = "ncRNA"
+        transcript.feature = "mRNA" if transcript.is_coding else "ncRNA"
         Abstractlocus.add_transcript_to_locus(self, transcript)
 
         self.locus_verified_introns.update(transcript.verified_introns)

@@ -502,7 +502,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def _check_transcript_batch(self, transcripts, overwrite=False):
+    def _check_transcript_batch(self, transcripts, check_in_locus=True, overwrite=False):
 
         ids, chromosomes = list(zip(*[(transcript.id, transcript.chrom) for transcript in transcripts]))
         if len(ids) != len(set(ids)):
@@ -512,6 +512,34 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                    f"{', '.join([str(_) for _ in id_counter.items()])}")
             self.logger.critical(msg)
             raise KeyError(msg)
+
+        if check_in_locus is True and self.initialized:
+            coords = sorted([(transcript.start, transcript.end, transcript.strand, transcript.id)
+                            for transcript in transcripts], key=operator.itemgetter(0, 1))
+            previous = None
+            failed = []
+            locus_coords = (self.start, self.end)
+            while coords:
+                if coords == previous:
+                    raise NotInLocusError(
+                        f"Transcripts {', '.join([_[4] for _ in previous])} are incompatible with {self.id}."
+                    )
+                previous = coords[:]
+                for coord in coords:
+                    if self.stranded and coord[2] != self.strand:
+                        raise NotInLocusError(f"Transcript  with strand {coords[0][2]} to "
+                                              f"a locus ({self.id}) with strand {self.strand}.")
+                    if not self.overlap(locus_coords, coord[:2], flank=self.flank):
+                        failed.append(coord)
+                    else:
+                        assert isinstance(locus_coords[0], int), locus_coords
+                        assert isinstance(locus_coords[1], int), locus_coords
+                        assert isinstance(coord[0], int), coords
+                        assert isinstance(coord[1], int), coords
+                        locus_coords = (min(locus_coords[0], coord[0]),
+                                        max(locus_coords[1], coord[1]))
+                coords = failed[:]
+                failed = []
 
         already_present = {tid for tid in ids if tid in self.transcripts}
         if already_present and overwrite:
@@ -535,9 +563,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   f"transcript chromosome: {list(chromosomes_count.keys())[0]}\n"
                                   f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
 
-    def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
-                                 check_in_locus=True, overwrite=False,
-                                 sort_transcripts=True, **kwargs):
+    def _add_transcripts_to_locus(
+            self, transcripts: Iterable[Transcript],
+            check_in_locus=True, overwrite=False,
+            sort_transcripts=True, **kwargs):
         """
 
         :param transcripts:
@@ -554,29 +583,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         paths = set()
         nodes = collections.Counter()
-        self._check_transcript_batch(transcripts)
+        self._check_transcript_batch(transcripts, overwrite=overwrite)
         if sort_transcripts is True:
             transcripts = sorted(transcripts)
+
         for transcript in transcripts:
             transcript.finalize()
             assert transcript.chrom is not None, f"{transcript.id} has an invalid null chromosome"
             assert transcript.id not in self.transcripts
-            if check_in_locus and self.initialized and not self.in_locus(
-                    self, transcript, flank=self.flank, **kwargs):
-                raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
-                Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
-                Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
-                """.format(
-                    lchrom=self.chrom, lstart=self.start, lend=self.end, lstrand=self.strand,
-                    tchrom=transcript.chrom,
-                    tstart=transcript.start,
-                    tend=transcript.end,
-                    tstrand=transcript.strand,
-                    tid=transcript.id,
-                    stids=", ".join(list(self.transcripts.keys())),
-
-                ))
-            elif not self.initialized:
+            if not self.initialized:
                 self.strand = transcript.strand
                 self.chrom = transcript.chrom
 
@@ -604,6 +619,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                                            + nodes[node]
         self.metrics_calculated = False
         self.scores_calculated = self._use_transcript_scores
+
+    def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
+                                 check_in_locus=True, overwrite=False, unsafe=False, **kwargs):
+
+        if unsafe is True:
+            self._add_transcripts_to_locus(transcripts, check_in_locus=check_in_locus,
+                                           overwrite=overwrite, **kwargs)
+        else:
+            [self.add_transcript_to_locus(transcript, check_in_locus=check_in_locus,
+                                          overwrite=overwrite, **kwargs) for transcript in transcripts]
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True, overwrite=False, **kwargs):
         """

@@ -6,6 +6,8 @@ before the definition of real loci.
 """
 
 from sys import version_info
+from typing import Iterable
+
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .locus import Locus
@@ -231,6 +233,15 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             self.loci[locus.id] = locus
         self.splitted = True
         return
+
+    def add_transcripts_to_locus(
+            self, transcripts: Iterable[Transcript],
+            check_in_locus=True, overwrite=False,
+            sort_transcripts=True, **kwargs):
+
+        for transcript in transcripts:
+            self.add_transcript_to_locus(transcript, check_in_locus=check_in_locus,
+                                         **kwargs)
 
     @classmethod
     def in_locus(cls, monosublocus: Abstractlocus,

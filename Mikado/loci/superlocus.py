@@ -719,6 +719,9 @@ class Superlocus(Abstractlocus):
             self.remove_transcripts_from_locus(to_remove)
             self.logger.debug(f"Adding {', '.join(to_add.keys())} to self.id")
             self.add_transcripts_to_locus(to_add.values(), check_in_locus=False)
+            assert set.issubset(set(to_add.keys()), set(self.transcripts.keys())), (
+                f"Failed to add {len(to_add)} transcripts to {self.id}!"
+            )
 
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
@@ -915,7 +918,7 @@ class Superlocus(Abstractlocus):
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
-            self.excluded.adds_transcript_to_locus([self.transcripts[tid] for tid in to_remove])
+            self.excluded.add_transcripts_to_locus([self.transcripts[tid] for tid in to_remove])
             self.logger.debug("Removing the following transcripts from %s: %s", self.id, ", ".join(to_remove))
             self.remove_transcripts_from_locus(to_remove)
 
@@ -946,7 +949,8 @@ class Superlocus(Abstractlocus):
             self._check_requirements()
             excluded_tids = list(self._excluded_transcripts.keys())
             self.excluded.add_transcripts_to_locus([self._excluded_transcripts[excluded_tid]
-                                                    for excluded_tid in excluded_tids])
+                                                    for excluded_tid in excluded_tids],
+                                                   check_in_locus=False)
             to_remove = set.intersection(set(self.transcripts.keys()), set(excluded_tids))
             self.remove_transcripts_from_locus(to_remove)
             [self._excluded_transcripts.pop(excluded_tid, None) for excluded_tid in excluded_tids]

@@ -502,6 +502,39 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
+    def _check_transcript_batch(self, transcripts, overwrite=False):
+
+        ids, chromosomes = list(zip(*[(transcript.id, transcript.chrom) for transcript in transcripts]))
+        if len(ids) != len(set(ids)):
+            id_counter = collections.Counter()
+            id_counter.update(ids)
+            msg = (f"Invalid input; there are multiple transcripts with the same ID. Counts: "
+                   f"{', '.join([str(_) for _ in id_counter.items()])}")
+            self.logger.critical(msg)
+            raise KeyError(msg)
+
+        already_present = {tid for tid in ids if tid in self.transcripts}
+        if already_present and overwrite:
+            self.logger.debug(f"Removing the following transcripts from {self.id} as they need "
+                              f"to be overwritten: {', '.join(already_present)}")
+            self.remove_transcripts_from_locus(already_present)
+        elif already_present and not overwrite:
+            msg = (f"Trying to add {', '.join(already_present)} to {self.id}, but these transcripts are "
+                   f"already present in the locus. Please double check your IDs.")
+            self.logger.exception(KeyError(msg), exc_info=True)
+            raise KeyError(msg)
+        chromosomes_count = collections.Counter()
+        chromosomes_count.update(chromosomes)
+        if None in chromosomes_count or len(chromosomes_count) > 1:
+            raise NotInLocusError(f"The transcripts provided are from different chromosomes. This is "
+                                  f"invalid. Chromosomes: {chromosomes_count.items()}\n"
+                                  f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
+        elif self.initialized is True and self.chrom not in chromosomes:
+            raise NotInLocusError(f"The transcripts provided are from a different chromosome. This is "
+                                  f"invalid. Locus chromosome: {self.chrom}; "
+                                  f"transcript chromosome: {list(chromosomes_count.keys())[0]}\n"
+                                  f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
+
     def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
                                  check_in_locus=True, overwrite=False,
                                  sort_transcripts=True, **kwargs):
@@ -521,37 +554,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         paths = set()
         nodes = collections.Counter()
-        to_remove = set()
-        found = set()
+        self._check_transcript_batch(transcripts)
         if sort_transcripts is True:
             transcripts = sorted(transcripts)
-
         for transcript in transcripts:
             transcript.finalize()
             assert transcript.chrom is not None, f"{transcript.id} has an invalid null chromosome"
-            if self.chrom is None:
-                self.chrom = transcript.chrom
-            elif self.chrom != transcript.chrom:
-                chromosomes = collections.Counter()
-                chromosomes.update([transcript.chrom for transcript in transcripts])
-                raise NotInLocusError(f"The transcripts provided are from different chromosomes. This is "
-                                      f"invalid. Chromosomes: {chromosomes}\n"
-                                      f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
-            if transcript.id in self.transcripts:
-                if overwrite is False:
-                    raise KeyError(f"Trying to add {transcript.id} to {self.id}, but this transcript is "
-                                   "already present in the locus. Please double check your IDs.")
-                elif overwrite is True:
-                    self.logger.warning(f"{transcript.id} is already present in {self.id}. Removing it and readding it.")
-                    to_remove.add(transcript.id)
-            elif transcript.id in found:
-                ids = collections.Counter()
-                ids.update([transcript.id for transcript in transcripts])
-                raise KeyError(f"There are multiple transcripts with the same name in this batch. "
-                               f"Please double check. IDs: {ids}")
-            if check_in_locus is False:
-                pass
-            elif self.initialized and not self.in_locus(self, transcript, flank=self.flank, **kwargs):
+            assert transcript.id not in self.transcripts
+            if check_in_locus and self.initialized and not self.in_locus(
+                    self, transcript, flank=self.flank, **kwargs):
                 raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
@@ -572,17 +583,19 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.start = min(self.start, transcript.start)
             self.end = max(self.end, transcript.end)
             self.initialized = True
-            for locattr, tranattr in self.__locus_to_transcript_attrs.items():
-                getattr(self, locattr).update(set(getattr(transcript, tranattr)))
-
             segments = sorted(list(transcript.exons) + list(transcript.introns), reverse=(transcript.strand == "-"))
             nodes.update(set(segments))
             paths.update(zip(segments[:-1], segments[1:]))
             if self._use_transcript_scores is True:
                 self.scores[transcript.id] = transcript.score
+            self.transcripts[transcript.id] = transcript
 
-        if to_remove:
-            self.remove_transcripts_from_locus(to_remove)
+        for locattr, tranattr in self.__locus_to_transcript_attrs.items():
+            setattr(self, locattr,
+                    # The [set()] is necessary to prevent a crash from set.union for empty lists
+                    set.union(*[set()] + [
+                        set(getattr(self.transcripts[_], tranattr)) for _ in self.transcripts]
+                              ))
 
         self._internal_graph.add_nodes_from(nodes.keys())
         self._internal_graph.add_edges_from(paths)

@@ -422,12 +422,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError("I cannot perform this operation on non-locus classes, this is a {}".format(
                 type(locus_instance)))
 
-        if locus_instance.chrom == transcript.chrom:
-            if locus_instance.stranded is False or locus_instance.strand == transcript.strand:
-                lbound = (locus_instance.start, locus_instance.end)
-                tbound = (transcript.start, transcript.end)
-                if cls.overlap(lbound, tbound, flank=flank) > 0:
-                    return True
+        if locus_instance.chrom == transcript.chrom and (
+            locus_instance.stranded is False
+            or locus_instance.strand == transcript.strand
+        ):
+            lbound = (locus_instance.start, locus_instance.end)
+            tbound = (transcript.start, transcript.end)
+            if cls.overlap(lbound, tbound, flank=flank) > 0:
+                return True
         return False
 
     def define_graph(self, objects: dict, inters=None, **kwargs) -> networkx.Graph:
@@ -502,54 +504,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # ###### Class instance methods  #######
 
-    def _check_transcript_batch(self, transcripts, check_in_locus=True, overwrite=False):
+    def _check_transcript_batch(self, transcripts: Iterable[Transcript],
+                                check_in_locus=True, overwrite=False):
 
-        ids, chromosomes = list(zip(*[(transcript.id, transcript.chrom) for transcript in transcripts]))
+        """Method to verify that a batch of transcripts to be added in bulk are all compatible with each other
+        and the locus.
+
+        :param transcripts:
+        :param check_in_locus:
+        :param overwrite:
+        """
+
+        if not all(isinstance(transcript, Transcript) for transcript in transcripts):
+            invalid = [str(type(_)) for _ in transcripts if not isinstance(_, Transcript)]
+            raise ValueError(f"Trying to add {len(invalid)} items with types: {', '.join(invalid)}")
+
+        ids, chromosomes, strands = list(zip(*[(transcript.id, transcript.chrom, transcript.strand)
+                                               for transcript in transcripts]))
         if len(ids) != len(set(ids)):
             id_counter = collections.Counter()
             id_counter.update(ids)
             msg = (f"Invalid input; there are multiple transcripts with the same ID. Counts: "
                    f"{', '.join([str(_) for _ in id_counter.items()])}")
             self.logger.critical(msg)
-            raise KeyError(msg)
-
-        if check_in_locus is True and self.initialized:
-            coords = sorted([(transcript.start, transcript.end, transcript.strand, transcript.id)
-                            for transcript in transcripts], key=operator.itemgetter(0, 1))
-            previous = None
-            failed = []
-            locus_coords = (self.start, self.end)
-            while coords:
-                if coords == previous:
-                    raise NotInLocusError(
-                        f"Transcripts {', '.join([_[4] for _ in previous])} are incompatible with {self.id}."
-                    )
-                previous = coords[:]
-                for coord in coords:
-                    if self.stranded and coord[2] != self.strand:
-                        raise NotInLocusError(f"Transcript  with strand {coords[0][2]} to "
-                                              f"a locus ({self.id}) with strand {self.strand}.")
-                    if not self.overlap(locus_coords, coord[:2], flank=self.flank):
-                        failed.append(coord)
-                    else:
-                        assert isinstance(locus_coords[0], int), locus_coords
-                        assert isinstance(locus_coords[1], int), locus_coords
-                        assert isinstance(coord[0], int), coords
-                        assert isinstance(coord[1], int), coords
-                        locus_coords = (min(locus_coords[0], coord[0]),
-                                        max(locus_coords[1], coord[1]))
-                coords = failed[:]
-                failed = []
-
-        already_present = {tid for tid in ids if tid in self.transcripts}
-        if already_present and overwrite:
-            self.logger.debug(f"Removing the following transcripts from {self.id} as they need "
-                              f"to be overwritten: {', '.join(already_present)}")
-            self.remove_transcripts_from_locus(already_present)
-        elif already_present and not overwrite:
-            msg = (f"Trying to add {', '.join(already_present)} to {self.id}, but these transcripts are "
-                   f"already present in the locus. Please double check your IDs.")
-            self.logger.exception(KeyError(msg), exc_info=True)
             raise KeyError(msg)
         chromosomes_count = collections.Counter()
         chromosomes_count.update(chromosomes)
@@ -562,6 +539,42 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   f"invalid. Locus chromosome: {self.chrom}; "
                                   f"transcript chromosome: {list(chromosomes_count.keys())[0]}\n"
                                   f"Transcripts: {', '.join([transcript.id for transcript in transcripts])}")
+        if check_in_locus and self.stranded and self.initialized and (
+                len(set(strands)) > 1 or set(strands).pop() != self.strand
+        ):
+            incompatible = [str((tid, strand)) for (tid, strand) in zip(ids, strands) if strand != self.strand]
+            raise NotInLocusError(f"Trying to add incompatible transcripts to {self.id} (strand: {self.strand}): "
+                                  f"{', '.join(incompatible)}")
+
+        if check_in_locus is True and self.initialized:
+            coords = sorted([(transcript.start, transcript.end, transcript.id)
+                            for transcript in transcripts], key=operator.itemgetter(0, 1))
+            start, end = coords[0][:2]
+            groups = [[coords[0]]]
+            for coord in coords[1:]:
+                if self.overlap((start, end), coord[:2], flank=self.flank):
+                    start, end =(min(start, coord[0]), max(end, coord[1]))
+                    groups[-1].append(coord)
+                else:
+                    if self.overlap((start, end), (self.start, self.end), flank=self.flank) <= 0:
+                        raise NotInLocusError(f"The following transcripts are incompatible with {self.id}: "
+                                              f"{', '.join([str(_) for _ in groups[-1]])}")
+                    groups.append([coord])
+                    start, end = coords[0][:2]
+            if self.overlap((start, end), (self.start, self.end), flank=self.flank) <= 0:
+                raise NotInLocusError(f"The following transcripts are incompatible with {self.id}: "
+                                      f"{', '.join([str(_) for _ in groups[-1]])}")
+
+        already_present = {tid for tid in ids if tid in self.transcripts}
+        if already_present and overwrite:
+            self.logger.debug(f"Removing the following transcripts from {self.id} as they need "
+                              f"to be overwritten: {', '.join(already_present)}")
+            self.remove_transcripts_from_locus(already_present)
+        elif already_present and not overwrite:
+            msg = (f"Trying to add {', '.join(already_present)} to {self.id}, but these transcripts are "
+                   f"already present in the locus. Please double check your IDs.")
+            self.logger.exception(KeyError(msg), exc_info=True)
+            raise KeyError(msg)
 
     def _add_transcripts_to_locus(
             self, transcripts: Iterable[Transcript],
@@ -583,7 +596,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         paths = set()
         nodes = collections.Counter()
-        self._check_transcript_batch(transcripts, overwrite=overwrite)
+        self._check_transcript_batch(transcripts, overwrite=overwrite, check_in_locus=check_in_locus)
         if sort_transcripts is True:
             transcripts = sorted(transcripts)
 

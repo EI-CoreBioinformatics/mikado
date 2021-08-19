@@ -387,6 +387,49 @@ class Superlocus(Abstractlocus):
 
     # ########### Class instance methods ############
 
+    def _old_split_strands(self, strand, new_loci, check_loci):
+        check_locus = Superlocus(strand[0],
+                                 stranded=True,
+                                 configuration=self.configuration,
+                                 source=self.source,
+                                 flank=self.configuration.pick.clustering.flank,
+                                 logger=self.logger)
+        for cdna in sorted(strand[1:]):
+            cdna.finalize()
+            if check_locus.in_locus(check_locus, cdna, flank=self.configuration.pick.clustering.flank):
+                check_locus.add_transcript_to_locus(cdna)
+            else:
+                assert len(check_locus.introns) > 0 or check_locus.monoexonic is True
+                check_loci.append(check_locus)
+                check_locus = Superlocus(cdna,
+                                         stranded=True,
+                                         configuration=self.configuration,
+                                         source=self.source,
+                                         logger=self.logger
+                                         )
+
+        check_loci.append(check_locus)
+        if check_loci != new_loci:
+            old_transcripts_ids = {locus.id: {
+                transcript.id: (transcript.start, transcript.end) for transcript in locus.transcripts.values()
+            } for locus in check_loci}
+            old_transcripts_ids = "\n\t\t".join([str(_) for _ in old_transcripts_ids.items()])
+            new_transcripts_ids = {locus.id: {
+                transcript.id: (transcript.start, transcript.end) for transcript in locus.transcripts.values()
+            } for locus in new_loci}
+            new_transcripts_ids = "\n\t\t".join([str(_) for _ in new_transcripts_ids.items()])
+            error_msg = f"Discrepancy between old and new method of adding transcripts to loci.\n" \
+                        f"Flank: {self.configuration.pick.clustering.flank}\n" \
+                        f"Old method:\n\tNum loci: {len(check_loci)}" \
+                        f"\n\tCoords: {' '.join([str((loc.start, loc.end)) for loc in check_loci])}" \
+                        f"\n\tIDs: {old_transcripts_ids}\n" \
+                        f"New method:\n\tNum loci: {len(new_loci)}" \
+                        f"\n\tCoords: {' '.join([str((loc.start, loc.end)) for loc in new_loci])}" \
+                        f"\n\tIDs: {new_transcripts_ids}\n"
+            self.logger.exception(error_msg)
+            raise NotInLocusError(error_msg)
+        return check_loci
+
     def split_strands(self):
         """This method will divide the superlocus on the basis of the strand.
         The rationale is to parse a GFF file without regard for the
@@ -415,40 +458,39 @@ class Superlocus(Abstractlocus):
                     nones.append(cdna)
 
             new_loci = []
+            check_loci = []
             for strand in plus, minus, nones:
+                strand = sorted(strand)
                 if len(strand) > 0:
-                    strand = sorted(strand)
-                    new_locus = Superlocus(strand[0],
-                                           stranded=True,
-                                           configuration=self.configuration,
-                                           source=self.source,
-                                           logger=self.logger
-                                           )
-                    assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
-                    # start, end = new_locus.start, new_locus.end
-                    # to_add = []
-                    for cdna in sorted(strand[1:]):
+                    # strand = sorted(strand)
+                    groups = [[strand[0]]]
+                    start, end = strand[0].start, strand[0].end
+                    for cdna in strand[1:]:
                         cdna.finalize()
-                        # assert cdna.chrom == new_locus.chrom and cdna.strand == new_locus.strand
-                        # if new_locus.overlap((start, end), (cdna.start, cdna.end), flank=self.flank) > 0:
-                        #     to_add.append(cdna)
-                        #     start, end = min(start, cdna.start), max(end, cdna.end)
-                        if new_locus.in_locus(new_locus, cdna):
-                            new_locus.add_transcript_to_locus(cdna)
+                        assert cdna.chrom == self.chrom, (cdna.id, cdna.chrom)
+                        if self.overlap((cdna.start, cdna.end), (start, end),
+                                        flank=self.configuration.pick.clustering.flank) > 0:
+                            groups[-1].append(cdna)
+                            start, end = min(start, cdna.start), max(end, cdna.end)
                         else:
-                            assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
-                            # new_locus.add_transcripts_to_locus(to_add)
-                            # to_add = []
-                            new_loci.append(new_locus)
-                            new_locus = Superlocus(cdna,
-                                                   stranded=True,
-                                                   configuration=self.configuration,
-                                                   source=self.source,
-                                                   logger=self.logger
-                                                   )
-                    # new_locus.add_transcripts_to_locus(to_add)
-                    assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
-                    new_loci.append(new_locus)
+                            groups.append([cdna])
+                            start, end = cdna.start, cdna.end
+                    for group in groups:
+                        new_locus = Superlocus(group[0],
+                                               stranded=True,
+                                               configuration=self.configuration,
+                                               source=self.source,
+                                               flank=self.configuration.pick.clustering.flank,
+                                               logger=self.logger)
+                        new_locus.add_transcripts_to_locus(group[1:],
+                                                           unsafe=True,
+                                                           check_in_locus=True,
+                                                           overwrite=False)
+                        assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
+                        assert set(new_locus.transcripts.keys()) == {cdna.id for cdna in group}
+                        new_loci.append(new_locus)
+                    if True:
+                        check_loci = self._old_split_strands(strand, new_loci, check_loci)
 
             self.logger.debug(
                 "Defined %d superloci by splitting by strand at %s.",

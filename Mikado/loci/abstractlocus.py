@@ -13,10 +13,9 @@ from sys import maxsize
 import marshmallow
 import networkx
 from networkx import NetworkXError
-
 from ..utilities import to_bool
 from .._transcripts.clique_methods import find_communities, define_graph
-from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, ScoringFile, \
+from .._transcripts.scoring_configuration import SizeFilter, InclusionFilter, NumBoolEqualityFilter, \
     RangeFilter, MinMaxScore, TargetScore
 from ..transcripts import Transcript
 from ..exceptions import NotInLocusError, InvalidConfiguration
@@ -29,10 +28,11 @@ import random
 from functools import partial, lru_cache
 import rapidjson as json
 dumper = partial(json.dumps, default=default_for_serialisation)
-from typing import Union, Dict, List, Iterable
+from typing import Union, Dict, Iterable
 from ..configuration.configuration import MikadoConfiguration
 from ..configuration.daijin_configuration import DaijinConfiguration
 from ..configuration.configurator import load_and_validate_config, check_and_load_scoring
+from logging import Logger
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -97,13 +97,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         # Mock values
         self.__source = source
-        self._attribute_metrics = dict()
+        self._attribute_metrics = {}
         self.__logger = None
         self.logger = logger
         self.__stranded = False
         self._not_passing = set()
-        self._excluded_transcripts = dict()
-        self.transcripts = dict()
+        self._excluded_transcripts = {}
+        self.transcripts = {}
         self.start, self.end, self.strand = maxsize, -maxsize, None
         # Consider only the CDS part
         self.stranded = True
@@ -118,14 +118,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.locus_verified_introns = verified_introns
 
         self.__configuration = None
-
         self.scores_calculated = False
-        self.scores = dict()
+        self.scores = {}
         self._segmenttree = IntervalTree()
         self.session = None
         self.metrics_calculated = False
-        self._metrics = dict()
-        self.__scores = dict()
+        self._metrics = {}
+        self.__scores = {}
         self._internal_graph = networkx.DiGraph()
         self.configuration = configuration
         if transcript_instance is not None and isinstance(transcript_instance, Transcript):
@@ -243,9 +242,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.configuration = state["json_conf"]
         assert self.configuration is not None
         nodes = json.loads(state["_Abstractlocus__internal_nodes"])
-        edges = []
-        for edge in json.loads(state["_Abstractlocus__internal_edges"]):
-            edges.append((tuple(edge[0]), tuple(edge[1])))
+        edges = [
+            (tuple(edge[0]), tuple(edge[1]))
+            for edge in json.loads(state["_Abstractlocus__internal_edges"])
+        ]
+
         self.internal_graph.add_nodes_from(nodes)
         self.internal_graph.add_edges_from(edges)
 
@@ -258,7 +259,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         msgpack."""
         self.get_metrics()
         state = self.__getstate__()
-        state["transcripts"] = dict((tid, state["transcripts"][tid].as_dict()) for tid in state["transcripts"])
+        state["transcripts"] = {
+            tid: state["transcripts"][tid].as_dict()
+            for tid in state["transcripts"]
+        }
+
         assert "metrics_calculated" in state
         state["json_conf"] = dataclasses.asdict(state["json_conf"])
         assert state["json_conf"]["seed"] is not None
@@ -296,12 +301,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.__setstate__(state)
         assert self.metrics_calculated is True
         if load_transcripts is True:
-            self.transcripts = dict((tid, Transcript()) for tid in state["transcripts"])
+            self.transcripts = {tid: Transcript() for tid in state["transcripts"]}
             [self[tid].load_dict(state["transcripts"][tid], trust_orf=True) for tid in state["transcripts"]]
 
         for attr in ["locus_verified_introns", "introns", "exons",
                      "selected_cds_introns", "combined_cds_introns"]:
-            setattr(self, attr, set([tuple(_) for _ in getattr(self, attr)]))
+            setattr(self, attr, {tuple(_) for _ in getattr(self, attr)})
 
     def __iter__(self):
         return iter(self.transcripts.keys())
@@ -491,8 +496,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 is_reference = transcript.original_source in reference_sources or transcript.is_reference is True
                 if is_reference:
                     reference_tids.add(tid)
-            if len(reference_tids) > 0:
-                transcripts = dict((tid, transcripts[tid]) for tid in reference_tids)
+            if reference_tids:
+                transcripts = {tid: transcripts[tid] for tid in reference_tids}
 
         max_score = max(transcripts.values(),
                         key=operator.attrgetter("score")).score
@@ -579,7 +584,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _add_transcripts_to_locus(
             self, transcripts: Iterable[Transcript],
             check_in_locus=True, overwrite=False,
-            sort_transcripts=True, **kwargs):
+            **kwargs):
         """
 
         :param transcripts:
@@ -597,8 +602,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         paths = set()
         nodes = collections.Counter()
         self._check_transcript_batch(transcripts, overwrite=overwrite, check_in_locus=check_in_locus)
-        if sort_transcripts is True:
-            transcripts = sorted(transcripts)
 
         for transcript in transcripts:
             transcript.finalize()
@@ -672,24 +675,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.logger.warning(f"{transcript.id} is already present in {self.id}. Removing it and readding it.")
             self.remove_transcript_from_locus(transcript.id)
 
-        if self.initialized is True:
-            if check_in_locus is False:
-                pass
-            elif not self.in_locus(self, transcript, flank=self.flank, **kwargs):
-                raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
-                Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
-                Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
-                """.format(
-                    lchrom=self.chrom, lstart=self.start, lend=self.end, lstrand=self.strand,
-                    tchrom=transcript.chrom,
-                    tstart=transcript.start,
-                    tend=transcript.end,
-                    tstrand=transcript.strand,
-                    tid=transcript.id,
-                    stids=", ".join(list(self.transcripts.keys())),
-
-                ))
-        else:
+        if self.initialized is True and check_in_locus and not self.in_locus(self,
+                                                                             transcript,
+                                                                             flank=self.flank, **kwargs):
+            raise NotInLocusError(
+                    f"Trying to merge a Locus with an incompatible transcript!\n"
+                    f"Locus: {self.chrom}:{self.start}-{self.end} {self.strand} "
+                    f"[{' '.join(self.transcripts.keys())}]\n"
+                    f"Transcript: {transcript.chrom}:{transcript.start}-{transcript.end} "
+                    f"{transcript.strand} {transcript.id}")
+        elif not self.initialized:
             self.strand = transcript.strand
             self.chrom = transcript.chrom
 
@@ -801,7 +796,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             msg = f"Transcript {tid_to_remove} is not present in the Locus. Ignoring it."
             self.logger.critical(msg, exc_info=KeyError(msg))
             raise KeyError(msg)
-            return
 
         self.logger.debug("Deleting %s from %s", tid_to_remove, self.id)
         self.remove_path_from_graph(self.transcripts[tid_to_remove], self.internal_graph)
@@ -844,9 +838,53 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self._calculate_graph([])
 
     @staticmethod
-    def _exon_to_be_considered(exon,
-                               transcript,
-                               logger=create_null_logger()):
+    def _is_exon_before_met(exon, transcript):
+        before_met = False
+        if transcript.is_coding:
+            # Avoid considering exons that are full 3' UTR exons in a coding transcript.
+            if transcript.strand == "-":
+                if max(transcript.combined_cds_start, transcript.combined_cds_end) < exon[1]:
+                    before_met = True
+            else:
+                if min(transcript.combined_cds_start, transcript.combined_cds_end) > exon[0]:
+                    before_met = True
+        return before_met
+
+    @staticmethod
+    def _find_fragments_in_partially_coding_exon(exon: tuple,
+                                                 transcript: Transcript,
+                                                 cds_segments: Iterable[Interval],
+                                                 before_met: bool,
+                                                 logger: Logger) -> list:
+
+        """Function to find the parts of a coding exon that are non-coding and therefore potentially
+        signal of a retained intron event."""
+
+        frags = []
+        logger.debug("Calculating fragments for %s (CDS segments: %s)", exon, cds_segments)
+        if cds_segments[0].start > exon[0]:
+            if before_met and transcript.strand == "+":
+                frags.append((exon[0], cds_segments[0].start - 1))
+            elif transcript.strand == "-":  # Negative UTR
+                frags.append((exon[0], cds_segments[0].start - 1))
+            else:
+                frags.append((cds_segments[0].start - 1, cds_segments[0].start))
+        for before, after in zip(cds_segments[:-1], cds_segments[1:]):
+            frags.append((before.end, before.end + 1))
+            frags.append((after.start - 1, after.start))
+        if cds_segments[-1].end < exon[1]:
+            if before_met and transcript.strand == "-":
+                frags.append((cds_segments[-1].end + 1, exon[1]))
+            elif transcript.strand == "+":
+                frags.append((cds_segments[-1].end, exon[1]))
+            else:
+                frags.append((cds_segments[-1].end, cds_segments[-1].end + 1))
+        logger.debug("%s is partially non-coding. Considering it, with frags: %s.", exon, frags)
+        return frags
+
+    @classmethod
+    def _exon_to_be_considered(
+            cls, exon, transcript, logger=create_null_logger()):
         """Private static method to evaluate whether an exon should be considered for being a retained intron.
 
         :param exon: the exon to be considered.
@@ -860,71 +898,86 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         cds_segments = sorted(transcript.cds_tree.search(*exon))
-
         internal_splices = set.difference(set(exon), {transcript.start, transcript.end})
-        before_met = False
-        if transcript.is_coding:
-            # Avoid considering exons that are full 3' UTR exons in a coding transcript.
-            if transcript.strand == "-":
-                if max(transcript.combined_cds_start, transcript.combined_cds_end) < exon[1]:
-                    before_met = True
-            elif transcript.strand != "-":
-                if min(transcript.combined_cds_start, transcript.combined_cds_end) > exon[0]:
-                    before_met = True
+        before_met = cls._is_exon_before_met(exon, transcript)
 
+        frags = []
         if cds_segments == [Interval(*exon)]:
             # It is completely coding
             if len(internal_splices) == 2:
                 logger.debug("%s is internal and completely coding. Not considering it.", exon)
                 to_consider = False
-                frags = []
             else:
                 logger.debug("%s is terminal and completely coding. Considering it in its entirety.", exon)
                 to_consider = True
                 frags = cds_segments
         else:
-            frags = []
             to_consider = True
-            if cds_segments:
-                logger.debug("Calculating fragments for %s (CDS segments: %s)", exon, cds_segments)
-                if cds_segments[0].start > exon[0]:
-                    if before_met and transcript.strand == "+":
-                        frags.append((exon[0], cds_segments[0].start - 1))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                    elif transcript.strand == "-":  # Negative UTR
-                        frags.append((exon[0], cds_segments[0].start - 1))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                    else:
-                        frags.append((cds_segments[0].start - 1, cds_segments[0].start))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
-                    frags.append((before.end, before.end + 1))
-                    frags.append((after.start - 1, after.start))
-                    logger.debug("New fragments for %s: %s, %s", exon, frags[-2], frags[-1])
-                    # frags.append((before.end + 1, max(after.start - 1, before.end + 1)))
-                if cds_segments[-1].end < exon[1]:
-                    if before_met and transcript.strand == "-":
-                        frags.append((cds_segments[-1].end + 1, exon[1]))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                    elif transcript.strand == "+":
-                        frags.append((cds_segments[-1].end, exon[1]))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                    else:
-                        frags.append((cds_segments[-1].end, cds_segments[-1].end + 1))
-                        logger.debug("New fragment for %s: %s", exon, frags[-1])
-                logger.debug("%s is partially non-coding. Considering it, with frags: %s.", exon, frags)
-            elif before_met is True:
+            if not cds_segments and before_met:
                 logger.debug("%s is completely non-coding in the 5'UTR. Considering it as it might disrupt the CDS.",
                              exon)
                 frags.append((exon[0], exon[1]))
-            else:
+            elif not cds_segments:
                 logger.debug("%s is completely non-coding. Considering it, but with no frags.", exon)
-                frags = []  # [Interval(*exon)]
+            else:
+                frags = cls._find_fragments_in_partially_coding_exon(exon,
+                                                                     transcript, cds_segments,
+                                                                     before_met,
+                                                                     logger)
 
         return to_consider, frags, internal_splices
 
     @staticmethod
-    def _is_exon_retained(exon: tuple,
+    def _evaluate_intron_for_retention_event(
+            exon,
+            introns,
+            after,
+            before,
+            internal_splices,
+            strand
+    ):
+        # Now we have to check whether the matched introns contain both coding and non-coding parts
+        # Let us exclude any intron which is outside of the exonic span of interest.
+        if not internal_splices:
+            start_found = True
+            end_found = True
+        elif strand == "-":
+            # Negative strand
+            end_found = exon[0] in {e[0] for e in after - introns}
+            start_found = exon[1] in {e[1] for e in before - introns}
+            if len(internal_splices) == 1:
+                if exon[1] in internal_splices:
+                    # This means that the end is dangling
+                    end_found = True
+                elif exon[0] in internal_splices:
+                    # This means that the start is dangling
+                    start_found = True
+        else:
+            start_found = exon[0] in {e[0] for e in before - introns}
+            end_found = exon[1] in {e[1] for e in after - introns}
+            if len(internal_splices) == 1:
+                if exon[0] in internal_splices:
+                    # This means that the end is dangling
+                    end_found = True
+                elif exon[1] in internal_splices:
+                    # This means that the start is dangling
+                    start_found = True
+
+        return start_found, end_found
+
+    @staticmethod
+    def _is_cds_broken(start_found, end_found, intron, cds_introns, cds_broken, frags):
+        if start_found and end_found and intron in cds_introns and not cds_broken:
+            # Now we have to check whether the CDS breaks within the intron
+            for frag, intron in itertools.product(frags, [intron]):
+                cds_broken = cds_broken or (overlap(frag, intron, positive=True) > 0)
+                if cds_broken:
+                    break
+        return cds_broken
+
+    @classmethod
+    def _is_exon_retained(cls,
+                          exon: tuple,
                           strand: str,
                           segmenttree: IntervalTree,
                           digraph: networkx.DiGraph,
@@ -932,8 +985,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                           introns: set,
                           internal_splices: set,
                           cds_introns: set,
-                          coding=True,
-                          logger=create_null_logger()) -> (bool, bool):
+                          coding=True) -> (bool, bool):
 
         """Private static method to verify whether a given exon is a retained intron in the current locus.
         The method is as follows:
@@ -972,73 +1024,36 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         is_retained = False
         cds_broken = False
 
-        found_introns = set(
-            [_._as_tuple() for _ in segmenttree.find(exon[0], exon[1], strict=False, value="intron")]
-        )
+        found_introns = {_._as_tuple() for _ in segmenttree.find(
+                         exon[0], exon[1], strict=False, value="intron")}
 
         if not found_introns:
             return is_retained, cds_broken
 
-        # logger.debug("Found introns for %s: %s", exon, found_introns)
-        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO LIST OTHERWISE LRU CACHE WILL ERROR*
+        # Cached call. *WE NEED TO CHANGE THE TYPE OF INTRONS TO TUPLE OTHERWISE LRU CACHE WILL ERROR*
         # As sets are not hashable!
-        # found_introns = set.intersection(introns, found_introns)
-        assert all(intron in introns for intron in found_introns), (found_introns, introns)
-        assert all(intron in digraph.nodes() for intron in found_introns), (found_introns, digraph.nodes())
         ancestors, descendants = _get_intron_ancestors_descendants(tuple(found_introns), digraph)
 
         for intron in found_introns:
             # Only consider exons for which there is an overlap.
-            if is_retained:
-                if intron in cds_introns and cds_broken is True:
-                    continue
-                elif intron not in cds_introns:
-                    continue
-                elif coding is False:
-                    break
-
+            if is_retained and (intron not in cds_introns or cds_broken):
+                continue
             before = {_ for _ in ancestors[intron] if overlap(_, exon) > 0}
             after = {_ for _ in descendants[intron] if overlap(_, exon) > 0}
-
-            # Now we have to check whether the matched introns contain both coding and non-coding parts
-            # Let us exclude any intron which is outside of the exonic span of interest.
-            # logger.debug("Exon: %s; Frags: %s; Intron: %s; Before: %s; After: %s", exon, frags, intron, before, after)
-            if len(before) == 0 and len(after) == 0:
+            if not (before or after):
                 # A retained intron must be overlapping some other exons!
                 continue
-            else:
-                if len(internal_splices) == 0:
-                    start_found = True
-                    end_found = True
-                elif strand == "-":
-                    # Negative strand
-                    end_found = (exon[0] in set([e[0] for e in after - introns]))
-                    start_found = (exon[1] in set([e[1] for e in before - introns]))
-                    logger.debug("Exon %s vs intron %s: strand %s, start found %s, end found %s (I.S. %s)",
-                                 exon, intron, strand, start_found, end_found, internal_splices)
-                    if len(internal_splices) != 2:
-                        if exon[1] in internal_splices:  # This means that the end is dangling
-                            end_found = True
-                        elif exon[0] in internal_splices:  # This means that the start is dangling
-                            start_found = True
-                else:
-                    start_found = (exon[0] in set([e[0] for e in before - introns]))
-                    end_found = (exon[1] in set([e[1] for e in after - introns]))
-                    if len(internal_splices) == 1:
-                        if exon[0] in internal_splices:  # This means that the end is dangling
-                            end_found = True
-                        elif exon[1] in internal_splices:  # This means that the start is dangling
-                            start_found = True
+            start_found, end_found = cls._evaluate_intron_for_retention_event(
+                exon, introns, after, before, internal_splices, strand
+            )
 
-                if start_found and end_found:
-                    # Now we have to check whether the CDS breaks within the intron
-                    if intron in cds_introns:
-                        for frag, intron in itertools.product(frags, [intron]):
-                            cds_broken = cds_broken or (overlap(frag, intron, positive=True) > 0)
-                            if cds_broken is True:
-                                break
+            cds_broken = cls._is_cds_broken(start_found=start_found, end_found=end_found,
+                                            intron=intron, cds_introns=cds_introns,
+                                            cds_broken=cds_broken, frags=frags)
 
-                is_retained = is_retained or (start_found and end_found)
+            is_retained = is_retained or (start_found and end_found)
+            if is_retained and coding is False:
+                break
 
         return is_retained, cds_broken
 
@@ -1113,8 +1128,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 internal_splices=internal_splices,
                 introns=self.introns,
                 cds_introns=self.combined_cds_introns,
-                coding=transcript.is_coding,
-                logger=self.logger)
+                coding=transcript.is_coding)
 
             is_retained = result[0]
             if is_retained:
@@ -1138,7 +1152,39 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return
 
     @staticmethod
+    def _evaluate_cds_overlap(other, transcript, fixed_perspective: bool):
+        t_orfs = [(_[1][0], _[1][1], _[2]) for _ in transcript.selected_internal_orf if _[0] == "CDS"]
+        o_orfs = [(_[1][0], _[1][1], _[2]) for _ in other.selected_internal_orf if _[0] == "CDS"]
+
+        cds_overlap = 0
+        for start, end, phase in t_orfs:
+            for ostart, oend, ophase in o_orfs:
+                seg_overlap = overlap((start, end), (ostart, oend))
+                if seg_overlap <= 0:
+                    continue
+                # For this, we do have to check whether the start + phase of the upstream transcript
+                # (considering the strand) is in frame with the downstream start + phase
+                if transcript.strand == "-":
+                    first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
+                                         key=operator.itemgetter(1), reverse=True)
+                    in_frame = (0 == ((last[1] - last[2]) - (first[1] - first[2])) % 3)
+                else:
+                    first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
+                                         key=operator.itemgetter(0), reverse=False)
+                    in_frame = (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
+                if in_frame:
+                    cds_overlap += seg_overlap
+
+        if fixed_perspective:
+            cds_overlap /= transcript.combined_cds_length
+        else:
+            cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
+        assert cds_overlap <= 1
+        return cds_overlap
+
+    @classmethod
     def _evaluate_transcript_overlap(
+            cls,
             other: Transcript,
             transcript: Transcript,
             min_cdna_overlap=0.2,
@@ -1192,7 +1238,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if comparison is None:
             comparison, _ = c_compare(other, transcript)
 
-        cds_overlap = 0
         if fixed_perspective is False:
             cdna_overlap = max(comparison.n_prec[0], comparison.n_recall[0]) / 100
         else:
@@ -1202,32 +1247,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             cds_overlap = cdna_overlap
         else:
             # Only consider the selected internal ORF
-            t_orfs = [(_[1][0], _[1][1], _[2]) for _ in transcript.selected_internal_orf if _[0] == "CDS"]
-            o_orfs = [(_[1][0], _[1][1], _[2]) for _ in other.selected_internal_orf if _[0] == "CDS"]
-
-            for start, end, phase in t_orfs:
-                for ostart, oend, ophase in o_orfs:
-                    seg_overlap = overlap((start, end), (ostart, oend))
-                    if seg_overlap <= 0:
-                        continue
-                    # For this, we do have to check whether the start + phase of the upstream transcript
-                    # (considering the strand) is in frame with the downstream start + phase
-                    if transcript.strand == "-":
-                        first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
-                                             key=operator.itemgetter(1), reverse=True)
-                        in_frame = (0 == ((last[1] - last[2]) - (first[1] - first[2])) % 3)
-                    else:
-                        first, last = sorted([(start, end, phase), (ostart, oend, ophase)],
-                                             key=operator.itemgetter(0), reverse=False)
-                        in_frame = (0 == ((last[0] + last[2]) - (first[0] + first[2])) % 3)
-                    if in_frame:
-                        cds_overlap += seg_overlap
-
-            if fixed_perspective:
-                cds_overlap /= transcript.combined_cds_length
-            else:
-                cds_overlap /= min(transcript.selected_cds_length, other.selected_cds_length)
-            assert cds_overlap <= 1
+            cds_overlap = cls._evaluate_cds_overlap(other, transcript, fixed_perspective)
 
         if transcript.is_coding and other.is_coding:
             intersecting = (cdna_overlap >= min_cdna_overlap and cds_overlap >= min_cds_overlap)
@@ -1424,7 +1444,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         fraction = retained_bases / self.transcripts[tid].cdna_length
         self.transcripts[tid].retained_fraction = fraction
 
-        self._metrics[tid] = dict()
+        self._metrics[tid] = {}
 
         for metric in self.available_metrics:
             self._metrics[tid][metric] = operator.attrgetter(metric)(self.transcripts[tid])
@@ -1489,18 +1509,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             is_reference = ((self.transcripts[tid].is_reference is True) or
                              self.transcripts[tid].original_source in reference_sources)
 
-            if is_reference is False:
+            if not is_reference:
                 self.logger.debug("Transcript %s (source %s) is not a reference transcript (references: %s; in it: %s)",
                                   tid, self.transcripts[tid].original_source,
                                   self.configuration.prepare.files.reference,
                                   self.transcripts[tid].original_source in self.configuration.prepare.files.reference)
-            elif is_reference is True and self.configuration.pick.run_options.check_references is False:
+            elif self.configuration.pick.run_options.check_references is False:
                 self.logger.debug("Skipping %s from the requirement check as it is a reference transcript", tid)
                 continue
-            elif is_reference is True and self.configuration.pick.run_options.check_references is True:
+            elif self.configuration.pick.run_options.check_references is True:
                 self.logger.debug("Performing the requirement check for %s even if it is a reference transcript", tid)
 
-            evaluated = dict()
+            evaluated = {}
             for key in section.parameters:
                 if key.startswith("attributes.") and len(key) > len("attributes."):
                     key_parts = key.split('.', 1)
@@ -1748,7 +1768,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         a potentially updated dictionary of all metrics.
         If a transcript metric does *not* pass the muster, it will be absent from the first
         dictionary."""
-        param_metrics = dict()
+        param_metrics = {}
         filter_metric = param_conf.filter.metric if param_conf.filter is not None else None
         same_metric = (filter_metric is None or filter_metric == param)
         for tid, transcript in transcripts.items():
@@ -1773,7 +1793,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if len(self.transcripts) == 0:
             self.logger.debug(f"No transcripts in {self.id}. Returning.")
-            self.scores = dict()
+            self.scores = {}
             return
 
         self.logger.debug(f"Calculating the score for {param}")
@@ -1805,11 +1825,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                                                      param_conf, min_val, max_val)
 
         debug = self.configuration.log_settings.log_level == "DEBUG"
-        max_score = max([self.scores[tid][param] for tid in self.scores])
-        _scores = dict((tid, self.scores[tid][param]) for tid in self.scores)
+        max_score = max(self.scores[tid][param] for tid in self.scores)
+        _scores = {tid: self.scores[tid][param] for tid in self.scores}
         self.logger.debug(f"Scores for {self.id}, param {param}: {_scores}")
         if debug and self.configuration.scoring.scoring[param].filter is None and max_score == 0:
-            current_scores = dict((tid, self.scores[tid][param]) for tid in self.transcripts.keys())
+            current_scores = {
+                tid: self.scores[tid][param] for tid in self.transcripts.keys()
+            }
+
             param_conf = self.configuration.scoring.scoring[param]
             message = f"""All transcripts have a score of 0 for {param} in {self.id}. This is an error!
 Metrics: {param_metrics.items()}
@@ -1887,7 +1910,7 @@ Scoring configuration: {param_conf}
     def configuration(self, conf):
         if conf is None or conf == "":
             conf = MikadoConfiguration()
-        elif isinstance(conf, str) and conf != "":
+        elif isinstance(conf, str):
             conf = load_and_validate_config(conf)
         elif not isinstance(conf, (MikadoConfiguration, DaijinConfiguration)):
             raise InvalidConfiguration(
@@ -1898,7 +1921,7 @@ Scoring configuration: {param_conf}
             check_and_load_scoring(conf)
         self.__configuration = conf
         # Get the value for each attribute defined metric
-        self._attribute_metrics = dict()
+        self._attribute_metrics = {}
         assert self.__configuration.scoring is not None, (self.__configuration.scoring,
                                                           self.__configuration.requirements)
         found_attributes = False

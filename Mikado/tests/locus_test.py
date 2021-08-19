@@ -3542,8 +3542,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                                 t2.combined_cds_introns,
                                                 t3.combined_cds_introns
                                             ),
-                                            internal_splices={1000},
-                                            logger=logger))
+                                            internal_splices={1000}))
 
         for alt, num_retained, cds_disrupted in zip([t2, t3], [1, 1], [True, True]):
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
@@ -3598,8 +3597,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                              (401, 1000), "-", segmenttree, graph, [Interval(401, 830)],
                              introns=set.union(t1.introns, t3.introns),
                              cds_introns=set.union(t1.combined_cds_introns, t3.combined_cds_introns),
-                             internal_splices={1000},
-                             logger=logger))
+                             internal_splices={1000}))
 
     def test_issue_255(self):
 
@@ -3681,8 +3679,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                             introns=set.union(t1.introns, t2.introns),
                                             internal_splices={1000},
                                             cds_introns=set.union(t1.combined_cds_introns, t2.combined_cds_introns),
-                                            logger=create_default_logger("test_not_retained_neg",
-                                                                         level="DEBUG")))
+                                            ))
 
         sup.find_retained_introns(t2)
 

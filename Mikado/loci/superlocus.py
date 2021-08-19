@@ -1039,16 +1039,17 @@ class Superlocus(Abstractlocus):
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
             for monosubl in sublocus_instance.monosubloci:
                 monosubl.parent = self.id
-                # self.monosubloci.append(monosubl)
                 self.monosubloci[monosubl.tid] = monosubl
 
-        # self.monosubloci = sorted(self.monosubloci)
         if self.logger.level == 10:  # DEBUG
-            self.logger.debug("Monosubloci for %s:\n\t\t%s",
-                              self.id,
-                              "\n\t\t".join(
-                                  ["{}, transcript: {}".format(
-                                      self.monosubloci[_].id, _) for _ in self.monosubloci]))
+            self.logger.debug(
+                "Monosubloci for %s:\n\t\t%s",
+                self.id,
+                "\n\t\t".join(
+                    "{}, transcript: {}".format(self.monosubloci[_].id, _)
+                    for _ in self.monosubloci
+                ),
+            )
 
         self.monosubloci_defined = True
 
@@ -1057,11 +1058,8 @@ class Superlocus(Abstractlocus):
         the sublocus.print_metrics method
         on it for each sublocus."""
 
-        # self.get_sublocus_metrics()
-
         for slocus in self.subloci:
-            for row in slocus.print_metrics():
-                yield row
+            yield from slocus.print_metrics()
         if self.excluded is not None:
             yield from self.excluded.print_metrics()
 
@@ -1070,11 +1068,8 @@ class Superlocus(Abstractlocus):
         sublocus.print_metrics method
         on it for each sublocus."""
 
-        # self.get_sublocus_metrics()
-
         for slocus in self.subloci:
-            for row in slocus.print_scores():
-                yield row
+            yield from slocus.print_scores()
 
     def print_monoholder_metrics(self):
 
@@ -1083,13 +1078,8 @@ class Superlocus(Abstractlocus):
         on it."""
 
         self.define_monosubloci()
-
-        # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
-        if len(self.monoholders) == 0:
-            return
         for monoholder in self.monoholders:
-            for row in monoholder.print_metrics():
-                yield row
+            yield from monoholder.print_metrics()
 
     def print_monoholder_scores(self):
 
@@ -1097,13 +1087,8 @@ class Superlocus(Abstractlocus):
         the MonosublocusHolder.print_scores method on it."""
 
         self.define_monosubloci()
-
-        # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
-        if len(self.monoholders) == 0:
-            return
         for monoholder in self.monoholders:
-            for row in monoholder.print_scores():
-                yield row
+            yield from monoholder.print_scores()
 
     def print_loci_metrics(self):
 
@@ -1112,8 +1097,7 @@ class Superlocus(Abstractlocus):
         if len(self.loci) == 0:
             return []
         for locus in self.loci:
-            for row in self.loci[locus].print_metrics():
-                yield row
+            yield from self.loci[locus].print_metrics()
 
     def print_loci_scores(self):
 
@@ -1126,8 +1110,7 @@ class Superlocus(Abstractlocus):
         if len(self.loci) == 0:
             return
         for locus in self.loci:
-            for row in self.loci[locus].print_scores():
-                yield row
+            yield from self.loci[locus].print_scores()
 
     def define_loci(self, check_requirements=True):
         """This is the final method in the pipeline. It creates a container
@@ -1364,7 +1347,7 @@ class Superlocus(Abstractlocus):
                                         configuration=self.configuration,
                                         logger=self.logger,
                                         use_transcript_scores=self._use_transcript_scores)
-            while len(community) > 0:
+            while community:
                 holder.add_monosublocus(self.monosubloci[community.pop()],
                                         check_in_locus=False)
             self.monoholders.append(holder)

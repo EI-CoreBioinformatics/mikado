@@ -34,6 +34,18 @@ def _tupling(obj, final_type):
         raise TypeError(type(obj))
 
 
+def _to_float_tuple(tup):
+    return _tupling(tup, float)
+
+
+def _to_int_tuple(tup):
+    return _tupling(tup, int)
+
+
+def _to_tuple(tup):
+    return _tupling(tup, None)
+
+
 class ResultStorer:
     """This class stores the results in pre-defined slots, to reduce memory usage."""
 
@@ -50,24 +62,26 @@ class ResultStorer:
 
     @staticmethod
     def to_float_tuple(tup):
-        return _tupling(tup, float)
+        return _to_float_tuple(tup)
 
     @staticmethod
     def to_int_tuple(tup):
-        return _tupling(tup, int)
+        return _to_int_tuple(tup)
 
     @staticmethod
     def to_tuple(tup):
-        return _tupling(tup, None)
+        return _to_tuple(tup)
+
+    _types = [_to_tuple, _to_tuple, _to_tuple,
+              str, str, int, _to_int_tuple,
+              _to_float_tuple, _to_float_tuple, _to_float_tuple,
+              _to_float_tuple, _to_float_tuple, _to_float_tuple,
+              _to_float_tuple, _to_float_tuple, _to_float_tuple,
+              _to_int_tuple, str]
 
     @property
     def types(self):
-        return [self.to_tuple, self.to_tuple, self.to_tuple,
-                str, str, int, self.to_int_tuple,
-                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
-                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
-                self.to_float_tuple, self.to_float_tuple, self.to_float_tuple,
-                self.to_int_tuple, str]
+        return self._types
 
     def __init__(self, *args, state=None):
 

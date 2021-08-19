@@ -562,9 +562,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         assert transcript.monoexonic or len(self.introns) > 0
         self.add_path_to_graph(transcript, self.internal_graph)
-        assert set(list(transcript.introns) + list(transcript.exons)).issubset(self.internal_graph.nodes())
-        assert all(self.internal_graph.nodes()[node]["weight"] >= 1 for node in self.internal_graph.nodes())
-        assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
+        # assert set(list(transcript.introns) + list(transcript.exons)).issubset(self.internal_graph.nodes())
+        # assert all(self.internal_graph.nodes()[node]["weight"] >= 1 for node in self.internal_graph.nodes())
+        # assert len(transcript.combined_cds) <= len(self.combined_cds_exons)
         assert len(self.locus_verified_introns) >= transcript.verified_introns_num
 
         self.initialized = True
@@ -856,8 +856,25 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 elif coding is False:
                     break
 
-            before = {_ for _ in ancestors[intron] if overlap(_, exon) > 0}
-            after = {_ for _ in descendants[intron] if overlap(_, exon) > 0}
+            before = set()
+
+            if strand == '+':
+                stranded_ancestors = ancestors[intron][::-1]
+                stranded_descendants = descendants[intron]
+            else:
+                stranded_ancestors = ancestors[intron]
+                stranded_descendants = descendants[intron][::-1]
+            for _ in stranded_ancestors:
+                if overlap(_, exon) > 0:
+                    before.add(_)
+                else:
+                    break
+            after = set()
+            for _ in stranded_descendants:
+                if overlap(_, exon) > 0:
+                    after.add(_)
+                else:
+                    break
 
             # Now we have to check whether the matched introns contain both coding and non-coding parts
             # Let us exclude any intron which is outside of the exonic span of interest.
@@ -1992,8 +2009,8 @@ def _get_intron_ancestors_descendants(introns, internal_graph) -> [Dict[(tuple, 
 
     try:
         for intron in introns:
-            ancestors[intron] = {_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns}
-            descendants[intron] = {_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns}
+            ancestors[intron] = sorted([_ for _ in networkx.ancestors(internal_graph, intron) if _ not in introns])
+            descendants[intron] = sorted([_ for _ in networkx.descendants(internal_graph, intron) if _ not in introns])
     except NetworkXError as e:
         raise
     return ancestors, descendants

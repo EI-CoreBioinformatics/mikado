@@ -2921,7 +2921,7 @@ class WrongSplitting(unittest.TestCase):
 
         t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
         t2 = Transcript(BED12("Chr1\t100\t1000\tID=t2;coding=False\t0\t-\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=False)
+        sl = Superlocus(t1, stranded=False, logger=create_default_logger("test_split", level="DEBUG"))
         sl.add_transcript_to_locus(t2)
         splitted = list(sl.split_strands())
         self.assertEqual(len(splitted), 2)

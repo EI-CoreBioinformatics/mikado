@@ -153,7 +153,7 @@ class Superlocus(Abstractlocus):
         # Objects used during computation
         self.subloci = []
         self.loci = SortedDict()
-        self.monosubloci = dict()
+        self.monosubloci = {}
         self.monoholders = []
 
         # Connection objects
@@ -161,7 +161,7 @@ class Superlocus(Abstractlocus):
         # Excluded object
         self.excluded = Excluded(configuration=self.configuration)
         self.__data_loaded = False
-        self.__lost = dict()
+        self.__lost = {}
         if transcript_instance is not None:
             super().add_transcript_to_locus(transcript_instance)
             assert transcript_instance.monoexonic is True or len(self.introns) > 0
@@ -319,8 +319,6 @@ class Superlocus(Abstractlocus):
     def add_locus(self, locus: Locus):
         """Method to add a Locus instance to the Superlocus instance."""
 
-        # for transcript in locus.transcripts.values():
-        #     self.add_transcript_to_locus(transcript, check_in_locus=False)
         self.add_transcripts_to_locus(locus.transcripts.values(), unsafe=True, check_in_locus=False)
         self.configuration = locus.configuration
         self.loci[locus.id] = locus
@@ -387,48 +385,24 @@ class Superlocus(Abstractlocus):
 
     # ########### Class instance methods ############
 
-    def _old_split_strands(self, strand, new_loci, check_loci):
-        check_locus = Superlocus(strand[0],
-                                 stranded=True,
-                                 configuration=self.configuration,
-                                 source=self.source,
-                                 flank=self.configuration.pick.clustering.flank,
-                                 logger=self.logger)
-        for cdna in sorted(strand[1:]):
+    def _divide_by_coordinate(self, cdnas):
+        if len(cdnas) == 0:
+            return []
+        cdnas = sorted(cdnas)
+        cdnas[0].finalize()
+        groups = [[cdnas[0]]]
+        start, end = cdnas[0].start, cdnas[0].end
+        for cdna in cdnas[1:]:
             cdna.finalize()
-            if check_locus.in_locus(check_locus, cdna, flank=self.configuration.pick.clustering.flank):
-                check_locus.add_transcript_to_locus(cdna)
+            assert cdna.chrom == self.chrom, (cdna.id, cdna.chrom)
+            if self.overlap((cdna.start, cdna.end), (start, end),
+                            flank=self.configuration.pick.clustering.flank) > 0:
+                groups[-1].append(cdna)
+                start, end = min(start, cdna.start), max(end, cdna.end)
             else:
-                assert len(check_locus.introns) > 0 or check_locus.monoexonic is True
-                check_loci.append(check_locus)
-                check_locus = Superlocus(cdna,
-                                         stranded=True,
-                                         configuration=self.configuration,
-                                         source=self.source,
-                                         logger=self.logger
-                                         )
-
-        check_loci.append(check_locus)
-        if check_loci != new_loci:
-            old_transcripts_ids = {locus.id: {
-                transcript.id: (transcript.start, transcript.end) for transcript in locus.transcripts.values()
-            } for locus in check_loci}
-            old_transcripts_ids = "\n\t\t".join([str(_) for _ in old_transcripts_ids.items()])
-            new_transcripts_ids = {locus.id: {
-                transcript.id: (transcript.start, transcript.end) for transcript in locus.transcripts.values()
-            } for locus in new_loci}
-            new_transcripts_ids = "\n\t\t".join([str(_) for _ in new_transcripts_ids.items()])
-            error_msg = f"Discrepancy between old and new method of adding transcripts to loci.\n" \
-                        f"Flank: {self.configuration.pick.clustering.flank}\n" \
-                        f"Old method:\n\tNum loci: {len(check_loci)}" \
-                        f"\n\tCoords: {' '.join([str((loc.start, loc.end)) for loc in check_loci])}" \
-                        f"\n\tIDs: {old_transcripts_ids}\n" \
-                        f"New method:\n\tNum loci: {len(new_loci)}" \
-                        f"\n\tCoords: {' '.join([str((loc.start, loc.end)) for loc in new_loci])}" \
-                        f"\n\tIDs: {new_transcripts_ids}\n"
-            self.logger.exception(error_msg)
-            raise NotInLocusError(error_msg)
-        return check_loci
+                groups.append([cdna])
+                start, end = cdna.start, cdna.end
+        return groups
 
     def split_strands(self):
         """This method will divide the superlocus on the basis of the strand.
@@ -444,58 +418,33 @@ class Superlocus(Abstractlocus):
         if self.stranded is True:
             self.logger.warning("Trying to split by strand a stranded Locus, {0}!".format(self.id))
             yield self
+            return
 
-        else:
-            plus, minus, nones = [], [], []
-            for cdna_id in self.transcripts:
-                cdna = self.transcripts[cdna_id]
-                self.logger.debug("{0}: strand {1}".format(cdna_id, cdna.strand))
-                if cdna.strand == "+":
-                    plus.append(cdna)
-                elif cdna.strand == "-":
-                    minus.append(cdna)
-                elif cdna.strand is None:
-                    nones.append(cdna)
+        strands = {'+': [], '-': [], None: []}
+        for cdna in self.transcripts.values():
+            strands[cdna.strand].append(cdna)
+        
+        new_loci = []
+        assert len(strands) == 3
+        assert sum(len(_) for _ in strands.values()) == len(self.transcripts)
+        for strand, cdnas in strands.items():
+            for group in self._divide_by_coordinate(cdnas):
+                new_locus = Superlocus(group[0],
+                                       stranded=True,
+                                       configuration=self.configuration,
+                                       source=self.source,
+                                       flank=self.configuration.pick.clustering.flank,
+                                       logger=self.logger)
+                new_locus.add_transcripts_to_locus(group[1:],
+                                                   unsafe=True,
+                                                   check_in_locus=True,
+                                                   overwrite=False)
+                assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
+                assert set(new_locus.transcripts.keys()) == {cdna.id for cdna in group}
+                new_loci.append(new_locus)
 
-            new_loci = []
-            check_loci = []
-            for strand in plus, minus, nones:
-                strand = sorted(strand)
-                if len(strand) > 0:
-                    # strand = sorted(strand)
-                    groups = [[strand[0]]]
-                    start, end = strand[0].start, strand[0].end
-                    for cdna in strand[1:]:
-                        cdna.finalize()
-                        assert cdna.chrom == self.chrom, (cdna.id, cdna.chrom)
-                        if self.overlap((cdna.start, cdna.end), (start, end),
-                                        flank=self.configuration.pick.clustering.flank) > 0:
-                            groups[-1].append(cdna)
-                            start, end = min(start, cdna.start), max(end, cdna.end)
-                        else:
-                            groups.append([cdna])
-                            start, end = cdna.start, cdna.end
-                    for group in groups:
-                        new_locus = Superlocus(group[0],
-                                               stranded=True,
-                                               configuration=self.configuration,
-                                               source=self.source,
-                                               flank=self.configuration.pick.clustering.flank,
-                                               logger=self.logger)
-                        new_locus.add_transcripts_to_locus(group[1:],
-                                                           unsafe=True,
-                                                           check_in_locus=True,
-                                                           overwrite=False)
-                        assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
-                        assert set(new_locus.transcripts.keys()) == {cdna.id for cdna in group}
-                        new_loci.append(new_locus)
-                    if True:
-                        check_loci = self._old_split_strands(strand, new_loci, check_loci)
-
-            self.logger.debug(
-                "Defined %d superloci by splitting by strand at %s.",
-                len(new_loci), self.id)
-            yield from iter(sorted(new_loci))
+        self.logger.debug(f"Defined {len(new_loci)} superloci by splitting {self.id} by strand.")
+        yield from iter(sorted(new_loci))
 
     def connect_to_db(self, engine: Engine, session: Session):
 
@@ -765,9 +714,6 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Rebuilding the superlocus as %d transcripts have been excluded or split.",
                               len(to_remove))
             self.remove_transcripts_from_locus(to_remove)
-            # for tid, transcript in to_add.items():
-            #     self.logger.debug("Adding %s to %s", tid, self.id)
-            #     self.add_transcript_to_locus(transcript, check_in_locus=False)
             self.logger.debug(f"Adding {', '.join(to_add.keys())} to self.id")
             self.add_transcripts_to_locus(to_add.values(),
                                           unsafe=True,
@@ -778,7 +724,6 @@ class Superlocus(Abstractlocus):
 
         elif len(to_remove) == len(self.transcripts):
             self.logger.warning("No transcripts left for %s", self.name)
-            # [self.excluded.add_transcript_to_locus(_) for _ in to_remove]
             self.excluded.add_transcripts_to_locus(to_remove, unsafe=True)
             self._remove_all()
 
@@ -895,7 +840,6 @@ class Superlocus(Abstractlocus):
         if to_remove:
             if transcript_graph:
                 transcript_graph.remove_nodes_from(to_remove)
-            # [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.excluded.add_transcripts_to_locus([self.transcripts[tid] for tid in to_remove],
                                                    check_in_locus=False, unsafe=True)
             self.logger.debug("Removing the following transcripts from %s: %s",
@@ -974,7 +918,6 @@ class Superlocus(Abstractlocus):
 
         if to_remove:
             transcript_graph.remove_nodes_from(to_remove)
-            # [self.excluded.add_transcript_to_locus(self.transcripts[tid]) for tid in to_remove]
             self.excluded.add_transcripts_to_locus([self.transcripts[tid] for tid in to_remove],
                                                    unsafe=True)
             self.logger.debug("Removing the following transcripts from %s: %s", self.id, ", ".join(to_remove))
@@ -1006,13 +949,6 @@ class Superlocus(Abstractlocus):
         if check_requirements is True:
             self._check_requirements()
             excluded_tids = list(self._excluded_transcripts.keys())
-            # for excluded_tid in excluded_tids:
-            #     to_remove = self._excluded_transcripts[excluded_tid]
-            #     self.excluded.add_transcript_to_locus(to_remove, check_in_locus=False)
-            #     if to_remove.id in self.transcripts:
-            #         self.remove_transcript_from_locus(to_remove.id)
-            #     if excluded_tid in self._excluded_transcripts:
-            #         del self._excluded_transcripts[excluded_tid]
             self.excluded.add_transcripts_to_locus([self._excluded_transcripts[excluded_tid]
                                                     for excluded_tid in excluded_tids],
                                                    check_in_locus=False,
@@ -1068,7 +1004,6 @@ class Superlocus(Abstractlocus):
                                     use_transcript_scores=self._use_transcript_scores
                                     )
             new_sublocus.logger = self.logger
-            # [new_sublocus.add_transcript_to_locus(ttt) for ttt in subl[1:]]
             new_sublocus.add_transcripts_to_locus(subl[1:], unsafe=True)
             new_sublocus.parent = self.id
             new_sublocus.metrics_calculated = False
@@ -1095,8 +1030,6 @@ class Superlocus(Abstractlocus):
         for sublocus_instance in sorted(self.subloci):
             sublocus_instance.logger = self.logger
             sublocus_instance.define_monosubloci(purge=self.purge, check_requirements=check_requirements)
-            # for transcript in sublocus_instance.excluded.transcripts.values():
-            #     self.excluded.add_transcript_to_locus(transcript)
             self.excluded.add_transcripts_to_locus(sublocus_instance.excluded.transcripts.values(),
                                                    unsafe=True)
             for tid in sublocus_instance.transcripts:
@@ -1240,20 +1173,6 @@ class Superlocus(Abstractlocus):
 
         self._find_lost_transcripts()
         while len(self.lost_transcripts):
-            # new_locus = None
-            # for transcript in self.lost_transcripts.values():
-            #     if new_locus is None:
-            #         new_locus = Superlocus(transcript,
-            #                                configuration=self.configuration,
-            #                                use_transcript_scores=self._use_transcript_scores,
-            #                                stranded=self.stranded,
-            #                                verified_introns=self.locus_verified_introns,
-            #                                logger=self.logger,
-            #                                source=self.source
-            #                                )
-            #     else:
-            #         new_locus.add_transcript_to_locus(transcript,
-            #                                           check_in_locus=False)
             lost_transcripts = list(self.lost_transcripts.values())
             new_locus = Superlocus(lost_transcripts[0],
                                    configuration=self.configuration,
@@ -1387,11 +1306,11 @@ class Superlocus(Abstractlocus):
                 self.__lost.update({tid: self[tid]})
 
         for lid in candidates:
-            for tid in sorted(candidates[lid],
-                              key=lambda ttid: self.transcripts[ttid].score,
-                              reverse=True):
-                self.logger.debug("Adding %s to %s", tid, lid)
-                self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
+            self.loci[lid].add_transcripts_to_locus(
+                sorted(candidates[lid],
+                       key=lambda ttid: self.transcripts[ttid].score,
+                       reverse=True)
+            )
 
         # Now we have to recheck that no AS event is linking more than one locus.
         to_remove = collections.defaultdict(set)

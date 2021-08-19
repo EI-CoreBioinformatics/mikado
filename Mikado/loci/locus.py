@@ -499,9 +499,12 @@ class Locus(Abstractlocus):
         self._finalized = False
 
     def add_transcripts_to_locus(self, transcripts: Iterable[Transcript],
-                                 check_in_locus=True, overwrite=False,
-                                 sort_transcripts=True, **kwargs):
-        raise NotImplementedError("Locus classes require transcripts to be added one by one.")
+                                 check_in_locus=True, **kwargs):
+        """Simple iteration of the add_transcript_to_locus method. This is *different* from the base class;
+        for loci, we want to add every transcript one by one and check many additional things."""
+
+        [self.add_transcript_to_locus(transcript, check_in_locus=check_in_locus)
+         for transcript in transcripts]
 
     def add_transcript_to_locus(self, transcript: Transcript, check_in_locus=True,
                                 **kwargs):

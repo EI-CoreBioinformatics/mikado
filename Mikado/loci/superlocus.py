@@ -8,6 +8,8 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
+from operator import attrgetter
+
 import networkx
 from Mikado.serializers.blast_serializer import Hsp
 from sqlalchemy import bindparam
@@ -1307,9 +1309,8 @@ class Superlocus(Abstractlocus):
 
         for lid in candidates:
             self.loci[lid].add_transcripts_to_locus(
-                sorted(candidates[lid],
-                       key=lambda ttid: self.transcripts[ttid].score,
-                       reverse=True)
+                sorted([self.transcripts[tid] for tid in candidates[lid]],
+                       key=attrgetter("score"), reverse=True)
             )
 
         # Now we have to recheck that no AS event is linking more than one locus.

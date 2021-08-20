@@ -2307,10 +2307,12 @@ class MonoHolderTester(unittest.TestCase):
         # No CDS overlap this time, but cDNA overlap.
         for cds_only in (True, False):
             with self.subTest(cds_only=cds_only):
-                self.assertIs(MonosublocusHolder.is_intersecting(self.t1,
-                                                            t2,
-                                                            cds_only=cds_only,
-                                                            logger=logger), not cds_only)
+                logger.setLevel("DEBUG")
+                self.assertIs(MonosublocusHolder.is_intersecting(
+                    self.t1,
+                    t2,
+                    cds_only=cds_only,
+                    logger=logger), not cds_only, cds_only)
 
         t2 = Transcript()
         t2.chrom = "Chr1"

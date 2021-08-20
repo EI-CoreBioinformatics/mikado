@@ -776,10 +776,16 @@ class Picker:
                 del current["transcripts"][tid]
                 invalids.add(tid)
                 if current["transcripts"]:
-                    current["start"] = min([current["transcripts"][trans]["start"]
-                                            for trans in current["transcripts"]])
-                    current["end"] = max([current["transcripts"][trans]["end"]
-                                          for trans in current["transcripts"]])
+                    current["start"] = min(
+                        current["transcripts"][trans]["start"]
+                        for trans in current["transcripts"]
+                    )
+
+                    current["end"] = max(
+                        current["transcripts"][trans]["end"]
+                        for trans in current["transcripts"]
+                    )
+
                 else:
                     current["start"], current["end"] = None, None
         return current, invalids
@@ -955,7 +961,7 @@ class Picker:
         skip_transcript = False
         with self.define_input() as input_annotation:
             for row in input_annotation:
-                if row.is_exon is True and invalid is False and skip_transcript is False:
+                if row.is_exon is True and not invalid and not skip_transcript:
                     try:
                         current_transcript.add_exon(row)
                     except InvalidTranscript as exc:
@@ -983,7 +989,12 @@ class Picker:
                     else:
                         current_transcript = Transcript(row, intron_range=intron_range, logger=logger)
                         skip_transcript = False
-                    if skip_transcript is False and (current_transcript is None or row.chrom != current_transcript.chrom):
+                    if not skip_transcript and (
+                        (
+                            current_transcript is None
+                            or row.chrom != current_transcript.chrom
+                        )
+                    ):
                         if current_transcript is not None:
                             self.logger.info("Finished chromosome %s",
                                              current_transcript.chrom)
@@ -1017,7 +1028,7 @@ class Picker:
             elif current_locus and Superlocus.in_locus(
                             current_locus, current_transcript,
                             flank=self.configuration.pick.clustering.flank) is True:
-                    current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
+                current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
             else:
                 counter += 1
                 self.logger.debug("Analysing locus # %d", counter)

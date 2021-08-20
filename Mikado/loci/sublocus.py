@@ -237,12 +237,12 @@ class Sublocus(Abstractlocus):
 
         if len(self._excluded_transcripts) > 0 and self.purge:
             excluded_tids = list(self._excluded_transcripts.keys())
-            for excluded_tid in excluded_tids:
-                self.excluded.add_transcript_to_locus(self._excluded_transcripts[excluded_tid],
-                                                      check_in_locus=False)
-                if excluded_tid in self.transcripts.keys():
-                    self.remove_transcript_from_locus(excluded_tid)
-                del self._excluded_transcripts[excluded_tid]
+            self.excluded.add_transcripts_to_locus(
+                self._excluded_transcripts.values(), unsafe=True
+            )
+            self.remove_transcripts_from_locus(set.intersection(set(excluded_tids),
+                                                                set(self.transcripts.keys())))
+            [self._excluded_transcripts.pop(key, None) for key in excluded_tids]
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
 
@@ -251,13 +251,11 @@ class Sublocus(Abstractlocus):
                                              logger=self.logger)
 
         while len(transcript_graph) > 0:
-            # cliques = self.find_cliques(transcript_graph)
             communities = self.find_communities(transcript_graph)
-            # self.logger.debug("Cliques: {0}".format(cliques))
             self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()
             for msbl in communities:
-                msbl = dict((x, self.transcripts[x]) for x in msbl)
+                msbl = {x: self.transcripts[x] for x in msbl}
                 selected_tid = self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
@@ -275,7 +273,7 @@ class Sublocus(Abstractlocus):
                                              use_transcript_scores=self._use_transcript_scores)
                     new_locus.configuration = self.configuration
                     self.monosubloci.append(new_locus)
-            if len(to_remove) < 1:
+            if not to_remove:
                 message = "No transcripts to remove from the pool for {0}\n".format(self.id)
                 message += "Transcripts remaining: {0}".format(communities)
                 exc = ValueError(message)

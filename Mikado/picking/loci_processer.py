@@ -494,10 +494,7 @@ class LociProcesser(Process):
                                         stranded=False,
                                         configuration=self.configuration,
                                         source=self.configuration.pick.output_format.source)
-                    while len(tobjects) > 0:
-                        slocus.add_transcript_to_locus(tobjects.pop(),
-                                                       check_in_locus=False)
-
+                    slocus.add_transcripts_to_locus(tobjects, check_in_locus=False)
                     stranded_loci = self.analyse_locus(slocus, counter)
 
                 if len(stranded_loci) == 0:

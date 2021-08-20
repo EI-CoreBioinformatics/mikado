@@ -6,17 +6,18 @@ before the definition of real loci.
 """
 
 from sys import version_info
+from typing import Iterable
 from ..transcripts.transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .locus import Locus
 from .monosublocus import Monosublocus
 from .sublocus import Sublocus
 from ..parsers.GFF import GffLine
-from ..utilities import overlap
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
+
 
 # Resolution order is important here!
 # pylint: disable=too-many-instance-attributes
@@ -35,12 +36,20 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
     __name__ = "monosubloci_holder"
 
     # pylint: disable=super-init-not-called
-    def __init__(self, transcript_instance=None,
+    def __init__(self,
+                 transcript_instance=None,
                  configuration=None, logger=None,
                  verified_introns=None, **kwargs):
+        """
+        :param transcript_instance:
+        :type transcript_instance: Monosublocus
+        :param configuration:
+        :param logger:
+        :param verified_introns:
+        :param kwargs:
+        """
 
-        # I know what I am doing by NOT calling the Sublocus super but rather
-        # Abstractlocus
+        # I know what I am doing by NOT calling the Sublocus super but rather Abstractlocus
         Abstractlocus.__init__(self,
                                transcript_instance=None,
                                verified_introns=verified_introns,
@@ -54,14 +63,13 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.feature = "MonosublocusHolder"
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
-        if transcript_instance is not None:
-            self.add_monosublocus(transcript_instance, check_in_locus=False)
+        self.add_monosublocus(transcript_instance, check_in_locus=False)
         self.loci = SortedDict()
-        self.attributes = dict()
+        self.attributes = {}
 
     # Overriding is correct here
     # pylint: disable=arguments-differ
-    def add_transcript_to_locus(self, transcript, check_in_locus=True):
+    def add_transcript_to_locus(self, transcript, check_in_locus=True, **kwargs):
         """Override of the sublocus method, and reversal to the original
         method in the Abstractlocus class.
         The check_in_locus boolean flag is used to decide
@@ -87,9 +95,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 min_cds_overlap=self.configuration.pick.clustering.min_cds_overlap,
                 simple_overlap_for_monoexonic=self.configuration.pick.clustering.simple_overlap_for_monoexonic
         ) is False:
-
-                self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
-                return False
+            self.logger.debug("%s is not a valid intersection for %s", transcript.id, self.id)
+            return False
 
         Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
         self.locus_verified_introns = set.union(self.locus_verified_introns,
@@ -112,7 +119,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                                         min_cds_overlap=min_cds_overlap,
                                         simple_overlap_for_monoexonic=simple_overlap_for_monoexonic)
 
-    def add_monosublocus(self, monosublocus_instance: Monosublocus, check_in_locus=True):
+    def add_monosublocus(self, monosublocus_instance: Monosublocus,
+                         check_in_locus=True):
         """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
 
         :param monosublocus_instance: the instance to add
@@ -120,6 +128,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         :param check_in_locus: boolean flag - should we perform checks to verify the monosublocus is compatible?
         """
+        if monosublocus_instance is None:
+            return
 
         assert len(monosublocus_instance.transcripts) == 1
         for tid in monosublocus_instance.transcripts:
@@ -214,7 +224,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             communities = self.find_communities(graph)
             to_remove = set()
             for locus_comm in communities:
-                locus_comm = dict((x, self.transcripts[x]) for x in locus_comm)
+                locus_comm = {x: self.transcripts[x] for x in locus_comm}
                 selected_tid = self.choose_best(locus_comm)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
@@ -231,6 +241,15 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             self.loci[locus.id] = locus
         self.splitted = True
         return
+
+    def add_transcripts_to_locus(
+            self, transcripts: Iterable[Transcript],
+            check_in_locus=True, overwrite=False,
+            **kwargs):
+
+        for transcript in transcripts:
+            self.add_transcript_to_locus(transcript, check_in_locus=check_in_locus,
+                                         **kwargs)
 
     @classmethod
     def in_locus(cls, monosublocus: Abstractlocus,
@@ -255,6 +274,22 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         :param flank: optional flank argument
         :type flank: int
+
+        :param logger: logger to use (one will be created if missing)
+        :type logger: Logger
+
+        :param cds_only: whether to consider only the CDS part (if the transcript is coding) for
+                         the evaluation.
+        :type cds_only: bool
+
+        :param min_cds_overlap: minimum CDS overlap for the transcript to fit in the locus.
+        :type min_cds_overlap: float
+
+        :param min_cdna_overlap: minimum cDNA overlap for the transcript to fit in the locus.
+        :type min_cdna_overlap: float
+
+        :param simple_overlap_for_monoexonic: if true, consider a simple overlap for monoexonic transcripts.
+        :type simple_overlap_for_monoexonic: bool
         """
 
         if hasattr(transcript, "transcripts"):
@@ -288,8 +323,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         return Abstractlocus.id.fget(self)  # @UndefinedVariable
 
     def as_dict(self):
-        state = Abstractlocus.as_dict(self)
-        return state
+        return Abstractlocus.as_dict(self)
 
     def load_dict(self, state, load_transcripts=True, load_configuration=True):
         Abstractlocus.load_dict(self, state, load_configuration=load_configuration,

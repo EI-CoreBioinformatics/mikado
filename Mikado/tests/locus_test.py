@@ -2923,7 +2923,7 @@ class WrongSplitting(unittest.TestCase):
 
         t1 = Transcript(BED12("Chr1\t100\t1000\tID=t1;coding=False\t0\t+\t100\t1000\t0\t1\t900\t0"))
         t2 = Transcript(BED12("Chr1\t100\t1000\tID=t2;coding=False\t0\t-\t100\t1000\t0\t1\t900\t0"))
-        sl = Superlocus(t1, stranded=False)
+        sl = Superlocus(t1, stranded=False, logger=create_default_logger("test_split", level="DEBUG"))
         sl.add_transcript_to_locus(t2)
         splitted = list(sl.split_strands())
         self.assertEqual(len(splitted), 2)
@@ -3544,8 +3544,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                                 t2.combined_cds_introns,
                                                 t3.combined_cds_introns
                                             ),
-                                            internal_splices={1000},
-                                            logger=logger))
+                                            internal_splices={1000}))
 
         for alt, num_retained, cds_disrupted in zip([t2, t3], [1, 1], [True, True]):
             unpickled_t1 = pickle.loads(pickle.dumps(t1))
@@ -3600,8 +3599,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                              (401, 1000), "-", segmenttree, graph, [Interval(401, 830)],
                              introns=set.union(t1.introns, t3.introns),
                              cds_introns=set.union(t1.combined_cds_introns, t3.combined_cds_introns),
-                             internal_splices={1000},
-                             logger=logger))
+                             internal_splices={1000}))
 
     def test_issue_255(self):
 
@@ -3683,8 +3681,7 @@ Chr1	100	2682	ID=test_3;coding=True;phase=0	0	+	497	2474	0	7	234,201,41,164,106,
                                             introns=set.union(t1.introns, t2.introns),
                                             internal_splices={1000},
                                             cds_introns=set.union(t1.combined_cds_introns, t2.combined_cds_introns),
-                                            logger=create_default_logger("test_not_retained_neg",
-                                                                         level="DEBUG")))
+                                            ))
 
         sup.find_retained_introns(t2)
 

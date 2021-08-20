@@ -918,7 +918,7 @@ class BED12:
             "id": self.id,
             "start": self.start,
             "end": self.end,
-            "name": self.name,
+            "orf_name": self.name,
             "strand": self.strand,
             "thick_start": self.thick_start,
             "thick_end": self.thick_end,

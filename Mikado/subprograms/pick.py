@@ -102,17 +102,17 @@ def _set_pick_clustering_options(conf: Union[DaijinConfiguration, MikadoConfigur
 def _set_pick_as_options(conf: Union[DaijinConfiguration, MikadoConfiguration],
                          args) -> Union[DaijinConfiguration, MikadoConfiguration]:
 
-    conf.pick.alternative_splicing.pad = args.pad if args.pad is True else \
+    conf.pick.alternative_splicing.pad = args.pad if args.pad is not None else \
         conf.pick.alternative_splicing.pad
-    conf.pick.alternative_splicing.ts_max_splices = True if args.pad_max_splices \
+    conf.pick.alternative_splicing.ts_max_splices = True if args.pad_max_splices is not None \
         else conf.pick.alternative_splicing.ts_max_splices
     conf.pick.alternative_splicing.ts_distance = True if args.pad_max_distance is not None else \
         conf.pick.alternative_splicing.ts_distance
-    conf.pick.alternative_splicing.cds_only = True if args.as_cds_only is True else \
+    conf.pick.alternative_splicing.cds_only = True if args.as_cds_only is not None else \
         conf.pick.alternative_splicing.cds_only
-    conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = True if args.keep_disrupted_cds is True \
+    conf.pick.alternative_splicing.keep_cds_disrupted_by_ri = True if args.keep_disrupted_cds is not None \
         else conf.pick.alternative_splicing.keep_cds_disrupted_by_ri
-    conf.pick.alternative_splicing.keep_retained_introns = False if args.exclude_retained_introns is True else \
+    conf.pick.alternative_splicing.keep_retained_introns = False if args.exclude_retained_introns is not None else \
         conf.pick.alternative_splicing.keep_retained_introns
 
     return conf

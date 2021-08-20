@@ -4,6 +4,10 @@ TestCase to test the DButils module
 
 import os
 import unittest
+
+from sqlalchemy import inspect
+from sqlalchemy.engine import Inspector
+
 from ..utilities import dbutils
 from ..configuration import configurator
 import sqlalchemy
@@ -35,7 +39,7 @@ class TestDbConnect(unittest.TestCase):
         self.assertIsInstance(engine, sqlalchemy.engine.base.Engine)
         table_names = ['chrom', 'hit', "orf", "external",
                        "external_sources", 'hsp', 'junctions', 'query', 'target']
-        self.assertEqual(sorted(list(engine.table_names())), sorted(table_names))
+        self.assertEqual(sorted(inspect(engine).get_table_names()), sorted(table_names))
 
     def test_content(self):
 
@@ -43,13 +47,13 @@ class TestDbConnect(unittest.TestCase):
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
         # Simple tests based on the static content of the dictionary
-        self.assertEqual(session.query(serializers.junction.Junction).count(), 372,
+        self.assertEqual(session.query(serializers.junction.Junction).count(), 371,
                          self.json.db_settings)
-        self.assertEqual(session.query(serializers.orf.Orf).count(), 169)
-        self.assertEqual(session.query(serializers.blast_serializer.Target).count(), 38909)
-        self.assertEqual(session.query(serializers.blast_serializer.Query).count(), 93)
-        self.assertEqual(session.query(serializers.blast_serializer.Hit).count(), 5034)
-        self.assertEqual(session.query(serializers.blast_serializer.Hsp).count(), 13585)
+        self.assertEqual(session.query(serializers.orf.Orf).count(), 268)
+        self.assertEqual(session.query(serializers.blast_serializer.Target).count(), 42992)
+        self.assertEqual(session.query(serializers.blast_serializer.Query).count(), 112)
+        self.assertEqual(session.query(serializers.blast_serializer.Hit).count(), 674)
+        self.assertEqual(session.query(serializers.blast_serializer.Hsp).count(), 674)
 
         first_query = session.query(serializers.blast_serializer.Query).limit(1).one()
         astup = first_query.as_tuple()

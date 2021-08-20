@@ -69,7 +69,7 @@ class ExternalTester(unittest.TestCase):
         logger = create_default_logger("test_no_fasta", level="DEBUG")
         with self.assertRaises(AssertionError), self.assertLogs(logger.name, level="CRITICAL") as cmo:
             ExternalSerializer(logger=logger, configuration=load_and_validate_config(None),
-                               handle="trinity.bed12")  # TODO change
+                               handle="trinity.bed12")
         self.assertTrue(any([record.msg == """I cannot find the mikado prepared FASTA file with the transcripts to analyse.
 Please run mikado serialise in the folder with the correct files, and/or modify the configuration or the command line options."""
                              for record in cmo.records]))
@@ -83,7 +83,7 @@ Please run mikado serialise in the folder with the correct files, and/or modify 
                         conf.serialise.files.transcripts)
         logger = create_default_logger("test_no_fasta", level="DEBUG")
         h5 = pkg_resources.resource_filename("Mikado.tests", os.path.join("test_external", "abundance.h5"))
-        with self.assertRaises((pd.errors.ParserError,)):
+        with self.assertRaises((pd.errors.ParserError, UnicodeDecodeError)):
             ExternalSerializer(logger=logger, configuration=conf, handle=h5)
         wrong_tsv_one = pkg_resources.resource_filename("Mikado.tests", os.path.join("test_external", "wrong_1.tsv"))
         with self.assertRaises((ValueError, pd.errors.ParserError)), \

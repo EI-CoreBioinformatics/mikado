@@ -22,7 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.orm.session import Session
 from sqlalchemy.ext.hybrid import hybrid_method
-from ..utilities.dbutils import DBBASE, Inspector, connect
+from ..utilities.dbutils import DBBASE, connect
+import sqlalchemy as sqla
 from ..parsers import bed12
 from ..utilities.log_utils import check_logger, create_default_logger
 import pyfaidx
@@ -75,7 +76,7 @@ class Junction(DBBASE):
         "junction_index", "chrom_id", "junction_start", "junction_end"), {"extend_existing": True})
 
     chrom_object = relationship(Chrom, uselist=False)
-    chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id))
+    chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id).scalar_subquery())
 
     def __init__(self, junction_start, junction_end, name, strand, score, chrom_id):
         """
@@ -181,7 +182,7 @@ class JunctionSerializer:
         self.db_settings = copy(configuration.db_settings)
 
         session = Session(bind=self.engine, autocommit=False, autoflush=False, expire_on_commit=False)
-        inspector = Inspector.from_engine(self.engine)
+        inspector = sqla.inspect(self.engine)
         if Junction.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 

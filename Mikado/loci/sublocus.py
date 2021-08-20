@@ -237,11 +237,12 @@ class Sublocus(Abstractlocus):
 
         if len(self._excluded_transcripts) > 0 and self.purge:
             excluded_tids = list(self._excluded_transcripts.keys())
-            for excluded_tid in excluded_tids:
-                self.excluded.add_transcript_to_locus(self._excluded_transcripts[excluded_tid],
-                                                      check_in_locus=False)
-                self.remove_transcript_from_locus(excluded_tid)
-                del self._excluded_transcripts[excluded_tid]
+            self.excluded.add_transcripts_to_locus(
+                self._excluded_transcripts.values(), unsafe=True
+            )
+            self.remove_transcripts_from_locus(set.intersection(set(excluded_tids),
+                                                                set(self.transcripts.keys())))
+            [self._excluded_transcripts.pop(key, None) for key in excluded_tids]
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
 
@@ -250,13 +251,11 @@ class Sublocus(Abstractlocus):
                                              logger=self.logger)
 
         while len(transcript_graph) > 0:
-            # cliques = self.find_cliques(transcript_graph)
             communities = self.find_communities(transcript_graph)
-            # self.logger.debug("Cliques: {0}".format(cliques))
             self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()
             for msbl in communities:
-                msbl = dict((x, self.transcripts[x]) for x in msbl)
+                msbl = {x: self.transcripts[x] for x in msbl}
                 selected_tid = self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
@@ -274,7 +273,7 @@ class Sublocus(Abstractlocus):
                                              use_transcript_scores=self._use_transcript_scores)
                     new_locus.configuration = self.configuration
                     self.monosubloci.append(new_locus)
-            if len(to_remove) < 1:
+            if not to_remove:
                 message = "No transcripts to remove from the pool for {0}\n".format(self.id)
                 message += "Transcripts remaining: {0}".format(communities)
                 exc = ValueError(message)
@@ -493,21 +492,17 @@ class Sublocus(Abstractlocus):
         :type is_internal_orf: bool
         """
 
+        intersecting, reason = cls._simple_intersection_test(transcript, other, simple_overlap_for_monoexonic)
+        if intersecting:
+            return intersecting, reason
+
         comparison, _ = c_compare(other, transcript)
         if comparison.n_f1[0] == 0:
             reason = "No genomic overlap between {} and {}".format(transcript.id, other.id)
             intersecting = False
             return intersecting, reason
-
-        if comparison.j_f1[0] > 0 or comparison.ccode[0] == "h":
+        elif comparison.j_f1[0] > 0 or comparison.ccode[0] == "h":
             reason = "{} and {} intersect; class code: {}".format(transcript.id, other.id, comparison.ccode[0])
-            intersecting = True
-        elif simple_overlap_for_monoexonic is True and any(_.monoexonic is True for _ in (transcript, other)):
-            reason = "Simple overlap for monoexonic transcripts, for {} and {}".format(transcript.id, other.id)
-            intersecting = True
-        elif cls._intron_contained_in_exon(transcript, other) or cls._intron_contained_in_exon(other, transcript):
-            reason = "Intronic containment within an exon for the comparison {} and {}; intersecting".format(
-                transcript.id, other.id)
             intersecting = True
         else:
             intersecting, reason = cls._evaluate_transcript_overlap(
@@ -519,13 +514,53 @@ class Sublocus(Abstractlocus):
 
         return intersecting, reason
 
+    @classmethod
+    def _simple_intersection_test(cls, transcript: Transcript, other:Transcript,
+                                  simple_overlap_for_monoexonic: bool):
+        """Private method to perform a fast check on transcript intersection.
+        This method performs preliminary checks that do not require the full use of the
+        transcript comparison method in Mikado.scales.
+        :param transcript: first transcript to evaluate
+        :param other: second transcript to evaluate
+        :param simple_overlap_for_monoexonic: boolean flag.
+        """
+
+        intersecting, reason = False, None
+        if any([transcript.monoexonic, other.monoexonic]) and simple_overlap_for_monoexonic:
+            if all([transcript.monoexonic and other.monoexonic]):
+                reason = f"{transcript.id} and {other.id} are monoexonic and on the same genomic region."
+                intersecting = True
+            elif transcript.monoexonic:
+                exon = list(transcript.exons)[0]
+                if any(other.segmenttree.find(*exon, value="exon", strict=False)):
+                    reason = f"Simple overlap for monoexonic transcripts, for {transcript.id} and {other.id}"
+                    intersecting = True
+            elif other.monoexonic:
+                exon = list(other.exons)[0]
+                if any(transcript.segmenttree.find(*exon, value="exon", strict=False)):
+                    reason = f"Simple overlap for monoexonic transcripts, for {transcript.id} and {other.id}"
+                    intersecting = True
+        elif not transcript.monoexonic and not other.monoexonic and set.intersection(transcript.splices,
+                                                                                     other.splices):
+            reason = f"{transcript.id} and {other.id} share at least one splice site."
+            intersecting = True
+        elif cls._intron_contained_in_exon(transcript, other) or cls._intron_contained_in_exon(other, transcript):
+            reason = "Intronic containment within an exon for the comparison {} and {}; intersecting".format(
+                transcript.id, other.id)
+            intersecting = True
+
+        return intersecting, reason
+
     @staticmethod
     def _intron_contained_in_exon(transcript: Transcript, other: Transcript) -> bool:
 
         """Mini-method to assess whether at least one intron of "transcript" is **completely** contained
         within an exon of "other"."""
 
-        return any((overlap(*_) == (_[0][1] - _[0][0])) for _ in itertools.product(transcript.introns, other.exons))
+        return any(
+            transcript.segmenttree.find(*exon, strict=True, value="intron")
+            for exon in other.exons
+        )
 
     @property
     def splitted(self):

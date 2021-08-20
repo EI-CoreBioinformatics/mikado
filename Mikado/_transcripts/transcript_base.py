@@ -244,9 +244,9 @@ class TranscriptBase:
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
-        self.__cds_tree = IntervalTree()
+        self._cds_tree = IntervalTree()
         self.__expandable = False
-        self.__segmenttree = IntervalTree()
+        self._segmenttree = IntervalTree()
         self.__cds_introntree = IntervalTree()
         self._possibly_without_exons = False
         self._accept_undefined_multi = accept_undefined_multi
@@ -413,17 +413,17 @@ class TranscriptBase:
             del tags["MD"]
 
         # Set the strand
+        if transcript_row.is_reverse:
+            self.strand = "-"
+        else:
+            self.strand = "+"
+
         if "XS" in tags:
             self.strand = tags["XS"]
             del tags["XS"]
         elif "ts" in tags:
-            self.strand = tags["ts"]  # Minimap2
+            self.strand = self.strand if tags["ts"] == '+' else self.reverse_strand()  # Minimap2
             del tags["ts"]
-        else:
-            if transcript_row.is_reverse:
-                self.strand = "-"
-            else:
-                self.strand = "+"
 
         self.attributes.update(tags)
         self.attributes["coverage"] = coverage
@@ -574,8 +574,7 @@ class TranscriptBase:
 
         state = dict()
         for key, item in self.__dict__.items():
-            if key in ("_TranscriptBase__segmenttree", "_TranscriptBase__cds_tree",
-                       "_Transcript__segmenttree", "_Transcript__cds_tree"):
+            if key in ("_segmenttree", "_cds_tree"):
                 continue
             state[key] = item
             try:
@@ -1160,7 +1159,7 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         self.strip_cds()
         self.logger.warning("Transcript %s has been assigned to the wrong strand, reversing it.",
                             self.id)
-        return
+        return self.strand
 
     def as_dict(self, remove_attributes=False):
 
@@ -2189,10 +2188,12 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         """
         This property returns an interval tree of the CDS segments.
         """
-        if len(self.__cds_tree) != len(self.combined_cds) + len(self.combined_cds_introns):
+        if not self._is_tree_unchanged(frozenset(self.combined_cds),
+                                       frozenset(self.combined_cds_introns),
+                                       self._cds_tree):
             self._calculate_cds_tree()
 
-        return self.__cds_tree
+        return self._cds_tree
 
     def _calculate_cds_tree(self):
 
@@ -2200,13 +2201,13 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :rtype: IntervalTree
         """
 
-        self.__cds_tree = IntervalTree()
+        self._cds_tree = IntervalTree()
 
         for exon in self.combined_cds:
-            self.__cds_tree.add(Interval(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS")))
+            self._cds_tree.add(Interval(exon[0], exon[1], value=Interval(exon[0], exon[1], value="CDS")))
 
         for intron in self.combined_cds_introns:
-            self.__cds_tree.add(Interval(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron")))
+            self._cds_tree.add(Interval(intron[0], intron[1], value=Interval(intron[0], intron[1], value="intron")))
 
         return
 
@@ -2227,19 +2228,31 @@ exon data is on a different chromosome, {exon_data.chrom}. \
         :rtype: IntervalTree
         """
 
-        if len(self.__segmenttree) != self.exon_num + len(self.introns):
+        if not self._is_tree_unchanged(frozenset(self.exons), frozenset(self.introns), self._segmenttree):
             self._calculate_segment_tree()
 
-        return self.__segmenttree
+        return self._segmenttree
+
+    @staticmethod
+    @functools.lru_cache(maxsize=100, typed=True)
+    def _is_tree_unchanged(exons: frozenset, introns: frozenset, tree):
+        """Static method to ensure that the tree has not changed. Cached for performance."""
+        if len(tree) != len(exons) + len(introns):
+            return False
+        check_exons = set()
+        check_introns = set()
+        tree.traverse(lambda x: check_introns.add((x.start, x.end))
+        if x.value == 'intron' else check_exons.add((x.start, x.end)))
+        return check_exons == exons and introns == check_introns
 
     def _calculate_segment_tree(self):
 
-        self.__segmenttree = IntervalTree()
+        self._segmenttree = IntervalTree()
         for exon in self.exons:
-            self.__segmenttree.add(Interval(exon[0], exon[1], value="exon"))
+            self._segmenttree.add(Interval(exon[0], exon[1], value="exon"))
 
         for intron in self.introns:
-            self.__segmenttree.add(Interval(intron[0], intron[1], value="intron"))
+            self._segmenttree.add(Interval(intron[0], intron[1], value="intron"))
 
     @property
     def derived_children(self):

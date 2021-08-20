@@ -5,8 +5,7 @@ XML serialisation class.
 import os
 import logging.handlers as logging_handlers
 import logging
-
-from sqlalchemy.engine import reflection
+from sqlalchemy import inspect
 from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
 import pysam
@@ -361,7 +360,7 @@ class BlastSerializer:
         """
         Alias for serialize
         """
-        inspector = reflection.Inspector.from_engine(self.engine)
+        inspector = inspect(self.engine)
         hit_indices = dict((idx.name, idx) for idx in Hit.__table__.indexes)
         hsp_indices = dict((idx.name, idx) for idx in Hsp.__table__.indexes)
 

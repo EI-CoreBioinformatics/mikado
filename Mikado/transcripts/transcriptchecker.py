@@ -289,8 +289,8 @@ we will not reverse it")
 
         assert isinstance(splice_acceptor, str)
 
-        # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
-        # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
+        splice_donor = splice_donor.upper()
+        splice_acceptor = splice_acceptor.upper()
 
         if self.strand == "-":
             splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),

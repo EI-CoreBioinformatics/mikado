@@ -85,10 +85,12 @@ class Hit(DBBASE):
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
                         lazy="subquery",
-                        backref=backref("hit_object", uselist=False),
+                        backref=backref("hit_object", uselist=False,
+                                        overlaps="hits,target_object,query_object"),
                         cascade="all, delete-orphan",
                         single_parent=True,
                         foreign_keys=[query_id, target_id],
+                        overlaps="hits,target_object,query_object",
                         primaryjoin=join_condition)
 
     __table_args__ = (qt_constraint, qt_index, query_index, target_index, evalue_index)

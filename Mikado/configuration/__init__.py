@@ -69,14 +69,14 @@ def select_attribute_for_output(final_config_level: dict, attr_parent, attr_name
     is_required = attr_parent.Schema._declared_fields[attr_name].required
 
     # This is not going to happen if we are looking at a nested property
-    if attr_parent.Schema._declared_fields[attr_name].default == attr_value:
+    if attr_parent.Schema._declared_fields[attr_name].dump_default == attr_value:
         if is_required:
             final_config_level[attr_name] = attr_value
         else:
             return
     elif not is_nested:
-        callable_and_equal_to_default = (callable(attr_parent.Schema._declared_fields[attr_name].default) and
-                                         attr_parent.Schema._declared_fields[attr_name].default() == attr_value)
+        callable_and_equal_to_default = (callable(attr_parent.Schema._declared_fields[attr_name].dump_default) and
+                                         attr_parent.Schema._declared_fields[attr_name].dump_default() == attr_value)
         if callable_and_equal_to_default and not is_required:
             return
         else:

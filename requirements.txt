@@ -1,5 +1,4 @@
 biopython>=1.78
-datrie>=0.8
 docutils
 drmaa
 hypothesis

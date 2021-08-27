@@ -6,7 +6,7 @@ Mikado is a Python suite whose purpose is to find and resolve genic loci in a
 genomic annotation. This is the library it relies onto.
 """
 
-from .version import __version__
+from Mikado.version import __version__
 
 __title__ = "Mikado"
 __author__ = 'Luca Venturini'
@@ -26,6 +26,6 @@ __all__ = ["configuration",
            "__version__"]
 
 
-from .utilities.log_utils import create_default_logger
+from Mikado.utilities.log_utils import create_default_logger
 from numpy._pytesttester import PytestTester
 test = PytestTester(__name__)

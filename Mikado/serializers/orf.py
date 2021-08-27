@@ -256,6 +256,7 @@ class OrfSerializer:
         """
 
         objects = []
+        self.logger.info("Loading queries")
 
         cache = pd.read_sql_table("query", self.engine, index_col="query_name", columns=["query_name", "query_id"])
         cache = cache.to_dict()["query_id"]
@@ -280,9 +281,10 @@ class OrfSerializer:
                 objects = []
 
         done += len(objects)
+        self.logger.info("Finished reading %d queries", done)
         self.engine.execute(Query.__table__.insert(), objects)
         self.session.commit()
-        self.logger.debug("Finished loading %d transcripts into query table", done)
+        self.logger.info("Finished loading %d transcripts into query table", done)
         return
 
     def __serialize_single_thread(self):
@@ -298,6 +300,8 @@ class OrfSerializer:
         done = 0
 
         not_found = set()
+
+        self.logger.info("Loading Orfs into database")
         for row in self.bed12_parser:
             if row.header is True:
                 continue
@@ -326,7 +330,7 @@ Please check your input files. Rogue ID: %s", row.id)
             if obj["start"] is None or not isinstance(obj["start"], int):
                 raise ValueError("Invalid object: {}".format(obj))
                 # continue
-            objects.append(Orf.create_dict(row, current_query))
+            objects.append(obj)
             if len(objects) >= self.maxobjects:
                 done += len(objects)
                 self.session.begin(subtransactions=True)
@@ -336,7 +340,7 @@ Please check your input files. Rogue ID: %s", row.id)
                     objects
                 )
                 self.session.commit()
-                self.logger.debug("Loaded %d ORFs into the database", done)
+                self.logger.info("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)
@@ -347,11 +351,11 @@ Please check your input files. Rogue ID: %s", row.id)
             objects
         )
         self.session.commit()
-        self.session.close()
         self.logger.info("Finished loading %d ORFs into the database", done)
 
-        orfs = pd.read_sql_table("orf", self.engine, index_col="query_id")
-        if orfs.shape[0] != done:
+        orfs = self.session.query(Orf).count()
+        self.session.close()
+        if orfs != done:
             raise ValueError("I should have serialised {} ORFs, but {} are present!".format(done, orfs.shape[0]))
 
     def __serialize_multiple_threads(self):
@@ -464,13 +468,7 @@ mikado prepare. If this is the case, please use mikado_prepared.fasta to call th
         self.query_cache = self.query_cache.to_dict()["query_id"]
         self.initial_cache = (len(self.query_cache) > 0)
 
-        if self.procs == 1:
-            self.__serialize_single_thread()
-        else:
-            try:
-                self.__serialize_multiple_threads()
-            finally:
-                pass
+        self.__serialize_single_thread()
 
     def __call__(self):
         """

@@ -467,6 +467,8 @@ def parse_tab_blast(self,
     else:
         data = pd.read_csv(bname, delimiter="\t", names=blast_keys)
 
+    if data.empty:
+        return
     data = sanitize_blast_data(data, queries, targets, qmult=qmult, tmult=tmult)
     columns = dict((col, idx) for idx, col in enumerate(data.columns))
     groups = defaultdict(list)

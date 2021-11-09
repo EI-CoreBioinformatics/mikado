@@ -109,7 +109,7 @@ class Hsp(DBBASE):
                        "counter", "query_id", "target_id", unique=True)
     uni_constraint = UniqueConstraint("query_id", "target_id",
                                       "query_hsp_start", "query_hsp_end",
-                                      "target_hsp_start", "target_hsp_end")
+                                      "target_hsp_start", "target_hsp_end", "hsp_evalue")
 
     __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index, uni_constraint)
 

@@ -449,7 +449,11 @@ class Locus(Abstractlocus):
                 if self.primary_transcript_id in couple:
                     removal = [_ for _ in couple if _ != self.primary_transcript_id][0]
                 elif len([_ for _ in couple if self[_].is_reference]) >= 1:
-                    removal = [_ for _ in couple if self[_].is_reference is False][0]
+                    rmlist = [_ for _ in couple if self[_].is_reference is False]
+                    if len(rmlist) > 0:
+                        removal = [_ for _ in couple if self[_].is_reference is False][0]
+                    else:
+                        removal = random.choice(sorted(couple))
                 elif self[couple[0]].score != self[couple[1]].score:
                     removal = sorted([(_, self[_].score) for _ in couple],
                                      key=operator.itemgetter(1), reverse=True)[1][0]

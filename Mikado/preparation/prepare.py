@@ -301,6 +301,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
             "lenient": mikado_config.prepare.lenient,
             "canonical_splices": mikado_config.prepare.canonical,
             "strip_faulty_cds": mikado_config.prepare.strip_faulty_cds,
+            "mikado_config": mikado_config,
             "log_level": mikado_config.log_settings.log_level
         }
 

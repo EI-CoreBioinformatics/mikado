@@ -151,6 +151,7 @@ class CheckingProcess(multiprocessing.Process):
                  lenient=False,
                  seed=None,
                  strip_faulty_cds=False,
+                 mikado_config=None,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -213,7 +214,7 @@ class CheckingProcess(multiprocessing.Process):
                                     # lenient=self.lenient,
                                     strip_faulty_cds=self.strip_faulty_cds,
                                     canonical_splices=self.canonical,
-                                    configuration=mikado_config,
+                                    configuration=self,
                                     logger=self.logger)
 
         fasta_out = open(self.fasta_out, "w")

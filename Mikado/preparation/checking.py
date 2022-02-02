@@ -31,6 +31,7 @@ def create_transcript(lines,
                                          ("GC", "AG"),
                                          ("AT", "AC")),
                       strip_faulty_cds=False,
+                      configuration=None,
                       logger=None):
     """Function to create the checker.
 
@@ -71,7 +72,7 @@ def create_transcript(lines,
 
     try:
         logger.debug("Starting with %s", lines["tid"])
-        transcript_line = Transcript()
+        transcript_line = Transcript(configuration=configuration)
         transcript_line.chrom = lines["chrom"]
         if "source" in lines:
             transcript_line.source = lines["source"]
@@ -212,6 +213,7 @@ class CheckingProcess(multiprocessing.Process):
                                     # lenient=self.lenient,
                                     strip_faulty_cds=self.strip_faulty_cds,
                                     canonical_splices=self.canonical,
+                                    configuration=mikado_config,
                                     logger=self.logger)
 
         fasta_out = open(self.fasta_out, "w")

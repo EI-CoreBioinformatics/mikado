@@ -246,6 +246,7 @@ def perform_check(keys, shelve_names, mikado_config: MikadoConfiguration, logger
         partial_checker = functools.partial(
             create_transcript,
             canonical_splices=mikado_config.prepare.canonical,
+            configuration=mikado_config,
             logger=logger,
             strip_faulty_cds=mikado_config.prepare.strip_faulty_cds)
 

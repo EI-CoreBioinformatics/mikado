@@ -2,6 +2,8 @@ import functools
 import multiprocessing
 import multiprocessing.queues
 import os
+
+import Mikado.configuration
 import pysam
 import msgpack
 from ..transcripts.transcriptchecker import TranscriptChecker
@@ -31,7 +33,7 @@ def create_transcript(lines,
                                          ("GC", "AG"),
                                          ("AT", "AC")),
                       strip_faulty_cds=False,
-                      configuration=None,
+                      codon_table=None,
                       logger=None):
     """Function to create the checker.
 
@@ -72,7 +74,7 @@ def create_transcript(lines,
 
     try:
         logger.debug("Starting with %s", lines["tid"])
-        transcript_line = Transcript(configuration=configuration)
+        transcript_line = Transcript()
         transcript_line.chrom = lines["chrom"]
         if "source" in lines:
             transcript_line.source = lines["source"]
@@ -112,6 +114,8 @@ def create_transcript(lines,
                                               is_reference=is_reference,
                                               logger=logger)
         logger.debug("Finished adding exon lines to %s", lines["tid"])
+        if codon_table:
+            transcript_object.configuration.serialise.codon_table = codon_table
         transcript_object.finalize()
         transcript_object.check_strand()
         transcript_object.check_orf()
@@ -151,7 +155,7 @@ class CheckingProcess(multiprocessing.Process):
                  lenient=False,
                  seed=None,
                  strip_faulty_cds=False,
-                 mikado_config=None,
+                 codon_table=None,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -196,6 +200,7 @@ class CheckingProcess(multiprocessing.Process):
         self.strip_faulty_cds= strip_faulty_cds
         self.shelve_stacks = shelve_stacks
         self.batch_file = batch_file
+        self.codon_table = codon_table
 
     def _get_stacks(self):
         shelve_stacks = dict()
@@ -214,7 +219,7 @@ class CheckingProcess(multiprocessing.Process):
                                     # lenient=self.lenient,
                                     strip_faulty_cds=self.strip_faulty_cds,
                                     canonical_splices=self.canonical,
-                                    configuration=self,
+                                    codon_table=self.codon_table,
                                     logger=self.logger)
 
         fasta_out = open(self.fasta_out, "w")

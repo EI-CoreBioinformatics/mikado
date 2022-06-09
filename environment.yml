@@ -30,8 +30,8 @@ dependencies:
   - wheel
   - pytest>=5.4.1
   - python-rapidjson>=1.0
-  - marshmallow>=3.1.0
-  - marshmallow-dataclass>=8.3.1
+  - marshmallow==3.14.1
+  - marshmallow-dataclass==8.5.3
   - typeguard>=2.9.1
   - conda-forge::toml>=0.10.0
   - bioconda::pyfaidx>=0.5.8

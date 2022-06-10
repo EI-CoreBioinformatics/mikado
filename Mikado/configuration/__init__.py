@@ -7,6 +7,7 @@ from typing import Union
 import os
 from marshmallow import fields
 from .configuration import MikadoConfiguration
+from .configurator import load_and_validate_config
 from .daijin_configuration import DaijinConfiguration
 from . import configurator
 import itertools
@@ -54,6 +55,9 @@ def print_config(config: Union[MikadoConfiguration, DaijinConfiguration], out,
 
     if not full:
         config_dict = filter_config(config_dict, config)
+
+    assert isinstance(config_dict, dict)
+    # load_and_validate_config(config_dict)
 
     if output_format == "toml":
         print_toml_config(config_dict, config, out)

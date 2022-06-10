@@ -3,11 +3,12 @@ from dataclasses import asdict
 import marshmallow
 import tempfile
 import pkg_resources
-from ..configuration import configurator
+from ..configuration import configurator, print_config
 from .._transcripts.scoring_configuration import SizeFilter, TargetScore
 from ..configuration.configuration import *
 from ..loci.abstractlocus import Abstractlocus
 import pickle
+import io
 
 
 class TestConfigurator(unittest.TestCase):
@@ -119,3 +120,16 @@ class TestConfigurator(unittest.TestCase):
                          pkg_resources.resource_filename("Mikado.configuration", os.path.join("scoring_files",
                                                                                               "plant.yaml")))
         os.chdir(current)
+
+    def test_create_config(self):
+        config = MikadoConfiguration()
+        self.assertIsInstance(config, MikadoConfiguration)
+        self.assertIsInstance(config.pick, PickConfiguration)
+        config.check()
+        buffer = io.StringIO()
+        print_config(config, buffer, output_format="json")
+        reading = buffer.getvalue()
+        self.assertGreater(len(reading), 0)
+        reloaded = json.loads(reading)
+        reloaded_config = MikadoConfiguration.Schema().load(reloaded)
+        self.assertEqual(reloaded_config, config)

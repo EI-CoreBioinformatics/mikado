@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 """Stub of pre-configurer for Mikado"""
+import shutil
+
 import yaml
 import os
 import re
@@ -186,14 +188,6 @@ switch.")
     config.check()
 
     # Check that the configuration file is correct
-    with tempfile.NamedTemporaryFile("wt", suffix=".json", delete=True) as tempcheck:
-        print_config(config, tempcheck, full=args.full, output_format="json")
-        tempcheck.flush()
-        try:
-            load_and_validate_config(tempcheck.name)
-        except InvalidConfiguration as exc:
-            raise InvalidConfiguration("Created an invalid configuration file! Error:\n{}".format(exc))
-
     # Print out the final configuration file
     if args.json is True or args.out.name.endswith("json"):
         format_name = "json"
@@ -202,7 +196,25 @@ switch.")
     else:
         format_name = "toml"
 
+    with tempfile.NamedTemporaryFile("wt", suffix=f".{format_name}", delete=False,
+                                     dir=os.path.dirname(os.path.abspath(args.out.name))) as tempcheck:
+        print_config(config, tempcheck, full=args.full, output_format=format_name, no_files=args.no_files)
+        tempcheck.flush()
+        assert os.path.exists(tempcheck.name)
+        try:
+            load_and_validate_config(tempcheck.name)
+            os.remove(tempcheck.name)
+        except InvalidConfiguration as exc:
+            raise InvalidConfiguration(f"Created an invalid configuration file! Error:\n{exc}")
+
+    config = config.copy()
     print_config(config, args.out, output_format=format_name, no_files=args.no_files, full=args.full)
+    args.out.close()
+    try:
+        load_and_validate_config(args.out.name)
+    except InvalidConfiguration as exc:
+        os.remove(args.out.name)
+        raise InvalidConfiguration("Created an invalid configuration file! Error:\n{}".format(exc))
 
 
 def configure_parser():

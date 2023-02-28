@@ -19,6 +19,6 @@ python-rapidjson>=1.0.0
 toml>=0.10.0
 pyfaidx>=0.5.8
 dataclasses; python_version < '3.7'
-marshmallow==3.14.1
-marshmallow-dataclass==8.5.3
+marshmallow>=3.14.1
+marshmallow-dataclass>=8.5.3
 typeguard  # Necessary for mashmallow apparently

@@ -12,8 +12,10 @@ import glob
 import re
 import sys
 import numpy as np
-from scipy._build_utils import numpy_nodepr_api
 
+### See comment here https://github.com/cython/cython/issues/2498
+numpy_nodepr_api = dict(define_macros=[("NPY_NO_DEPRECATED_API",
+                                        "NPY_1_9_API_VERSION")])
 
 here = path.abspath(path.dirname("__file__"))
 

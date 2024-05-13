@@ -5,34 +5,35 @@ channels:
   - defaults
   - anaconda
 dependencies:
-  - biopython>=1.78
-  - cython>=0.29.13
-  - docutils
-  - drmaa
-  - hypothesis
-  - msgpack-python>=1.0.0
-  - networkx>=2.3
-  - numpy>=1.17.2
-  - pandas>=1.0
-  - pip
-  - pyfaidx>=0.5.8
-  - samtools>=1.11
-  - htslib>=1.11
-  - pysam>=0.15.3
-  - python>=3.6,<3.10
-  - pyyaml>=5.1.2
-  - scipy>=1.3.1
-  - gmap==2021.08.25
-  - snakemake-minimal>=5.7.0
-  - sqlalchemy>1.4.0,<2
-  - sqlalchemy-utils==0.34.1
-  - sqlite
-  - tabulate>=0.8.5
-  - wheel
-  - pytest>=5.4.1
-  - python-rapidjson>=1.0
+  - python>=3.9,<3.11
+  - cython==0.29.32
+  - biopython==1.79
+  - docutils==0.19
+  - drmaa==0.7.9
+  - hypothesis==6.56.2
+  - msgpack-python==1.0.4
+  - networkx==2.8.7
+  - numpy==1.23.3
+  - pandas==1.5.0
+  - pysam==0.19.1
+  - pyyaml==6.0.1
+  - scipy==1.9.2
+  - snakemake==6.15.5
+  - sqlalchemy==1.4.41
+  - sqlalchemy-utils==0.38.3
+  - tabulate==0.9.0
+  - pytest==7.1.3
+  - python-rapidjson==1.9
+  - toml==0.10.2
+  - pyfaidx==0.5.9.5
   - marshmallow==3.14.1
   - marshmallow-dataclass==8.5.3
-  - typeguard>=2.9.1
-  - conda-forge::toml>=0.10.0
-  - bioconda::pyfaidx>=0.5.8
+  - typeguard==2.13.3
+  - sqlite
+  - pip
+  - wheel
+  - samtools>=1.11
+  - htslib>=1.11
+  - prodigal==2.6.3
+  - diamond==2.0.11
+  - portcullis==1.2.4

@@ -53,13 +53,13 @@ jobs:
       with:
         auto-update-conda: true
         conda-solver: ${{ matrix.solver }}
-        python-version: "3.9"
+        python-version: ${{ matrix.python-version }}
         miniconda-version: "latest"
         mamba-version: "*"
         use-mamba: true
         channels: conda-forge, defaults, bioconda, anaconda
         channel-priority: true
-        # use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+        use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
         activate-environment: "mikado2"
         environment-file: ./environment.yml
         # auto-activate-base: false

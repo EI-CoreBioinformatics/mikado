@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.7, 3.8, 3.9 ]
+        solver: ["classic", "libmamba"]
         os: [ubuntu-latest, macos-latest]
     steps:
     - name: Install system development tools
@@ -48,21 +49,22 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        conda-solver: ${{ matrix.solver }}
+        # repo-token: ${{ secrets.GITHUB_TOKEN }}
         miniconda-version: "latest"
         environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: true
         channels: conda-forge, defaults
         use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-        # auto-update-conda: false
+        auto-update-conda: true
         activate-environment: "mikado2"
         # auto-activate-base: false
     - name: Install dependencies
       run: |
         gcc --help
         pip install -r requirements.txt
-        python -c "import pysam; print(pysam.__version__)"	
+        python -c "import pysam; print(pysam.__version__)"
         pip install Cython pytest-cov
         python setup.py develop
     - name: Test light

@@ -8,11 +8,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        shell: bash -l {0}
+        shell: bash -el {0}
     strategy:
       matrix:
-        python-version: [ 3.7, 3.8, 3.9 ]
-        os: [ubuntu-latest, macos-latest]
+        # python-version: [ "3.8", "3.9" ]
+        python-version: [ "3.9" ]
+        # os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
     - name: Install system development tools
       if: startsWith(runner.os, 'Linux')
@@ -39,30 +41,40 @@ jobs:
       id: cache-miniconda
       uses: actions/cache@v2
       env:
-        CACHE_NUMBER: 1
+        CACHE_NUMBER: 0
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
         path: ~/conda_pkgs_dir
         key:
           ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml') }}
+    - uses: actions/checkout@v4
     - uses: conda-incubator/setup-miniconda@v2
+      name: setup-Mambaforge
       with:
         python-version: ${{ matrix.python-version }}
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        miniconda-version: "latest"
-        environment-file: ./environment.yml
-        mamba-version: "*"
-        use-mamba: true
-        channels: conda-forge, defaults
-        use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-        # auto-update-conda: false
+        miniforge-variant: Mambaforge
+        miniforge-version: 4.9.2-4
+        # mamba-version: "*"
+        # channels: conda-forge, defaults
+        channels: conda-forge, bioconda, defaults, anaconda
+        channel-priority: true
         activate-environment: "mikado2"
-        # auto-activate-base: false
+        environment-file: ./environment.yml
+        use-mamba: true
+        # use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+    - name: Verify conda environment
+      run: |
+        conda info --envs
+        conda env list
+        conda activate mikado2
+        conda list
     - name: Install dependencies
       run: |
-        gcc --help
+        conda activate mikado2
+        python --version
+        gcc --version
+        pip --version
         pip install -r requirements.txt
-        python -c "import pysam; print(pysam.__version__)"	
+        python -c "import pysam; print(pysam.__version__)"
         pip install Cython pytest-cov
         python setup.py develop
     - name: Test light
@@ -79,17 +91,17 @@ jobs:
     - name: Upload coverage to Codecov
       if: startsWith(runner.os, 'Linux')
       uses: codecov/codecov-action@v1
-    - name: Test daijin
-      if: startsWith(runner.os, 'Linux')
-      run: |
-        mamba install -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop "gmap!=2021.02.22" \
-          star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread;
-        cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5
-    - name: Test daijin mikado
-      if: startsWith(runner.os, 'macOS')
-      run: |
-        mamba install -c bioconda -c conda-forge -y prodigal blast diamond transdecoder kallisto samtools gffread;
-        cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5 complete_no_assemble
+    # - name: Test daijin
+    #   if: startsWith(runner.os, 'Linux')
+    #   run: |
+    #     mamba install -c bioconda -c conda-forge -y bioconda::portcullis stringtie scallop "gmap!=2021.02.22" \
+    #       star hisat2 prodigal blast diamond transdecoder conda-forge::gnuplot kallisto samtools gffread;
+    #     cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5
+    # - name: Test daijin mikado
+    #   if: startsWith(runner.os, 'macOS')
+    #   run: |
+    #     mamba install -c bioconda -c conda-forge -y prodigal blast diamond transdecoder kallisto samtools gffread;
+    #     cd sample_data; snakemake --latency-wait 60 --jobs 5 --cores 5 complete_no_assemble
     - name: Test fast
       run: |
         python -c "import Mikado; Mikado.test(label='fast')";

@@ -63,7 +63,7 @@ jobs:
         activate-environment: "mikado2"
         environment-file: ./environment.yml
         use-mamba: true
-        use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+        # use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
     - name: Verify conda environment
       run: |
         conda info --envs

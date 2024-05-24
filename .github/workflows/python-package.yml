@@ -55,8 +55,8 @@ jobs:
         environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: false
-        channels: conda-forge, defaults
-        # channels: conda-forge, defaults, bioconda, anaconda
+        # channels: conda-forge, defaults
+        channels: bioconda, conda-forge, defaults, anaconda
         use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
         activate-environment: "mikado2"
     - name: Verify conda environment

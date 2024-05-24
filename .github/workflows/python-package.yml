@@ -63,12 +63,8 @@ jobs:
         environment-file: ./environment.yml
         use-mamba: true
         use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-    - name: Verify conda environment
-      run: |
-        conda info --envs
     - name: Install dependencies
       run: |
-        conda activate mikado2
         python --version
         gcc --version
         pip --version

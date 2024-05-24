@@ -52,7 +52,7 @@ jobs:
       continue-on-error: true
       with:
         # python-version: "3.9"
-        pythn-version: ${{ matrix.python-version }}
+        python-version: ${{ matrix.python-version }}
         miniforge-variant: Mambaforge
         miniforge-version: latest
         # mamba-version: "*"
@@ -68,7 +68,7 @@ jobs:
         conda info --envs
     - name: Install dependencies
       run: |
-        source activate mikado2
+        conda activate mikado2
         python --version
         gcc --version
         pip --version

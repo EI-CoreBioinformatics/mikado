@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        shell: bash -l {0}
+        shell: bash -el {0}
     strategy:
       matrix:
         python-version: [ "3.9", "3.10" ]
@@ -41,19 +41,21 @@ jobs:
       id: cache-miniconda
       uses: actions/cache@v2
       env:
-        CACHE_NUMBER: 1
+        CACHE_NUMBER: 0
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
         path: ~/conda_pkgs_dir
         key:
           ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml') }}
     - uses: actions/checkout@v4
     - uses: conda-incubator/setup-miniconda@v3
-      id: setup-miniconda
+      name: setup-Mambaforge
       continue-on-error: true
       with:
-        python-version: "3.10"
-        mamba-version: "*"
+        # python-version: "3.9"
+        pythn-version: ${{ matrix.python-version }}
+        miniforge-variant: Mambaforge
+        miniforge-version: latest
+        # mamba-version: "*"
         # channels: conda-forge, defaults
         channels: conda-forge, bioconda, defaults, anaconda
         channel-priority: true

@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         # python-version: [ "3.8", "3.9", "3.10" ]
-        python-version: [ "3.8" ]
+        python-version: [ "3.9" ]
         # solver: ["classic", "libmamba"]
         # os: [ubuntu-latest, macos-latest]
         os: [ubuntu-latest]
@@ -55,7 +55,7 @@ jobs:
         # python-version: "3.9"
         python-version: ${{ matrix.python-version }}
         miniforge-variant: Mambaforge
-        miniforge-version: latest
+        miniforge-version: 4.9.2-4
         # mamba-version: "*"
         # channels: conda-forge, defaults
         channels: conda-forge, bioconda, defaults, anaconda

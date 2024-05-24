@@ -12,9 +12,9 @@ jobs:
     strategy:
       matrix:
         python-version: [ "3.7", "3.8", "3.9" ]
-        solver: ["classic", "libmamba"]
-        # os: [ubuntu-latest, macos-latest]
-        os: [ubuntu-latest]
+        # solver: ["classic", "libmamba"]
+        os: [ubuntu-latest, macos-latest]
+        # os: [ubuntu-latest]
     steps:
     - name: Install system development tools
       if: startsWith(runner.os, 'Linux')
@@ -47,26 +47,27 @@ jobs:
         path: ~/conda_pkgs_dir
         key:
           ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml') }}
-    - uses: actions/checkout@v4
-    - uses: conda-incubator/setup-miniconda@v3
-      id: setup-miniconda
-      continue-on-error: true
+    - uses: conda-incubator/setup-miniconda@v2
       with:
-        auto-update-conda: true
-        conda-solver: ${{ matrix.solver }}
         python-version: ${{ matrix.python-version }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
         miniconda-version: "latest"
+        environment-file: ./environment.yml
         mamba-version: "*"
         use-mamba: true
-        channels: conda-forge, defaults, bioconda, anaconda
-        channel-priority: true
+        channels: conda-forge, defaults
+        # channels: conda-forge, defaults, bioconda, anaconda
         use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
         activate-environment: "mikado2"
-        environment-file: ./environment.yml
-        # auto-activate-base: false
+    - name: Verify conda environment
+      run: |
+        conda info --envs
     - name: Install dependencies
       run: |
-        gcc --help
+        source activate mikado2
+        python --version
+        gcc --version
+        pip --version
         pip install -r requirements.txt
         python -c "import pysam; print(pysam.__version__)"
         pip install Cython pytest-cov

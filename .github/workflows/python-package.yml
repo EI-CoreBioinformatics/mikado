@@ -11,7 +11,8 @@ jobs:
         shell: bash -el {0}
     strategy:
       matrix:
-        python-version: [ "3.9", "3.10" ]
+        # python-version: [ "3.8", "3.9", "3.10" ]
+        python-version: [ "3.8" ]
         # solver: ["classic", "libmamba"]
         # os: [ubuntu-latest, macos-latest]
         os: [ubuntu-latest]
@@ -66,11 +67,12 @@ jobs:
     - name: Verify conda environment
       run: |
         conda info --envs
-        source activate mikado2
+        conda env list
+        conda activate mikado2
         conda list
     - name: Install dependencies
       run: |
-        source activate mikado2
+        conda activate mikado2
         python --version
         gcc --version
         pip --version

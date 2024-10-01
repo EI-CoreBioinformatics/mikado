@@ -34,6 +34,38 @@ Mikado can be installed with singularity. If you don't have singularity, please 
 VERSION=2.3.5rc2
 singularity exec docker://gemygk/mikado:v${VERSION} mikado -h
 ```
+Or, we can build and run a singularity image
+```console
+# 1. Create a Singularity definition file
+
+$ cat mikado-2.3.5rc2.def
+bootstrap: docker
+from: gemygk/mikado:v2.3.5rc2
+
+# Build the Singularity image
+$ sudo singularity build mikado-2.3.5rc2.sif mikado-2.3.5rc2.def
+
+# Execute Mikado
+$ singularity exec mikado-2.3.5rc2_CBG.sif mikado -h
+usage: Mikado [-h] [--version] {configure,prepare,serialise,pick,compare,util} ...
+
+Mikado is a program to analyse RNA-Seq data and determine the best transcript for each locus in accordance to user-specified criteria.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --version             Print Mikado current version and exit.
+
+Components:
+  {configure,prepare,serialise,pick,compare,util}
+                        These are the various components of Mikado:
+    configure           This utility guides the user through the process of creating a configuration file for Mikado.
+    prepare             Mikado prepare analyses an input GTF file and prepares it for the picking analysis by sorting its transcripts and performing some simple consistency checks.
+    serialise           Mikado serialise creates the database used by the pick program. It handles Junction and ORF BED12 files as well as BLAST XML results.
+    pick                Mikado pick analyses a sorted GTF/GFF files in order to identify its loci and choose the best transcripts according to user-specified criteria. It is dependent on files produced by the "prepare" and "serialise"
+                        components.
+    compare             Mikado compare produces a detailed comparison of reference and prediction files. It has been directly inspired by Cufflinks's cuffcompare and ParsEval.
+    util                Miscellaneous utilities
+```
 
 ### Conda/Mamba/Manual Installation
 Mikado can be installed with conda. If you don't have conda, please install [mamba](https://github.com/conda-forge/miniforge?tab=readme-ov-file#miniforge-pypy3) first. Then you can create a new environment with mikado installed.

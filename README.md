@@ -158,12 +158,6 @@ Components:
 ```
 
 
-
-You can verify the correctness of the installation with the unit tests (*outside of the source folder*, as otherwise Python will get confused and try to use the `Mikado` source folder instead of the system installation):
-
-    python -c "import Mikado; Mikado.test(); Mikado.test(label='slow')"
-
-
 ### Additional dependencies
 
 Mikado by itself does require only the presence of a database solution, such as SQLite (although we do support MySQL and PostGRESQL as well).

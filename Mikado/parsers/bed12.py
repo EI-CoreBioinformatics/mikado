@@ -40,11 +40,13 @@ from Bio.Data import IUPACData
 
 codons = copy.deepcopy(CodonTable.ambiguous_dna_by_id[1]._codon_table)
 codons.start_codons = ["ATG"]
-standard = CodonTable.AmbiguousCodonTable(codons,
-                                          IUPACData.ambiguous_dna_letters,
-                                          IUPACData.ambiguous_dna_values,
-                                          IUPACData.extended_protein_letters,
-                                          IUPACData.extended_protein_values)
+standard = CodonTable.AmbiguousCodonTable(
+    codons,
+    IUPACData.ambiguous_dna_letters,
+    IUPACData.ambiguous_dna_values,
+    IUPACData.extended_protein_letters,
+    IUPACData.extended_protein_values,
+)
 assert standard.start_codons == ["ATG"]
 assert CodonTable.ambiguous_dna_by_id[1].start_codons != ["ATG"]
 
@@ -66,16 +68,20 @@ def get_tables(table, to_stop=False, gap=None, stop_symbol="*"):
     if dual_coding:
         c = dual_coding[0]
         if to_stop:
-            raise ValueError("You cannot use 'to_stop=True' with this table "
-                             "as it contains {} codon(s) which can be both "
-                             " STOP and an  amino acid (e.g. '{}' -> '{}' or "
-                             "STOP)."
-                             .format(len(dual_coding), c, forward_table[c]))
-        warnings.warn("This table contains {} codon(s) which code(s) for both "
-                      "STOP and an amino acid (e.g. '{}' -> '{}' or STOP). "
-                      "Such codons will be translated as amino acid."
-                      .format(len(dual_coding), c, forward_table[c]),
-                      BiopythonWarning)
+            raise ValueError(
+                "You cannot use 'to_stop=True' with this table "
+                "as it contains {} codon(s) which can be both "
+                " STOP and an  amino acid (e.g. '{}' -> '{}' or "
+                "STOP).".format(len(dual_coding), c, forward_table[c])
+            )
+        warnings.warn(
+            "This table contains {} codon(s) which code(s) for both "
+            "STOP and an amino acid (e.g. '{}' -> '{}' or STOP). "
+            "Such codons will be translated as amino acid.".format(
+                len(dual_coding), c, forward_table[c]
+            ),
+            BiopythonWarning,
+        )
 
     for stop in stop_codons:
         forward_table[stop] = stop_symbol
@@ -88,7 +94,9 @@ def get_tables(table, to_stop=False, gap=None, stop_symbol="*"):
     return forward_table, getter, valid_letters
 
 
-def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None):
+def _translate_str(
+    sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None
+):
     """Translate nucleotide string into a protein string (PRIVATE).
 
     Arguments:
@@ -153,33 +161,50 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
     # Check that the pos_stop is a single character
     # By default this is the "X" character (equivalent to "N" for nucleotides)
     if not (isinstance(pos_stop, (bytes, str)) and len(pos_stop) == 1):
-        raise ValueError("Pos_stop must be a single character, not {pos_stop}".format(pos_stop=pos_stop))
+        raise ValueError(
+            "Pos_stop must be a single character, not {pos_stop}".format(
+                pos_stop=pos_stop
+            )
+        )
     if isinstance(pos_stop, bytes):
         pos_stop = pos_stop.decode()
 
     if cds and len(sequence) % 3 != 0:
-        raise CodonTable.TranslationError("Sequence length {0} is not a multiple of three".format(
-            len(sequence)
-        ))
+        raise CodonTable.TranslationError(
+            "Sequence length {0} is not a multiple of three".format(len(sequence))
+        )
     elif gap is not None and (not isinstance(gap, str) or len(gap) > 1):
         raise ValueError("Gap character should be a single character string.")
 
-    forward_table, getter, valid_letters = get_tables(table, to_stop=to_stop, gap=gap, stop_symbol=stop_symbol)
+    forward_table, getter, valid_letters = get_tables(
+        table, to_stop=to_stop, gap=gap, stop_symbol=stop_symbol
+    )
 
     sequence = sequence.upper()
     if not valid_letters.issuperset(set(sequence)):
-        raise CodonTable.TranslationError("Invalid letters in the sequence: {}".format(
-            set.difference(set(sequence), valid_letters)
-        ))
+        raise CodonTable.TranslationError(
+            "Invalid letters in the sequence: {}".format(
+                set.difference(set(sequence), valid_letters)
+            )
+        )
 
-    amino_acids = getter(np.array(
-        [sequence[start:start + 3] for start in range(0, len(sequence) - len(sequence) % 3, 3)], dtype="<U"))
+    amino_acids = getter(
+        np.array(
+            [
+                sequence[start : start + 3]
+                for start in range(0, len(sequence) - len(sequence) % 3, 3)
+            ],
+            dtype="<U",
+        )
+    )
 
     if cds and amino_acids[0] != "M":
         if sequence[0:3] in table.start_codons:
             amino_acids[0] = "M"
         else:
-            raise CodonTable.TranslationError("First codon '{0}' is not a start codon".format(sequence[:3]))
+            raise CodonTable.TranslationError(
+                "First codon '{0}' is not a start codon".format(sequence[:3])
+            )
 
     nones = np.where((amino_acids == "None") | (amino_acids is None))[0]
     amino_acids[nones] = pos_stop
@@ -188,13 +213,18 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
 
     if cds and found_stops > 1:
         raise CodonTable.TranslationError(
-            "Extra in-frame stop codon found. Sequence: {sequence}".format(sequence=sequence))
+            "Extra in-frame stop codon found. Sequence: {sequence}".format(
+                sequence=sequence
+            )
+        )
     elif cds and found_stops and _stop_locations[0] < len(amino_acids) - 1:
         raise CodonTable.TranslationError(
             "Extra in-frame stop codon. Sequence:\n{sequence}\n{spaces}^^^".format(
-            sequence=sequence, spaces=" " * _stop_locations[0] * 3))
+                sequence=sequence, spaces=" " * _stop_locations[0] * 3
+            )
+        )
     if to_stop and found_stops > 0:
-        amino_acids = amino_acids[:_stop_locations[0]]
+        amino_acids = amino_acids[: _stop_locations[0]]
 
     return "".join(amino_acids)
 
@@ -202,7 +232,6 @@ def _translate_str(sequence, table, stop_symbol="*", to_stop=False, cds=False, p
 # These classes do contain lots of things, it is correct like it is
 # pylint: disable=too-many-instance-attributes
 class BED12:
-
     """
     BED12 parsing class.
     """
@@ -211,18 +240,20 @@ class BED12:
 
     _attribute_pattern = re.compile(r"([^;]*)=([^$=]*)(?:;|$)")
 
-    def __init__(self, *args: Union[str, list, tuple, GffLine],
-                 fasta_index=None,
-                 phase=None,
-                 sequence=None,
-                 transcriptomic=False,
-                 max_regression=0,
-                 start_adjustment=True,
-                 coding=True,
-                 lenient=False,
-                 table=0,
-                 logger=create_null_logger()):
-
+    def __init__(
+        self,
+        *args: Union[str, list, tuple, GffLine],
+        fasta_index=None,
+        phase=None,
+        sequence=None,
+        transcriptomic=False,
+        max_regression=0,
+        start_adjustment=True,
+        coding=True,
+        lenient=False,
+        table=0,
+        logger=create_null_logger(),
+    ):
         """
         :param args: the BED12 line.
         :type args: (str, list, tuple, GffLine)
@@ -324,7 +355,7 @@ class BED12:
         self.name = ""
         self.score = 0
         self.strand = None
-        self.rgb = ''
+        self.rgb = ""
         self.stop_codon = self.start_codon = None
         self.__has_start = self.__has_stop = False
         self.__block_sizes = np.zeros(1, dtype=np.int64)
@@ -356,7 +387,7 @@ class BED12:
         self._line = args[0]
         if isinstance(self._line, str) or self._line is None:
             if self._line is None:
-                self._line = ''
+                self._line = ""
             self._line = self._line.rstrip()
             if len(self._line) == 0 or self._line[0] == "#":
                 self.header = True
@@ -384,7 +415,9 @@ class BED12:
                     fasta_length = len(sequence)
                 elif fasta_index:
                     if isinstance(fasta_index, pysam.FastaFile):
-                        fasta_length = fasta_index.get_reference_length(self._line.chrom)
+                        fasta_length = fasta_index.get_reference_length(
+                            self._line.chrom
+                        )
                     elif isinstance(fasta_index, pyfaidx.Fasta):
                         sequence = fasta_index[self._line.chrom]
                         fasta_length = len(fasta_index[self._line.chrom])
@@ -395,7 +428,9 @@ class BED12:
                 self.__set_values_from_gff(fasta_length)
 
         elif not (isinstance(self._line, list) or isinstance(self._line, tuple)):
-            raise InvalidParsingFormat("I need an ordered array, not {0}".format(type(self._line)))
+            raise InvalidParsingFormat(
+                "I need an ordered array, not {0}".format(type(self._line))
+            )
         else:
             self._fields = self._line
             print("Line", self._fields)
@@ -404,7 +439,11 @@ class BED12:
         self.__check_validity(transcriptomic, fasta_index, sequence)
 
         if self.invalid and self.coding:
-            self.logger.debug("%s cannot be coding as it is invalid (reason: %s)", self.chrom, self.invalid_reason)
+            self.logger.debug(
+                "%s cannot be coding as it is invalid (reason: %s)",
+                self.chrom,
+                self.invalid_reason,
+            )
             self.coding = False
 
         if self.coding and self.phase is None:
@@ -438,7 +477,9 @@ class BED12:
 
     @table.setter
     def table(self, table):
-        if isinstance(table, bool):  # Boolean can be considered as int so this requires special handling
+        if isinstance(
+            table, bool
+        ):  # Boolean can be considered as int so this requires special handling
             raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
         elif table is not None and not isinstance(table, (int, float, bytes, str)):
             raise ValueError(f"Invalid table specified: {table} (type {type(table)})")
@@ -461,16 +502,21 @@ class BED12:
             self.__table_index = 0
         elif isinstance(table, int):
             if table not in ambiguous_dna_by_id.keys():
-                raise ValueError(f"Invalid table code specified: {table}. Available codes: "
-                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_id.keys()])}")
+                raise ValueError(
+                    f"Invalid table code specified: {table}. Available codes: "
+                    f"{', '.join([str(_) for _ in ambiguous_dna_by_id.keys()])}"
+                )
             self.__table = ambiguous_dna_by_id[table]
-            assert self.__table.start_codons == ["ATG"] if table == 0 else True, f"Invalid codons for table 0: " \
-                                                                                 f"{self.__table.start_codons}"
+            assert self.__table.start_codons == ["ATG"] if table == 0 else True, (
+                f"Invalid codons for table 0: {self.__table.start_codons}"
+            )
             self.__table_index = table
         elif isinstance(table, str):
             if table not in ambiguous_dna_by_name.keys():
-                raise ValueError(f"Invalid table name specified: {table}. Available table: "
-                                 f"{', '.join([str(_) for _ in ambiguous_dna_by_name.keys()])}")
+                raise ValueError(
+                    f"Invalid table name specified: {table}. Available table: "
+                    f"{', '.join([str(_) for _ in ambiguous_dna_by_name.keys()])}"
+                )
             self.__table = ambiguous_dna_by_name[table]
             self.__table_index = ambiguous_dna_by_name[table].id
         return
@@ -482,11 +528,15 @@ class BED12:
         self.__parent = [parent]
 
     def __getstate__(self):
-
-        state = copy.deepcopy(dict((key, val) for key, val in self.__dict__.items()
-                                   if key not in ("_BED12_table") and
-                                   not isinstance(val, logging.Logger) and
-                                   not isinstance(val, CodonTable.CodonTable)))
+        state = copy.deepcopy(
+            dict(
+                (key, val)
+                for key, val in self.__dict__.items()
+                if key not in ("_BED12_table")
+                and not isinstance(val, logging.Logger)
+                and not isinstance(val, CodonTable.CodonTable)
+            )
+        )
 
         return state
 
@@ -496,7 +546,6 @@ class BED12:
         self.table = self.__table_index
 
     def _parse_attributes(self, attributes):
-
         """
         Private method that parses the last field of the GFF line.
         :return:
@@ -526,15 +575,24 @@ class BED12:
                 continue
 
     def __set_values_from_fields(self):
-
         """
         Private method that sets the correct values from the fields derived from the input line.
         :return:
         """
-        self.chrom, self.start, self.end, \
-            self.name, self.score, self.strand, \
-            self.thick_start, self.thick_end, self.rgb, \
-            self.block_count, block_sizes, block_starts = self._fields[:12]
+        (
+            self.chrom,
+            self.start,
+            self.end,
+            self.name,
+            self.score,
+            self.strand,
+            self.thick_start,
+            self.thick_end,
+            self.rgb,
+            self.block_count,
+            block_sizes,
+            block_starts,
+        ) = self._fields[:12]
 
         # Reduce memory usage
         intern(self.chrom)
@@ -567,7 +625,6 @@ class BED12:
         return
 
     def __set_values_from_bed12(self, line):
-
         self.__setstate__(line.__getstate__())
         return
 
@@ -577,19 +634,24 @@ class BED12:
         :return:
         """
 
-        (self.chrom, self.thick_start,
-         self.thick_end, self.strand, self.name) = (self._line.chrom,
-                                                    self._line.start,
-                                                    self._line.end, self._line.strand, self._line.id)
+        (self.chrom, self.thick_start, self.thick_end, self.strand, self.name) = (
+            self._line.chrom,
+            self._line.start,
+            self._line.end,
+            self._line.strand,
+            self._line.id,
+        )
         intern(self.chrom)
         if self.name is None:
-            raise InvalidParsingFormat("{self} should have the name property defined".format(self=repr(self)))
+            raise InvalidParsingFormat(
+                "{self} should have the name property defined".format(self=repr(self))
+            )
         self.start = 1
         self.end = fasta_length
         self.score = self._line.score
         self.rgb = None
         self.block_count = 1
-        self.block_sizes = [self.thick_end - self.thick_start +1]
+        self.block_sizes = [self.thick_end - self.thick_start + 1]
         self.block_starts = [self.thick_start]
         self.has_start_codon = False
         self.has_stop_codon = False
@@ -609,15 +671,21 @@ class BED12:
 
         if transcriptomic is True and self.coding is True:
             if not (fasta_index is not None or sequence is not None):
-                self.logger.debug("No further check on the validity of %s as no sequence has been provided.",
-                                  self.chrom)
+                self.logger.debug(
+                    "No further check on the validity of %s as no sequence has been provided.",
+                    self.chrom,
+                )
                 return
 
         if transcriptomic is True:
             self.has_start_codon = False
             self.has_stop_codon = False
 
-        if transcriptomic is True and self.coding is True and (fasta_index is not None or sequence is not None):
+        if (
+            transcriptomic is True
+            and self.coding is True
+            and (fasta_index is not None or sequence is not None)
+        ):
             self.logger.debug("Starting to check the validity of %s", self.chrom)
             self.validity_checked = True
             if sequence is not None:
@@ -628,7 +696,9 @@ class BED12:
                     sequence = str(sequence)
             else:
                 if self.id not in fasta_index:
-                    self.logger.warning("%s not found in the index. Aborting the check, we will trust the ORF as-is.")
+                    self.logger.warning(
+                        "%s not found in the index. Aborting the check, we will trust the ORF as-is."
+                    )
                     self.__in_index = False
                     return
                 self.fasta_length = len(fasta_index[self.id])
@@ -647,17 +717,32 @@ class BED12:
 
             if self.strand != "-":
                 orf_sequence = sequence[
-                               (self.thick_start - 1 if not self.phase else self.start + self.phase - 1):self.thick_end]
+                    (
+                        self.thick_start - 1
+                        if not self.phase
+                        else self.start + self.phase - 1
+                    ) : self.thick_end
+                ]
             else:
                 orf_sequence = Seq.reverse_complement(
-                    sequence[(self.thick_start - 1):(
-                        self.thick_end if not self.phase else self.end - (3 - self.phase) % 3)])
+                    sequence[
+                        (self.thick_start - 1) : (
+                            self.thick_end
+                            if not self.phase
+                            else self.end - (3 - self.phase) % 3
+                        )
+                    ]
+                )
 
             self.start_codon = str(orf_sequence)[:3].upper()
             self.stop_codon = str(orf_sequence[-3:]).upper()
 
-            if self.start_codon in self.table.start_codons and (self.phase is None or self.phase == 0):
-                self.logger.debug("Found start codon for %s. Setting phase to 0", self.chrom)
+            if self.start_codon in self.table.start_codons and (
+                self.phase is None or self.phase == 0
+            ):
+                self.logger.debug(
+                    "Found start codon for %s. Setting phase to 0", self.chrom
+                )
                 self.has_start_codon = True
                 self.phase = 0
             else:
@@ -674,25 +759,39 @@ class BED12:
                 elif self.strand == "-" and self.thick_start - self.start < 3:
                     self.thick_start = 1
 
-            self.logger.debug("%s with start codon (%s) and stop codon (%s). Valid: %s",
-                              self.chrom, self.has_start_codon, self.has_stop_codon, not self.invalid)
+            self.logger.debug(
+                "%s with start codon (%s) and stop codon (%s). Valid: %s",
+                self.chrom,
+                self.has_start_codon,
+                self.has_stop_codon,
+                not self.invalid,
+            )
 
             # Get only a proper multiple of three
             if self.lenient is False and self.coding is True:
                 if self.strand != "-":
                     orf_sequence = sequence[
-                                   (self.thick_start - 1 if not self.phase
-                                    else self.start + self.phase - 1):self.thick_end]
+                        (
+                            self.thick_start - 1
+                            if not self.phase
+                            else self.start + self.phase - 1
+                        ) : self.thick_end
+                    ]
                 else:
                     orf_sequence = Seq.reverse_complement(
                         sequence[
-                        (self.thick_start - 1):
-                        (self.thick_end if not self.phase else self.end - self.phase)])
+                            (self.thick_start - 1) : (
+                                self.thick_end
+                                if not self.phase
+                                else self.end - self.phase
+                            )
+                        ]
+                    )
 
                 last_pos = -3 - ((len(orf_sequence)) % 3)
-                translated_seq = _translate_str(orf_sequence[:last_pos],
-                                                table=self.table,
-                                                gap='N')
+                translated_seq = _translate_str(
+                    orf_sequence[:last_pos], table=self.table, gap="N"
+                )
 
                 self._internal_stop_codons = str(translated_seq).count("*")
                 if self._internal_stop_codons == 0 and len(orf_sequence[last_pos:]) > 3:
@@ -702,25 +801,31 @@ class BED12:
                         if self.strand == "-":
                             self.thick_start += -last_pos % 3
                             self.logger.warning(
-                                f"Shifting the position of the thick start of {self.name} by {-last_pos % 3}")
+                                f"Shifting the position of the thick start of {self.name} by {-last_pos % 3}"
+                            )
                         else:
                             self.thick_end -= -last_pos % 3
                             self.logger.warning(
-                                f"Shifting the position of the thick end of {self.name} by {-last_pos % 3}")
+                                f"Shifting the position of the thick end of {self.name} by {-last_pos % 3}"
+                            )
 
             del self.invalid
             if self.__is_invalid() is True:
                 return
 
     def _adjust_start(self, sequence, orf_sequence):
-
         if len(orf_sequence) != (self.thick_end - self.thick_start + 1 - self.phase):
             # We are checking that the sequence of the ORF (provided as argument) is the same length as
             # the imputed length of the ORF
-            raise ValueError("The provided orf_sequence of length {lorf} is different from the imputed length of the\
+            raise ValueError(
+                "The provided orf_sequence of length {lorf} is different from the imputed length of the\
  ORF for {sid} (total {ltotal}; thick start {self.thick_start}, thick end {self.thick_end}, phase {self.phase})".format(
-                lorf=len(orf_sequence), ltotal=self.thick_end - self.thick_start + 1 - self.phase,
-                sid=self.name, self=self))
+                    lorf=len(orf_sequence),
+                    ltotal=self.thick_end - self.thick_start + 1 - self.phase,
+                    sid=self.name,
+                    self=self,
+                )
+            )
 
         # Let's check UPstream first.
         # This means that we DO NOT have a starting Met and yet we are starting far upstream.
@@ -728,11 +833,19 @@ class BED12:
         if self.strand == "+" and self.thick_start > 3:
             for pos in range(self.thick_start, 3, -3):
                 self.thick_start -= 3
-                codon = sequence[pos - 4:pos - 1]
-                is_start, is_stop = ((codon in self.table.start_codons),
-                                     (codon in self.table.stop_codons))
-                self.logger.debug("Checking pos %s (%s) for %s, start: %s; stop: %s",
-                                  pos, codon, self.chrom, is_start, is_stop)
+                codon = sequence[pos - 4 : pos - 1]
+                is_start, is_stop = (
+                    (codon in self.table.start_codons),
+                    (codon in self.table.stop_codons),
+                )
+                self.logger.debug(
+                    "Checking pos %s (%s) for %s, start: %s; stop: %s",
+                    pos,
+                    codon,
+                    self.chrom,
+                    is_start,
+                    is_stop,
+                )
                 if is_start:
                     # We have found a valid methionine.
                     break
@@ -742,20 +855,27 @@ class BED12:
                     assert self.invalid is True
                     self.logger.debug(
                         "Found in-frame stop codon for %s while expanding, stopping here. Invalid: %s (reason %s)",
-                                        self.chrom, self.invalid, self.invalid_reason)
+                        self.chrom,
+                        self.invalid,
+                        self.invalid_reason,
+                    )
                     break
                 continue
 
         elif self.strand == "-" and self.end - self.thick_end > 3:
             for pos in range(self.thick_end, self.end - 3, 3):
                 self.thick_end += 3
-                codon = Seq.reverse_complement(sequence[pos - 3:pos])
-                is_start, is_stop = ((codon in self.table.start_codons),
-                                     (codon in self.table.stop_codons))
+                codon = Seq.reverse_complement(sequence[pos - 3 : pos])
+                is_start, is_stop = (
+                    (codon in self.table.start_codons),
+                    (codon in self.table.stop_codons),
+                )
                 if is_start:
                     # We have found a valid methionine.
-                    self.logger.debug("Found correct start codon for %s while expanding, stopping here.",
-                                      self.chrom)
+                    self.logger.debug(
+                        "Found correct start codon for %s while expanding, stopping here.",
+                        self.chrom,
+                    )
                     break
                 elif is_stop:
                     self.stop_codon = codon
@@ -763,7 +883,10 @@ class BED12:
                     assert self.invalid is True
                     self.logger.debug(
                         "Found in-frame stop codon for %s while expanding, stopping here. Invalid: %s (reason %s)",
-                        self.chrom, self.invalid, self.invalid_reason)
+                        self.chrom,
+                        self.invalid,
+                        self.invalid_reason,
+                    )
                     break
         else:
             self._regression(orf_sequence)
@@ -786,30 +909,45 @@ class BED12:
                 else:
                     self.phase = 0
         else:
-            self.logger.debug("Setting phase of %s at 0 (end: %s; thick end: %s; thick start %s)",
-                              self.chrom, self.end, self.thick_end, self.thick_start)
+            self.logger.debug(
+                "Setting phase of %s at 0 (end: %s; thick end: %s; thick start %s)",
+                self.chrom,
+                self.end,
+                self.thick_end,
+                self.thick_start,
+            )
             self.phase = 0
 
         del self.invalid
         if self.invalid:
-            self.logger.debug("%s is not coding after checking. Reason: %s", self.chrom, self.invalid_reason)
+            self.logger.debug(
+                "%s is not coding after checking. Reason: %s",
+                self.chrom,
+                self.invalid_reason,
+            )
             self.coding = False
 
     def _regression(self, orf_sequence):
         self.logger.debug(
             "Starting the regression algorithm to find an internal start for %s (end: %s; thick start/end: %s, %s; phase %s)",
-            self.chrom, self.end, self.thick_start, self.thick_end, self.phase)
+            self.chrom,
+            self.end,
+            self.thick_start,
+            self.thick_end,
+            self.phase,
+        )
         if self.strand != "-":
             # self.thick_start = self.phase + 3
-            self.logger.debug("Starting to analyse %s; positions %s-%s",
-                              self.chrom,
-                              self.phase + 3,
-                              self.phase + 3 + int(len(orf_sequence) * self.max_regression),
-                              )
-            for pos in range(self.phase + 3,
-                             int(len(orf_sequence) * self.max_regression),
-                             3):
-                codon = orf_sequence[pos:pos + 3]
+            self.logger.debug(
+                "Starting to analyse %s; positions %s-%s",
+                self.chrom,
+                self.phase + 3,
+                self.phase + 3 + int(len(orf_sequence) * self.max_regression),
+            )
+            for pos in range(
+                self.phase + 3, int(len(orf_sequence) * self.max_regression), 3
+            ):
+                codon = orf_sequence[pos : pos + 3]
                 # self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
                 if codon in self.table.start_codons:
                     # Now we have to shift the start accordingly
@@ -819,20 +957,26 @@ class BED12:
                     break
                 else:
                     continue
-            self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
+            self.logger.debug(
+                "Final internal coords for %s: %s-%s",
+                self.chrom,
+                self.thick_start,
+                self.thick_end,
+            )
         elif self.strand == "-":
             if self.end - self.thick_end < 3:
                 self.phase = (3 - (self.end - self.thick_end) % 3) % 3
-            self.logger.debug("Starting to analyse %s (phase %s); positions %s-%s",
-                              self.chrom,
-                              self.phase,
-                              self.phase + 3,
-                              self.phase + 3 + int(len(orf_sequence) * self.max_regression),
-                              )
-            for pos in range(self.phase + 3,
-                             int(len(orf_sequence) * self.max_regression),
-                             3):
-                codon = orf_sequence[pos:pos + 3]
+            self.logger.debug(
+                "Starting to analyse %s (phase %s); positions %s-%s",
+                self.chrom,
+                self.phase,
+                self.phase + 3,
+                self.phase + 3 + int(len(orf_sequence) * self.max_regression),
+            )
+            for pos in range(
+                self.phase + 3, int(len(orf_sequence) * self.max_regression), 3
+            ):
+                codon = orf_sequence[pos : pos + 3]
                 # self.logger.debug("Testing position %s-%s (%s)", pos, pos + 3, codon)
                 if codon in self.table.start_codons:
                     # Now we have to shift the start accordingly
@@ -840,7 +984,12 @@ class BED12:
                     self.thick_end -= pos
                     self.phase = 0
                     break
-            self.logger.debug("Final internal coords for %s: %s-%s", self.chrom, self.thick_start, self.thick_end)
+            self.logger.debug(
+                "Final internal coords for %s: %s-%s",
+                self.chrom,
+                self.thick_start,
+                self.thick_end,
+            )
 
     def __repr__(self):
         return pp.saferepr(self.__dict__)
@@ -849,7 +998,6 @@ class BED12:
         return hash(frozenset(self.__getstate__()))
 
     def __str__(self):
-
         if self.header is True:
             if self._line is not None:
                 return self._line
@@ -879,8 +1027,12 @@ class BED12:
         line.append(self.block_count)
         line.append(",".join([str(x) for x in self.block_sizes]))
         line.append(",".join([str(x) for x in self.block_starts]))
-        attributes = dict((key.lower(), val) for key, val in self.attributes.items() if key.lower() not in
-                          ("geneid", "gene_id", "name", "phase", "coding", "alias", "id"))
+        attributes = dict(
+            (key.lower(), val)
+            for key, val in self.attributes.items()
+            if key.lower()
+            not in ("geneid", "gene_id", "name", "phase", "coding", "alias", "id")
+        )
         if self.parent is not None:
             attributes["Parent"] = self.parent[0]
             assert "Parent" in attributes
@@ -892,14 +1044,25 @@ class BED12:
                 parent = None
             attributes["Parent"] = parent
         if attributes:
-            line.append(";".join(f"{key}={val}" for key, val in attributes.items() if val is not None))
+            line.append(
+                ";".join(
+                    f"{key}={val}" for key, val in attributes.items() if val is not None
+                )
+            )
         return "\t".join([str(x) for x in line])
 
     def __eq__(self, other):
-        for key in ["chrom", "strand", "start",
-                    "end", "thick_start", "thick_end",
-                    "block_count", "block_sizes",
-                    "block_starts"]:
+        for key in [
+            "chrom",
+            "strand",
+            "start",
+            "end",
+            "thick_start",
+            "thick_end",
+            "block_count",
+            "block_sizes",
+            "block_starts",
+        ]:
             if getattr(self, key) != getattr(other, key):
                 return False
         return True
@@ -908,11 +1071,9 @@ class BED12:
         return self.end - self.start + 1
 
     def copy(self):
-
         return copy.deepcopy(self)
 
     def as_simple_dict(self):
-
         return {
             "chrom": self.chrom,
             "id": self.id,
@@ -1024,6 +1185,7 @@ class BED12:
             return self.chrom
         else:
             return self.name
+
     # pylint: enable=invalid-name
 
     @property
@@ -1047,9 +1209,10 @@ class BED12:
         return self.__lenient
 
     def __is_invalid(self):
-
         if self._internal_stop_codons >= 1:
-            self.invalid_reason = "{} internal stop codons found".format(self._internal_stop_codons)
+            self.invalid_reason = "{} internal stop codons found".format(
+                self._internal_stop_codons
+            )
             return True
 
         if self.fasta_length is None:
@@ -1060,12 +1223,14 @@ class BED12:
                 pass
             else:
                 invalid = "thickStart {0} <start {1}: {2}; end {3} <thickEnd {4} {5}"
-                self.invalid_reason = invalid.format(self.thick_start,
-                                                     self.start,
-                                                     self.thick_start < self.start,
-                                                     self.end,
-                                                     self.thick_end,
-                                                     self.thick_end > self.end)
+                self.invalid_reason = invalid.format(
+                    self.thick_start,
+                    self.start,
+                    self.thick_start < self.start,
+                    self.end,
+                    self.thick_end,
+                    self.thick_end > self.end,
+                )
                 return True
 
         if self.transcriptomic is True:
@@ -1075,8 +1240,7 @@ class BED12:
 
             if len(self) != self.fasta_length:
                 self.invalid_reason = "FASTA length != BED length: {0} vs. {1}".format(
-                    self.fasta_length,
-                    len(self)
+                    self.fasta_length, len(self)
                 )
                 return True
 
@@ -1085,19 +1249,29 @@ class BED12:
             else:
                 if (self.cds_len - self.phase) % 3 != 0:
                     if self.strand == "+" and self.thick_end != self.end:
-                        self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
-                            self.cds_len - self.phase,
-                            (self.cds_len - self.phase) % 3,
-                            self.thick_start, self.thick_end, self.phase)
+                        self.invalid_reason = (
+                            "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                                self.cds_len - self.phase,
+                                (self.cds_len - self.phase) % 3,
+                                self.thick_start,
+                                self.thick_end,
+                                self.phase,
+                            )
+                        )
                         return True
                     elif self.strand == "-" and self.thick_start != self.start:
-                        self.invalid_reason = "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
-                            self.cds_len - self.phase,
-                            (self.cds_len - self.phase) % 3,
-                            self.thick_start, self.thick_end, self.phase)
+                        self.invalid_reason = (
+                            "Invalid CDS length: {0} % 3 = {1} ({2}-{3}, {4})".format(
+                                self.cds_len - self.phase,
+                                (self.cds_len - self.phase) % 3,
+                                self.thick_start,
+                                self.thick_end,
+                                self.phase,
+                            )
+                        )
                         return True
 
-        self.invalid_reason = ''
+        self.invalid_reason = ""
         return False
 
     @property
@@ -1133,7 +1307,9 @@ class BED12:
         try:
             value = int(value)
         except (ValueError, TypeError):
-            raise ValueError("Start must be an integer, not {}! Value: {}".format(type(value), value))
+            raise ValueError(
+                "Start must be an integer, not {}! Value: {}".format(type(value), value)
+            )
         self.__start = value
         del self.invalid
 
@@ -1151,7 +1327,9 @@ class BED12:
         try:
             value = int(value)
         except (ValueError, TypeError):
-            raise ValueError("End must be an integer, not {}! Value: {}".format(type(value), value))
+            raise ValueError(
+                "End must be an integer, not {}! Value: {}".format(type(value), value)
+            )
         self.__end = value
         del self.invalid
 
@@ -1169,7 +1347,11 @@ class BED12:
         try:
             value = int(value)
         except (ValueError, TypeError):
-            raise ValueError("Thick start must be an integer, not {}! Value: {}".format(type(value), value))
+            raise ValueError(
+                "Thick start must be an integer, not {}! Value: {}".format(
+                    type(value), value
+                )
+            )
         self.__thick_start = value
         del self.invalid
 
@@ -1187,7 +1369,11 @@ class BED12:
         try:
             value = int(value)
         except (ValueError, TypeError):
-            raise ValueError("Thick end must be an integer, not {}! Value: {}".format(type(value), value))
+            raise ValueError(
+                "Thick end must be an integer, not {}! Value: {}".format(
+                    type(value), value
+                )
+            )
         self.__thick_end = value
         del self.invalid
 
@@ -1211,10 +1397,12 @@ class BED12:
 
     @phase.setter
     def phase(self, val):
-
         if val not in (None, 0, 1, 2):
-            raise ValueError("Invalid frame specified for {}: {}. Must be None or 0, 1, 2".format(
-                self.name, val))
+            raise ValueError(
+                "Invalid frame specified for {}: {}. Must be None or 0, 1, 2".format(
+                    self.name, val
+                )
+            )
         elif self.transcriptomic is True and val not in (0, 1, 2):
             raise ValueError("A transcriptomic BED cannot have null frame.")
         del self.invalid
@@ -1234,7 +1422,11 @@ class BED12:
         try:
             value = int(value)
         except (ValueError, TypeError):
-            raise ValueError("Block count must be an integer, not {}! Value: {}".format(type(value), value))
+            raise ValueError(
+                "Block count must be an integer, not {}! Value: {}".format(
+                    type(value), value
+                )
+            )
         self.__block_count = value
         del self.invalid
 
@@ -1263,9 +1455,11 @@ class BED12:
     def block_starts(self, starts):
         starts = np.array(starts)
         if not issubclass(starts.dtype.type, np.int64):
-            raise TypeError("Block sizes should be integers! Dtype: {}; array: {}".format(
-                starts.dtype, starts
-            ))
+            raise TypeError(
+                "Block sizes should be integers! Dtype: {}; array: {}".format(
+                    starts.dtype, starts
+                )
+            )
         self.__block_starts = starts
         del self.invalid
 
@@ -1290,11 +1484,20 @@ class BED12:
     def _max_regression(self, value):
         if not (isinstance(value, (int, float)) and 0 <= value <= 1):
             raise ValueError(
-                "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
+                "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(
+                    value
+                )
+            )
         self.__max_regression = value
 
-    def expand(self, sequence, upstream, downstream, expand_orf=False, logger=create_null_logger()):
-
+    def expand(
+        self,
+        sequence,
+        upstream,
+        downstream,
+        expand_orf=False,
+        logger=create_null_logger(),
+    ):
         # TODO this needs revising. The expand_orf key does not act as it should, as the thick start and
         #  end are changed even when it is set to False.
 
@@ -1317,102 +1520,159 @@ class BED12:
         """
 
         if upstream < 0 or downstream < 0:
-            raise ValueError("Upstream and downstream must be 0 or positive, not {upstream} and {downstream}".format(
-                upstream=upstream, downstream=downstream))
+            raise ValueError(
+                "Upstream and downstream must be 0 or positive, not {upstream} and {downstream}".format(
+                    upstream=upstream, downstream=downstream
+                )
+            )
 
         if len(sequence) != len(self) + upstream + downstream:
             raise ValueError(
                 "When trying to expand the original sequence of length {lself} of {sid} by {upstream} upstream and {downstream} downstream nucleotides, \
 the total length ({total}) is different from the length of the provided sequence ({lseq}).".format(
-                    sid=self.id, lself=len(self), upstream=upstream, downstream=downstream, total=len(self) + upstream + downstream,
-                    lseq=len(sequence)))
+                    sid=self.id,
+                    lself=len(self),
+                    upstream=upstream,
+                    downstream=downstream,
+                    total=len(self) + upstream + downstream,
+                    lseq=len(sequence),
+                )
+            )
 
         if len(self) == len(sequence):
             logger.debug(
                 "The length of the sequence for {sid} is identical to the length of the original object. No action needed.".format(
-                    sid=self.id))
+                    sid=self.id
+                )
+            )
             return
 
         if self.transcriptomic is False:
-            raise ValueError("This is not a transcriptomic BED12, I cannot expand it!\n{sself}".format(
-                sself=repr(self)))
+            raise ValueError(
+                "This is not a transcriptomic BED12, I cannot expand it!\n{sself}".format(
+                    sself=repr(self)
+                )
+            )
         if self.strand == "-":
             raise NotImplementedError(
-                "{sid} is on the negative strand, I can only expand ORFs on the sense strand".format(sid=self.id))
+                "{sid} is on the negative strand, I can only expand ORFs on the sense strand".format(
+                    sid=self.id
+                )
+            )
 
-        old_sequence = sequence[upstream:len(self) + upstream]
+        old_sequence = sequence[upstream : len(self) + upstream]
         if len(old_sequence) + upstream + downstream != len(sequence):
             raise ValueError(
                 "When trying to expand the original sequence of length {lself} of {sid} by {upstream} upstream and {downstream} downstream nucleotides, \
 the length of the *imputed* old sequence ({lold}) does not tally up with the new sequence ({lnew})".format(
-                    lself=len(self), sid=self.id, upstream=upstream, downstream=downstream,
-                    lold=len(old_sequence), lnew=len(sequence)))
+                    lself=len(self),
+                    sid=self.id,
+                    upstream=upstream,
+                    downstream=downstream,
+                    lold=len(old_sequence),
+                    lnew=len(sequence),
+                )
+            )
         self.fasta_length = len(sequence)
 
         # I presume that the sequence is already in the right orientation
         old_start_pos = self.thick_start + self.phase - 1
         old_end_pos = self.thick_end - (self.thick_end - old_start_pos) % 3
         old_orf = old_sequence[old_start_pos:old_end_pos].upper()
-        logger.debug("Old sequence of %s (%s bps): %s[...]%s", self.id, len(old_sequence),
-                     old_sequence[:10], old_sequence[-10:])
-        logger.debug("Old ORF of %s (%s bps, phase %s): %s[...]%s", self.id, len(old_orf), self.phase,
-                     old_orf[:10], old_orf[-10:])
+        logger.debug(
+            "Old sequence of %s (%s bps): %s[...]%s",
+            self.id,
+            len(old_sequence),
+            old_sequence[:10],
+            old_sequence[-10:],
+        )
+        logger.debug(
+            "Old ORF of %s (%s bps, phase %s): %s[...]%s",
+            self.id,
+            len(old_orf),
+            self.phase,
+            old_orf[:10],
+            old_orf[-10:],
+        )
         # TODO: this function should not fail for non-coding transcripts
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
 
         old_pep = _translate_str(old_orf, self.table, gap="N")
         if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
-            logger.error("Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
-                         self.id, old_pep.find("*"), len(old_pep), self.phase)
+            logger.error(
+                "Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
+                self.id,
+                old_pep.find("*"),
+                len(old_pep),
+                self.phase,
+            )
 
         self.start_codon = old_orf[:3]
         self.stop_codon = old_orf[-3:]
-        logger.debug("%s: start codon %s, old start %s (%s); stop codon %s, old stop %s (%s)",
-                     self.name, self.start_codon, self.thick_start + self.phase,
-                     (self.thick_start + self.phase + upstream),
-                     self.stop_codon, self.thick_end, (self.thick_end + upstream))
+        logger.debug(
+            "%s: start codon %s, old start %s (%s); stop codon %s, old stop %s (%s)",
+            self.name,
+            self.start_codon,
+            self.thick_start + self.phase,
+            (self.thick_start + self.phase + upstream),
+            self.stop_codon,
+            self.thick_end,
+            (self.thick_end + upstream),
+        )
         # Now expand
         self.end = len(sequence)
         self.thick_start += upstream
         self.thick_end += upstream
         start_codon = str(self.start_codon).upper()
         stop_codon = str(self.stop_codon).upper()
-        self.has_start_codon = (start_codon in self.table.start_codons)
-        self.has_stop_codon = (stop_codon in self.table.stop_codons)
-        self.logger.debug("%s has start codon (%s): %s", self.chrom, start_codon, self.has_start_codon)
-        self.logger.debug("%s has stop codon (%s): %s", self.chrom, stop_codon, self.has_stop_codon)
+        self.has_start_codon = start_codon in self.table.start_codons
+        self.has_stop_codon = stop_codon in self.table.stop_codons
+        self.logger.debug(
+            "%s has start codon (%s): %s", self.chrom, start_codon, self.has_start_codon
+        )
+        self.logger.debug(
+            "%s has stop codon (%s): %s", self.chrom, stop_codon, self.has_stop_codon
+        )
         if expand_orf is True and not (self.has_start_codon and self.has_stop_codon):
             if not self.has_start_codon:
-                for pos in range(old_start_pos + upstream,
-                                 0,
-                                 -3):
-                    codon = sequence[pos:pos + 3].upper()
+                for pos in range(old_start_pos + upstream, 0, -3):
+                    codon = sequence[pos : pos + 3].upper()
 
                     self.thick_start = pos + 1
                     if codon in self.table.start_codons:
                         # self.thick_start = pos
                         self.start_codon = codon
                         self.__has_start = True
-                        logger.debug("Position %d, codon %s. Start codon found.", pos, codon)
+                        logger.debug(
+                            "Position %d, codon %s. Start codon found.", pos, codon
+                        )
                         break
                 if self.start_codon not in self.table.start_codons:
                     self.phase = (self.thick_start - 1) % 3
-                    logger.debug("No start codon found for %s. Thick start %s, new phase: %s",
-                                 self.id, self.thick_start, self.phase)
+                    logger.debug(
+                        "No start codon found for %s. Thick start %s, new phase: %s",
+                        self.id,
+                        self.thick_start,
+                        self.phase,
+                    )
                     self.thick_start = 1
                 else:
                     self.phase = 0
                     self.__has_start = True
 
-            coding_seq = sequence[self.thick_start + self.phase - 1:self.end]
+            coding_seq = sequence[self.thick_start + self.phase - 1 : self.end]
             if len(coding_seq) % 3 != 0:
                 # Only get a multiple of three
-                coding_seq = coding_seq[:-((len(coding_seq)) % 3)]
+                coding_seq = coding_seq[: -((len(coding_seq)) % 3)]
             prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
             if "*" in prot_seq:
-                self.thick_end = self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
-                self.stop_codon = coding_seq[prot_seq.find("*") * 3:(1 + prot_seq.find("*")) * 3].upper()
+                self.thick_end = (
+                    self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3
+                )
+                self.stop_codon = coding_seq[
+                    prot_seq.find("*") * 3 : (1 + prot_seq.find("*")) * 3
+                ].upper()
                 self.__has_stop = True
                 logger.debug("New stop codon for %s: %s", self.name, self.thick_end)
 
@@ -1426,7 +1686,6 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
 
     @property
     def blocks(self):
-
         """This will return the coordinates of the blocks, with a 1-offset (as in GFF3)"""
 
         # First thing: calculate where each start point will be
@@ -1436,9 +1695,15 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
 
         return list(zip(_bstarts, _bends))
 
-    def to_transcriptomic(self, sequence=None, fasta_index=None, start_adjustment=False,
-                          lenient=False, alias=None, coding=True):
-
+    def to_transcriptomic(
+        self,
+        sequence=None,
+        fasta_index=None,
+        start_adjustment=False,
+        lenient=False,
+        alias=None,
+        coding=True,
+    ):
         """This method will return a transcriptomic version of the BED12. If the object is already transcriptomic,
         it will return itself."""
 
@@ -1462,27 +1727,42 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
 
         # Check thick start and end are defined
 
-        assert tStart is not None and tEnd is not None, f"The thick start, thick end of {self.id} are invalid " \
-                                                        f"as they are outside of the defined exons.\nThick start: " \
-                                                        f"{self.thick_start}\nThick end: {self.thick_end}\n" \
-                                                        f"Exons: {self.blocks}"
+        assert tStart is not None and tEnd is not None, (
+            f"The thick start, thick end of {self.id} are invalid "
+            f"as they are outside of the defined exons.\nThick start: "
+            f"{self.thick_start}\nThick end: {self.thick_end}\n"
+            f"Exons: {self.blocks}"
+        )
 
         if self.strand == "+":
             bsizes = self.block_sizes[:]
         else:
             bsizes = np.flip(self.block_sizes)
-            tStart, tEnd = self.block_sizes.sum() - tEnd, self.block_sizes.sum() - tStart
+            tStart, tEnd = (
+                self.block_sizes.sum() - tEnd,
+                self.block_sizes.sum() - tStart,
+            )
 
         bstarts = np.concatenate([np.zeros(1, dtype=np.int64), bsizes[:-1].cumsum()])
         if not (len(bstarts) == len(bsizes) == self.block_count):
-            raise ValueError("""In {self.id} ({self.chrom}:{self.start}-{self.end}) there is a discrepancy between block \
+            raise ValueError(
+                """In {self.id} ({self.chrom}:{self.start}-{self.end}) there is a discrepancy between block \
 starts (# {lbstarts}, {bstarts}), block sizes (# {lbsizes}, {bsizes}) and block counts (# {self.block_count}). \
-This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes), bstarts=bstarts, bsizes=bsizes))
+This is invalid""".format(
+                    self=self,
+                    lbstarts=len(bstarts),
+                    lbsizes=len(bsizes),
+                    bstarts=bstarts,
+                    bsizes=bsizes,
+                )
+            )
 
         if self.coding:
-            new_name = "ID={};coding={};phase={}".format(self.name.split(";")[0],
-                                                         self.coding,
-                                                         self.phase if self.phase is not None else 0)
+            new_name = "ID={};coding={};phase={}".format(
+                self.name.split(";")[0],
+                self.coding,
+                self.phase if self.phase is not None else 0,
+            )
         else:
             new_name = "ID={};coding={}".format(self.name.split(";")[0], self.coding)
 
@@ -1492,31 +1772,32 @@ This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes),
         if not self.coding:
             tStart, tEnd = 0, 1
 
-        new = list((self.name.split(";")[0],
-                    0,
-                    self.block_sizes.sum(),
-                    new_name,
-                    self.score,
-                    "+"))
+        new = list(
+            (
+                self.name.split(";")[0],
+                0,
+                self.block_sizes.sum(),
+                new_name,
+                self.score,
+                "+",
+            )
+        )
 
-        new.extend(list((
-            tStart,
-            tEnd,
-            self.rgb,
-            self.block_count,
-            bsizes,
-            bstarts
-        )))
+        new.extend(list((tStart, tEnd, self.rgb, self.block_count, bsizes, bstarts)))
 
-        new = BED12(new,
-                    phase=self.phase,
-                    sequence=sequence,
-                    coding=self.coding,
-                    fasta_index=fasta_index,
-                    transcriptomic=True,
-                    lenient=lenient,
-                    start_adjustment=start_adjustment)
-        assert isinstance(new, type(self)), f"The new object is of type {type(new)} instead of {type(self)}!"
+        new = BED12(
+            new,
+            phase=self.phase,
+            sequence=sequence,
+            coding=self.coding,
+            fasta_index=fasta_index,
+            transcriptomic=True,
+            lenient=lenient,
+            start_adjustment=start_adjustment,
+        )
+        assert isinstance(new, type(self)), (
+            f"The new object is of type {type(new)} instead of {type(self)}!"
+        )
         return new
 
     @property
@@ -1544,7 +1825,9 @@ This is invalid""".format(self=self, lbstarts=len(bstarts), lbsizes=len(bsizes),
             if not isinstance(logger, logging.Logger):
                 raise TypeError(
                     "Objects of type {tself} accept only logging.Logger instances as loggers, not {tlog}!".format(
-                        tself=type(self), tlog=type(logger)))
+                        tself=type(self), tlog=type(logger)
+                    )
+                )
             self.__logger = logger
         self.__logger.propagate = False
 
@@ -1556,15 +1839,18 @@ class Bed12Parser(Parser):
 
     __annot_type__ = "bed12"
 
-    def __init__(self, handle,
-                 fasta_index=None,
-                 transcriptomic=False,
-                 max_regression=0,
-                 start_adjustment=True,
-                 is_gff=False,
-                 coding=False,
-                 logger=create_null_logger(),
-                 table=0):
+    def __init__(
+        self,
+        handle,
+        fasta_index=None,
+        transcriptomic=False,
+        max_regression=0,
+        start_adjustment=True,
+        is_gff=False,
+        coding=False,
+        logger=create_null_logger(),
+        table=0,
+    ):
         """
         Constructor method.
         :param handle: the input BED file.
@@ -1591,7 +1877,7 @@ class Bed12Parser(Parser):
         self.__closed = False
         self.header = False
         self.__table = table
-        self._is_bed12 = (not is_gff)
+        self._is_bed12 = not is_gff
         self.__line_counter = 0
 
     @staticmethod
@@ -1599,8 +1885,8 @@ class Bed12Parser(Parser):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[random.choice(fasta_index.keys())],
-                Bio.SeqRecord.SeqRecord)
+                fasta_index[random.choice(fasta_index.keys())], Bio.SeqRecord.SeqRecord
+            )
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):
                 if isinstance(fasta_index, bytes):
@@ -1615,14 +1901,23 @@ class Bed12Parser(Parser):
         return self
 
     def __next__(self, seq=None):
-
         try:
             if self._is_bed12 is True:
                 return self.bed_next()
             else:
                 return self.gff_next()
-        except (ValueError, KeyError, TypeError, UnicodeError, AttributeError, AssertionError, InvalidParsingFormat) as exc:
-            raise InvalidParsingFormat(f"This is not a valid BED12 file! Exception: {exc}")
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            UnicodeError,
+            AttributeError,
+            AssertionError,
+            InvalidParsingFormat,
+        ) as exc:
+            raise InvalidParsingFormat(
+                f"This is not a valid BED12 file! Exception: {exc}"
+            )
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -1649,17 +1944,29 @@ class Bed12Parser(Parser):
             line = next(self._handle)
             self.__line_counter += 1
             try:
-                bed12 = BED12(line,
-                              fasta_index=self.fasta_index,
-                              transcriptomic=self.transcriptomic,
-                              max_regression=self._max_regression,
-                              coding=self.coding,
-                              table=self.__table,
-                              logger=self.logger,
-                              start_adjustment=self.start_adjustment)
-            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+                bed12 = BED12(
+                    line,
+                    fasta_index=self.fasta_index,
+                    transcriptomic=self.transcriptomic,
+                    max_regression=self._max_regression,
+                    coding=self.coding,
+                    table=self.__table,
+                    logger=self.logger,
+                    start_adjustment=self.start_adjustment,
+                )
+            except (
+                ValueError,
+                TypeError,
+                CodonTable.TranslationError,
+                KeyError,
+                InvalidParsingFormat,
+            ) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
-                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
+                    name=self.name,
+                    counter=self.__line_counter,
+                    line=line.rstrip(),
+                    exc=exc,
+                )
                 raise InvalidParsingFormat(error)
         return bed12
 
@@ -1675,25 +1982,47 @@ class Bed12Parser(Parser):
             self.__line_counter += 1
             try:
                 gff_line = GffLine(line)
-            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+            except (
+                ValueError,
+                TypeError,
+                CodonTable.TranslationError,
+                KeyError,
+                InvalidParsingFormat,
+            ) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
-                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
+                    name=self.name,
+                    counter=self.__line_counter,
+                    line=line.rstrip(),
+                    exc=exc,
+                )
                 raise InvalidParsingFormat(error)
 
             if gff_line.feature != "CDS":
                 continue
             # Compatibility with BED12
             try:
-                bed12 = BED12(gff_line,
-                              fasta_index=self.fasta_index,
-                              transcriptomic=self.transcriptomic,
-                              max_regression=self._max_regression,
-                              table=self.__table,
-                              start_adjustment=self.start_adjustment,
-                              logger=self.logger)
-            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+                bed12 = BED12(
+                    gff_line,
+                    fasta_index=self.fasta_index,
+                    transcriptomic=self.transcriptomic,
+                    max_regression=self._max_regression,
+                    table=self.__table,
+                    start_adjustment=self.start_adjustment,
+                    logger=self.logger,
+                )
+            except (
+                ValueError,
+                TypeError,
+                CodonTable.TranslationError,
+                KeyError,
+                InvalidParsingFormat,
+            ) as exc:
                 error = "Invalid line for file {name}, line {counter}:\n{line}\nError: {exc}".format(
-                    name=self.name, counter=self.__line_counter, line=line.rstrip(), exc=exc)
+                    name=self.name,
+                    counter=self.__line_counter,
+                    line=line.rstrip(),
+                    exc=exc,
+                )
                 raise InvalidParsingFormat(error)
         # raise NotImplementedError("Still working on this!")
         return bed12
@@ -1719,7 +2048,10 @@ class Bed12Parser(Parser):
     def _max_regression(self, value):
         if not (isinstance(value, (int, float)) and 0 <= value <= 1):
             raise ValueError(
-                "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
+                "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(
+                    value
+                )
+            )
         self.__max_regression = value
 
     @property
@@ -1736,21 +2068,21 @@ class Bed12Parser(Parser):
 
 
 class Bed12ParseWrapper(mp.Process):
-
-    def __init__(self,
-                 identifier=None,
-                 rec_queue=None,
-                 return_queue=None,
-                 log_queue=None,
-                 level="DEBUG",
-                 fasta_index=None,
-                 transcriptomic=False,
-                 max_regression=0,
-                 is_gff=False,
-                 coding=False,
-                 start_adjustment=True,
-                 table=0):
-
+    def __init__(
+        self,
+        identifier=None,
+        rec_queue=None,
+        return_queue=None,
+        log_queue=None,
+        level="DEBUG",
+        fasta_index=None,
+        transcriptomic=False,
+        max_regression=0,
+        is_gff=False,
+        coding=False,
+        start_adjustment=True,
+        table=0,
+    ):
         """
         :param send_queue:
         :type send_queue: mp.Queue
@@ -1775,8 +2107,8 @@ class Bed12ParseWrapper(mp.Process):
         if isinstance(fasta_index, dict):
             # check that this is a bona fide dictionary ...
             assert isinstance(
-                fasta_index[random.choice(fasta_index.keys())],
-                Bio.SeqRecord.SeqRecord)
+                fasta_index[random.choice(fasta_index.keys())], Bio.SeqRecord.SeqRecord
+            )
         elif fasta_index is not None:
             if isinstance(fasta_index, (str, bytes)):
                 if isinstance(fasta_index, bytes):
@@ -1790,7 +2122,7 @@ class Bed12ParseWrapper(mp.Process):
         self.__closed = False
         self.header = False
         self.__table = table
-        self._is_bed12 = (not is_gff)
+        self._is_bed12 = not is_gff
 
     def bed_next(self, line, sequence=None):
         """
@@ -1799,15 +2131,23 @@ class Bed12ParseWrapper(mp.Process):
         """
 
         try:
-            bed12 = BED12(line,
-                          logger=self.logger,
-                          sequence=sequence,
-                          transcriptomic=self.transcriptomic,
-                          max_regression=self._max_regression,
-                          start_adjustment=self.start_adjustment,
-                          coding=self.coding,
-                          table=self.__table)
-        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+            bed12 = BED12(
+                line,
+                logger=self.logger,
+                sequence=sequence,
+                transcriptomic=self.transcriptomic,
+                max_regression=self._max_regression,
+                start_adjustment=self.start_adjustment,
+                coding=self.coding,
+                table=self.__table,
+            )
+        except (
+            ValueError,
+            TypeError,
+            CodonTable.TranslationError,
+            KeyError,
+            InvalidParsingFormat,
+        ) as exc:
             raise InvalidParsingFormat("Invalid line: {}".format(line))
         return bed12
 
@@ -1819,20 +2159,28 @@ class Bed12ParseWrapper(mp.Process):
 
         try:
             line = GffLine(line)
-        except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+        except (
+            ValueError,
+            TypeError,
+            CodonTable.TranslationError,
+            KeyError,
+            InvalidParsingFormat,
+        ) as exc:
             error = "Invalid line:\n{}".format(line)
             raise InvalidParsingFormat(error)
 
         if line.feature != "CDS":
             return None
             # Compatibility with BED12
-        bed12 = BED12(line,
-                      logger=self.logger,
-                      sequence=sequence,
-                      transcriptomic=self.transcriptomic,
-                      max_regression=self._max_regression,
-                      start_adjustment=self.start_adjustment,
-                      table=self.__table)
+        bed12 = BED12(
+            line,
+            logger=self.logger,
+            sequence=sequence,
+            transcriptomic=self.transcriptomic,
+            max_regression=self._max_regression,
+            start_adjustment=self.start_adjustment,
+            table=self.__table,
+        )
         # raise NotImplementedError("Still working on this!")
         return bed12
 
@@ -1868,13 +2216,19 @@ class Bed12ParseWrapper(mp.Process):
                 if not row or row.header is True:
                     continue
                 if row.invalid is True:
-                    self.logger.warning("Invalid entry, reason: %s\n%s",
-                                        row.invalid_reason,
-                                        row)
+                    self.logger.warning(
+                        "Invalid entry, reason: %s\n%s", row.invalid_reason, row
+                    )
                     continue
-                # self.cache[num] = 
+                # self.cache[num] =
                 self.return_queue.put((num, msgpack.dumps(row.as_simple_dict())))
             except AttributeError:
                 pass
-            except (ValueError, TypeError, CodonTable.TranslationError, KeyError, InvalidParsingFormat) as exc:
+            except (
+                ValueError,
+                TypeError,
+                CodonTable.TranslationError,
+                KeyError,
+                InvalidParsingFormat,
+            ) as exc:
                 raise InvalidParsingFormat(line)

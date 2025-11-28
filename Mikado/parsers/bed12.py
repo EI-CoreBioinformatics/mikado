@@ -790,7 +790,7 @@ class BED12:
 
                 last_pos = -3 - ((len(orf_sequence)) % 3)
                 translated_seq = _translate_str(
-                    orf_sequence[:last_pos], table=self.table, gap="N"
+                    orf_sequence[:last_pos], table=self.table
                 )
 
                 self._internal_stop_codons = str(translated_seq).count("*")
@@ -1598,7 +1598,7 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
         assert len(old_orf) > 0, (old_start_pos, old_end_pos)
         assert len(old_orf) % 3 == 0, (old_start_pos, old_end_pos)
 
-        old_pep = _translate_str(old_orf, self.table, gap="N")
+        old_pep = _translate_str(old_orf, self.table)
         if "*" in old_pep and old_pep.find("*") < len(old_pep) - 1:
             logger.error(
                 "Stop codon found within the ORF of %s (pos %s of %s; phase %s). This is invalid!",
@@ -1665,7 +1665,7 @@ the length of the *imputed* old sequence ({lold}) does not tally up with the new
             if len(coding_seq) % 3 != 0:
                 # Only get a multiple of three
                 coding_seq = coding_seq[: -((len(coding_seq)) % 3)]
-            prot_seq = _translate_str(coding_seq, table=self.table, gap="N")
+            prot_seq = _translate_str(coding_seq, table=self.table)
             if "*" in prot_seq:
                 self.thick_end = (
                     self.thick_start + self.phase - 1 + (1 + prot_seq.find("*")) * 3

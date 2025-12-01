@@ -14,6 +14,10 @@ class TestTranslate(unittest.TestCase):
     '*'
     >>> _translate_str("TAN", table)
     'X'
+    >>> _translate_str("NNN", table)
+    'X'
+    >>> _translate_str("NNN", table, gap="N")
+    '*'
     >>> _translate_str("TAN", table, pos_stop="@")
     '@'
     >>> _translate_str("TA?", table)
@@ -37,6 +41,8 @@ class TestTranslate(unittest.TestCase):
 
         self.assertEqual(_translate_str("TAN", standard, pos_stop="U"), "U")
         self.assertEqual(_translate_str("TAN", standard, pos_stop=b"U"), "U")
+        self.assertEqual(_translate_str("NNN", standard), "X")
+        self.assertEqual(_translate_str("NNN", standard, gap="N"), "*")
         with self.assertRaises(CodonTable.TranslationError):
             _translate_str("TA?", standard)
 

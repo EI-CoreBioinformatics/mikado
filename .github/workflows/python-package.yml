@@ -52,7 +52,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         miniforge-variant: Mambaforge
-        miniforge-version: 4.9.2-4
+        miniforge-version: latest
         # mamba-version: "*"
         # channels: conda-forge, defaults
         channels: conda-forge, bioconda, defaults, anaconda

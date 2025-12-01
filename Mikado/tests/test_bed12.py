@@ -5,7 +5,6 @@ from Bio.Data import CodonTable
 
 
 class TestTranslate(unittest.TestCase):
-
     """
     >>>
     >>> table = CodonTable.ambiguous_dna_by_id[1]
@@ -29,7 +28,6 @@ class TestTranslate(unittest.TestCase):
     """
 
     def test_from_Bio(self):
-
         self.assertEqual(_translate_str("TAN", standard, pos_stop="X"), "X")
         for codon, amino in standard.forward_table.forward_table.items():
             self.assertEqual(_translate_str(codon, standard), amino)
@@ -51,12 +49,16 @@ class TestTranslate(unittest.TestCase):
             _translate_str("AAACCCTAG", standard, cds=True)
         with self.assertRaises(CodonTable.TranslationError) as exc:
             _translate_str("ATGCCCTAGCCCTAG", standard, cds=True)
-        self.assertTrue(str(exc.exception).startswith("Extra in-frame stop codon found."),
-                        str(exc.exception))
+        self.assertTrue(
+            str(exc.exception).startswith("Extra in-frame stop codon found."),
+            str(exc.exception),
+        )
         with self.assertRaises(CodonTable.TranslationError) as exc:
             _translate_str("ATGCCCTAGCCCTAT", standard, cds=True)
-        self.assertTrue(str(exc.exception).startswith("Extra in-frame stop codon. Sequence:"),
-                        str(exc.exception))
+        self.assertTrue(
+            str(exc.exception).startswith("Extra in-frame stop codon. Sequence:"),
+            str(exc.exception),
+        )
         for invalid in (10, "AB", b"NT"):
             with self.assertRaises(ValueError):
                 _translate_str("ATGCCCTAG", standard, cds=True, gap=invalid)
@@ -85,12 +87,20 @@ class TestTranslate(unittest.TestCase):
         self.assertEqual(_translate_str("ATGCCCTAG", standard, cds=True), "MP*")
         self.assertEqual(_translate_str("ATGCCCTAG", standard, to_stop=True), "MP")
         self.assertEqual(_translate_str("CTGCCCTAG", standard, cds=True), "MP*")
-        self.assertEqual(_translate_str("CTGCCCTAG", standard, cds=True, to_stop=True), "MP")
+        self.assertEqual(
+            _translate_str("CTGCCCTAG", standard, cds=True, to_stop=True), "MP"
+        )
 
     def test_ambiguous(self):
         ambigouous = None
         for key, table in CodonTable.ambiguous_dna_by_id.items():
-            amb = 0 < len([c for c in table._codon_table.forward_table.keys() if c in table.stop_codons])
+            amb = 0 < len(
+                [
+                    c
+                    for c in table._codon_table.forward_table.keys()
+                    if c in table.stop_codons
+                ]
+            )
             if amb:
                 amb = table
                 break
@@ -120,14 +130,11 @@ class TestTranslate(unittest.TestCase):
 
 
 class Bed12GenToTrans(unittest.TestCase):
-
     def setUp(self):
         pass
 
     def test_positive_mono_transfer(self):
-
         string_bed = "1\t10\t500\ttest\t0\t+\t300\t390\t0\t1\t490\t0"
-
 
         bed = BED12(string_bed)
         self.assertFalse(bed.invalid)
@@ -150,10 +157,9 @@ class Bed12GenToTrans(unittest.TestCase):
         self.assertEqual(tbed.thick_end, 380)
         self.assertTrue(tbed.has_start_codon)
         self.assertTrue(tbed.has_stop_codon)
-        self.assertEqual(seq[tbed.thick_start - 1:tbed.thick_end], "ATG" * 29 + "TGA")
+        self.assertEqual(seq[tbed.thick_start - 1 : tbed.thick_end], "ATG" * 29 + "TGA")
 
     def test_negative_mono_transfer(self):
-
         string_bed = "1\t10\t500\ttest\t0\t-\t300\t390\t0\t1\t490\t0"
 
         bed = BED12(string_bed)
@@ -179,10 +185,9 @@ class Bed12GenToTrans(unittest.TestCase):
         self.assertTrue(tbed.has_start_codon)
         self.assertTrue(tbed.has_stop_codon)
 
-        self.assertEqual(seq[tbed.thick_start - 1:tbed.thick_end], "ATG" * 29 + "TGA")
+        self.assertEqual(seq[tbed.thick_start - 1 : tbed.thick_end], "ATG" * 29 + "TGA")
 
     def test_diexonic_pos_transfer(self):
-
         string_bed = "1\t10\t1000\ttest\t0\t+\t80\t920\t0\t2\t190,200\t0,790"
         bed = BED12(string_bed)
         self.assertFalse(bed.invalid or bed.header)
@@ -206,10 +211,9 @@ class Bed12GenToTrans(unittest.TestCase):
         self.assertTrue(tbed.has_start_codon)
         self.assertTrue(tbed.has_stop_codon)
 
-        self.assertEqual(seq[tbed.thick_start - 1:tbed.thick_end], "ATG" * 79 + "TAA")
+        self.assertEqual(seq[tbed.thick_start - 1 : tbed.thick_end], "ATG" * 79 + "TAA")
 
     def test_diexonic_neg_transfer(self):
-
         string_bed = "1\t10\t1000\ttest\t0\t-\t80\t920\t0\t2\t190,200\t0,790"
         bed = BED12(string_bed)
         self.assertFalse(bed.invalid or bed.header)
@@ -233,10 +237,9 @@ class Bed12GenToTrans(unittest.TestCase):
         self.assertTrue(tbed.has_start_codon)
         self.assertTrue(tbed.has_stop_codon)
 
-        self.assertEqual(seq[tbed.thick_start - 1:tbed.thick_end], "ATG" * 79 + "TAA")
+        self.assertEqual(seq[tbed.thick_start - 1 : tbed.thick_end], "ATG" * 79 + "TAA")
 
     def test_wheat_1(self):
-
         string_bed = "chr7A\t207087445\t207089574\tTraesCS7A01G235400.1\t0\t-\t207087615\t207088433\t0\t3\t457,393,30\t0,603,2099"
         string_seq = """CGCGTCGGTGCATCCGGATACGTCGCCTGGGCTACACAATGGCGCTGATCGATTGGATAG
 AACTGAGTGATGATGCAGAGATTATTGAATTGAGCAGTAGCGAGGAGAATGTCGAAGAAT
@@ -272,10 +275,13 @@ CTCGGCAGATAG"""
 
         bed = BED12(string_bed)
         self.assertFalse(bed.invalid or bed.header)
-        self.assertEqual(bed.start, 207087445+1)
+        self.assertEqual(bed.start, 207087445 + 1)
         self.assertEqual(bed.end, 207089574)
         self.assertEqual(bed.strand, "-")
-        self.assertEqual(bed.blocks, [(207087446,207087902), (207088049,207088441), (207089545,207089574) ])
+        self.assertEqual(
+            bed.blocks,
+            [(207087446, 207087902), (207088049, 207088441), (207089545, 207089574)],
+        )
         self.assertEqual(bed.thick_start, 207087616)
         self.assertEqual(bed.thick_end, 207088433)
 
@@ -284,11 +290,12 @@ CTCGGCAGATAG"""
         self.assertEqual(tbed.thick_end - tbed.thick_start + 1, 672)
         self.assertEqual(tbed.thick_start, string_seq.index("ATGGCGCTGATCGATTGGA") + 1)
         self.assertEqual(tbed.thick_start, 39)
-        self.assertEqual(tbed.thick_end, string_seq.index("CTCGGCAGATAG") + len("CTCGGCAGATAG"))
-        self.assertEqual(string_cds, string_seq[tbed.thick_start - 1:tbed.thick_end])
+        self.assertEqual(
+            tbed.thick_end, string_seq.index("CTCGGCAGATAG") + len("CTCGGCAGATAG")
+        )
+        self.assertEqual(string_cds, string_seq[tbed.thick_start - 1 : tbed.thick_end])
 
     def test_mono_pos_bed_with_phase(self):
-
         string = "1\t10\t101\tID=test;phase=2;coding=True\t0\t+\t10\t101\t0\t1\t91\t0"
 
         seq = "A" + "CGG" * 29 + "TAA"
@@ -311,7 +318,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.transcriptomic)
 
     def test_mono_neg_bed_with_phase(self):
-
         string = "1\t10\t101\tID=test;phase=2;coding=True\t0\t-\t10\t101\t0\t1\t91\t0"
 
         seq = "A" + "CGG" * 29 + "TAA"
@@ -334,7 +340,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.transcriptomic)
 
     def test_diex_pos_bed_with_phase_one(self):
-
         string = "1\t10\t111\tID=test;phase=1;coding=True\t0\t+\t10\t101\t0\t1\t101\t0"
 
         seq = "A" + "CGG" * 29 + "TAA" + "A" * 10
@@ -357,7 +362,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.has_stop_codon)
 
     def test_diex_neg_bed_with_phase_one(self):
-
         string = "1\t10\t300\tID=test;phase=1;coding=True\t0\t-\t70\t300\t0\t2\t90,100\t0,190"
 
         seq = "A" + "CGG" * 42 + "TAA" + "A" * 60
@@ -380,7 +384,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.has_stop_codon)
 
     def test_diex_pos_bed_with_phase_two(self):
-
         string = "1\t9\t111\tID=test;phase=2;coding=True\t0\t+\t9\t101\t0\t1\t102\t0"
 
         seq = "GA" + "CGG" * 29 + "TAA" + "A" * 10
@@ -403,7 +406,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.has_stop_codon)
 
     def test_diex_neg_bed_with_phase_two(self):
-
         string = "1\t10\t301\tID=test;phase=2;coding=True\t0\t-\t70\t301\t0\t2\t90,101\t0,190"
 
         seq = "GA" + "CGG" * 42 + "TAA" + "A" * 60
@@ -426,7 +428,6 @@ CTCGGCAGATAG"""
         self.assertTrue(tbed.has_stop_codon)
 
     def test_tran_to_bed12_neg(self):
-
         for end, phase in [(299, 0), (300, 1), (301, 2)]:
             with self.subTest():
                 t = Transcript()
@@ -443,9 +444,20 @@ CTCGGCAGATAG"""
                 self.assertFalse(r.invalid)
 
     def test_touching_exons(self):
-
-        bed12line = ["chr1", 172601, 175626, "ID=foo.1", 100, "-", 172601, 175626, "0,0,0", 3, "199,1281,861,",
-                     "0,199,2164"]
+        bed12line = [
+            "chr1",
+            172601,
+            175626,
+            "ID=foo.1",
+            100,
+            "-",
+            172601,
+            175626,
+            "0,0,0",
+            3,
+            "199,1281,861,",
+            "0,199,2164",
+        ]
         bed = BED12(bed12line, transcriptomic=False)
         self.assertFalse(bed.invalid, bed.invalid_reason)
         t = Transcript(bed)

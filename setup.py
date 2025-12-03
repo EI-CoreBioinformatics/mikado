@@ -78,7 +78,7 @@ extensions = [
 
 setup(
     name="Mikado",
-    python_requires=">3.6",
+    python_requires=">3.8,<3.11",
     version="2.3.4",
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -87,6 +87,7 @@ setup(
     author_email="lucventurini@gmail.com",
     license="LGPL3",
     tests_require=["pytest"],
+    setup_requires=["setuptools<80.9"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -94,9 +95,8 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Framework :: Pytest",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     ext_modules=cythonize(extensions, compiler_directives={"language_level": "3"}),
     zip_safe=False,

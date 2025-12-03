@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools==65.4.1","wheel==0.37.1","Cython>=0.29.32","numpy==1.23.3","scipy==1.11.1"]
+requires = ["setuptools<80.9","wheel==0.37.1","Cython==0.29.32","numpy==1.23.3","scipy==1.11.1"]
 build-backend = "setuptools.build_meta"
 
-[pytest]
+[tool.pytest]
 markers = ["slow"]

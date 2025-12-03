@@ -11,8 +11,7 @@ jobs:
         shell: bash -el {0}
     strategy:
       matrix:
-        # python-version: [ "3.8", "3.9" ]
-        python-version: [ "3.9" ]
+        python-version: [ "3.9", "3.10" ]
         # os: [ubuntu-latest, macos-latest]
         os: [ubuntu-latest]
     steps:
@@ -22,15 +21,19 @@ jobs:
         export DEBIAN_FRONTEND=noninteractive
         sudo apt update
         sudo apt install -y build-essential zlib1g-dev zlib1g
-    - uses: actions/checkout@v2
-    - uses: actions/cache@v2
+    - uses: actions/checkout@v5
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/cache@v4
       if: startsWith(runner.os, 'Linux')
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    - uses: actions/cache@v2
+    - uses: actions/cache@v4
       if: startsWith(runner.os, 'macOS')
       with:
         path: ~/Library/Caches/pip
@@ -39,44 +42,40 @@ jobs:
           ${{ runner.os }}-pip-
     - name: Cache conda
       id: cache-miniconda
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       env:
         CACHE_NUMBER: 0
       with:
         path: ~/conda_pkgs_dir
         key:
           ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('./environment.yml') }}
-    - uses: actions/checkout@v4
-    - uses: conda-incubator/setup-miniconda@v2
-      name: setup-Mambaforge
+    - uses: mamba-org/setup-micromamba@v2
+      name: setup-Micromamba
       with:
-        python-version: ${{ matrix.python-version }}
-        miniforge-variant: Mambaforge
-        miniforge-version: 4.9.2-4
-        # mamba-version: "*"
-        # channels: conda-forge, defaults
-        channels: conda-forge, bioconda, defaults, anaconda
-        channel-priority: true
-        activate-environment: "mikado2"
         environment-file: ./environment.yml
-        use-mamba: true
-        # use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-    - name: Verify conda environment
+        environment-name: mikado2
+        cache-environment: true
+        condarc: |
+          channels:
+            - conda-forge
+            - bioconda
+          channel_priority: flexible
+          channel_alias: https://repo.prefix.dev
+    - name: Verify micromamba environment
       run: |
-        conda info --envs
-        conda env list
-        conda activate mikado2
-        conda list
+        micromamba info
+        micromamba activate mikado2
+        micromamba list
     - name: Install dependencies
       run: |
-        conda activate mikado2
+        micromamba activate mikado2
         python --version
         gcc --version
         pip --version
+        pip install numpy==1.23.3 cython==0.29.32 pytest-cov
         pip install -r requirements.txt
         python -c "import pysam; print(pysam.__version__)"
-        pip install Cython pytest-cov
-        python setup.py develop
+        pip install --no-deps --editable .
     - name: Test light
       run: |
         pytest -m slow Mikado/tests/test_light.py::LightTest::test_subprocess_multi_empty_orfs
@@ -90,7 +89,7 @@ jobs:
         pytest -m 'not triage';
     - name: Upload coverage to Codecov
       if: startsWith(runner.os, 'Linux')
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3
     # - name: Test daijin
     #   if: startsWith(runner.os, 'Linux')
     #   run: |

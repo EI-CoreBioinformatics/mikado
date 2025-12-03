@@ -1,9 +1,7 @@
 name: mikado2
 channels:
-  - bioconda
   - conda-forge
-  - defaults
-  - anaconda
+  - bioconda
 dependencies:
   - python>=3.9,<3.11
   - cython==0.29.32
@@ -15,7 +13,7 @@ dependencies:
   - networkx==2.8.7
   - numpy==1.23.3
   - pandas==1.5.0
-  - pysam==0.19.1
+  - pysam==0.23.3
   - pyyaml==6.0.1
   - scipy==1.11.1
   - snakemake==6.15.5
@@ -35,5 +33,5 @@ dependencies:
   - samtools>=1.11
   - htslib>=1.11
   - prodigal==2.6.3
-  - diamond==2.0.11
+  - diamond==2.1.16
   - portcullis==1.2.4

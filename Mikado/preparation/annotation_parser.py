@@ -21,7 +21,31 @@ __author__ = 'Luca Venturini'
 
 # TODO: found_ids can be refactored out, in preference of a unique ID per file which is used as part of the label
 #  in doing this, we prevent requiring the user to rename their inputs as there would be no repeated naming.
+INT64_MIN = -2**63
+INT64_MAX = 2**63 - 1
 
+def fix_large_ints(obj):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, int):
+                if v < INT64_MIN or v > INT64_MAX:
+                    print("fixing int:",k,v)
+                    obj[k] = str(v)
+            else:
+                fix_large_ints(v)
+
+    elif isinstance(obj, list):
+        for i in range(len(obj)):
+            v = obj[i]
+            if isinstance(v, int):
+                if v < INT64_MIN or v > INT64_MAX:
+                    print("fixing int:",v)
+                    obj[i] = str(v)
+            else:
+                fix_large_ints(v)
+
+    return obj
+    
 def __raise_redundant(row_id, name, label):
 
     if label == '':
@@ -225,7 +249,7 @@ def load_into_storage(shelf_name, exon_lines, min_length, logger, strip_cds=True
             strand = values["strand"]
             if strand is None:
                 strand = "."
-
+            fix_large_ints(values)
             logger.debug("Inserting %s into shelf %s", tid, shelf_name)
             values = zlib.compress(msgpack.dumps(values))
             write_start = shelf.tell()

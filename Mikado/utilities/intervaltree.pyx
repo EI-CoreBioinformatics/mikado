@@ -7,15 +7,16 @@ Copied from quicksect, by @brentp
 
 """
 import operator
+from libc.stdint cimport int64_t
 
 #@cdef extern from "math.h":
 cdef extern from "stdlib.h":
-    int ceil(float f)
+    int64_t ceil(float f)
     float log(float f)
-    int RAND_MAX
-    int rand()
-    int strlen(char *)
-    int iabs(int)
+    int64_t RAND_MAX
+    int64_t rand()
+    int64_t strlen(char *)
+    int64_t iabs(int)
 
 
 def __pyx_unpickle_IntervalTree(*args, **kwargs): # real signature unknown
@@ -30,7 +31,7 @@ cdef class Interval:
     a name, and any arbitrary data is sent in on the info keyword argument
     """
 
-    def __init__(self, int start, int end, object value=None, object chrom=None, object strand=None, data=None):
+    def __init__(self, int64_t start, int64_t end, object value=None, object chrom=None, object strand=None, data=None):
         assert start <= end, "start must be less than end"
         self.start  = start
         self.end   = end
@@ -66,7 +67,7 @@ cdef class Interval:
             # >=
             return self == other or self > other
 
-    def __getitem__(self, int index):
+    def __getitem__(self, int64_t index):
         if index == 0:
             return self.start
         elif index == 1:
@@ -101,7 +102,7 @@ cdef class Interval:
     def __hash__(self):
         return hash(self._as_tuple())
 
-cpdef int distance(Interval f1, Interval f2):
+cpdef int64_t distance(Interval f1, Interval f2):
     """\
     Distance between 2 features. The integer result is always positive or zero.
     If the features overlap or touch, it is zero.
@@ -231,8 +232,8 @@ cdef class IntervalTree:
             tree.insert(iv)
         return tree
 
-    cpdef find(self, int start, int end, bint strict=0, bint contained_check=0, int max_distance=0,
-               int n=1000, object value=None):
+    cpdef find(self, int64_t start, int64_t end, bint strict=0, bint contained_check=0, int64_t max_distance=0,
+               int64_t n=1000, object value=None):
         """
         Return a sorted list of all intervals overlapping [start,end).
         If strict is set to True, only matches which are completely contained will
@@ -284,13 +285,13 @@ cdef class IntervalTree:
 
         return self.num_intervals
 
-    def left(self, Interval f, int n=1, int max_dist=25000, overlap=True):
+    def left(self, Interval f, int64_t n=1, int64_t max_dist=25000, overlap=True):
         if self.root is None:
             return []
         else:
             return self.root.left(f, n, max_dist, overlap)
 
-    def right(self, Interval f, int n=1, int max_dist=25000, overlap=True):
+    def right(self, Interval f, int64_t n=1, int64_t max_dist=25000, overlap=True):
         if self.root is None:
             return []
         else:
@@ -321,7 +322,7 @@ cdef class IntervalTree:
             except EOFError:
                 break
 
-    cpdef int size(self):
+    cpdef int64_t size(self):
         return self.num_intervals
 
     cdef inline void set_stops(IntervalTree self): self.root.set_stops()
@@ -348,11 +349,11 @@ cdef class IntervalTree:
         return equal
 
 
-cdef inline int imax2(int a, int b):
+cdef inline int64_t imax2(int64_t a, int64_t b):
     if b > a: return b
     return a
 
-cdef inline int imax3(int a, int b, int c):
+cdef inline int64_t imax3(int64_t a, int64_t b, int64_t c):
     if b > a:
         if c > b:
             return c
@@ -361,7 +362,7 @@ cdef inline int imax3(int a, int b, int c):
         return a
     return c
 
-cdef inline int imin3(int a, int b, int c):
+cdef inline int64_t imin3(int64_t a, int64_t b, int64_t c):
     if b < a:
         if c < b:
             return c
@@ -370,7 +371,7 @@ cdef inline int imin3(int a, int b, int c):
         return a
     return c
 
-cdef inline int imin2(int a, int b):
+cdef inline int64_t imin2(int64_t a, int64_t b):
     if b < a: return b
     return a
 
@@ -423,8 +424,8 @@ cdef class IntervalNode:
     """
     # cdef float priority
     # cdef public Interval interval
-    # cdef public int start, end
-    # cdef int minstop, maxstop, minstart
+    # cdef public int64_t start, end
+    # cdef int64_t minstop, maxstop, minstart
     # cdef IntervalNode cleft, cright, croot
 
     property left_node:
@@ -516,7 +517,7 @@ cdef class IntervalNode:
             self.minstart = imin2(self.start, self.cleft.minstart)
         
 
-    cpdef intersect(self, int start, int stop):
+    cpdef intersect(self, int64_t start, int64_t stop):
         """
         given a start and a stop, return a list of features
         falling within that range
@@ -527,7 +528,7 @@ cdef class IntervalNode:
 
     find = intersect
         
-    cdef void _intersect(IntervalNode self, int start, int stop, list results):
+    cdef void _intersect(IntervalNode self, int64_t start, int64_t stop, list results):
         # to have starts, stops be non-inclusive, replace <= with <  and >= with >
         #if start <= self.end and stop >= self.start: results.append(self.interval)
         if (not self.end < start) and (not self.start > stop): results.append(self.interval)
@@ -538,7 +539,7 @@ cdef class IntervalNode:
         if self.cright is not EmptyNode and not self.start > stop:
             self.cright._intersect(start, stop, results)
 
-    cdef void _seek_left(IntervalNode self, int position, list results, int n, int max_dist):
+    cdef void _seek_left(IntervalNode self, int64_t position, list results, int64_t n, int64_t max_dist):
         # we know we can bail in these 2 cases.
         if self.maxstop + max_dist < position: return
         if self.minstart > position: return
@@ -559,12 +560,12 @@ cdef class IntervalNode:
 
 
     
-    cdef void _seek_right(IntervalNode self, int position, list results, int n, int max_dist):
+    cdef void _seek_right(IntervalNode self, int64_t position, list results, int64_t n, int64_t max_dist):
         # we know we can bail in these 2 cases.
         if self.maxstop < position: return
         if self.minstart - max_dist > position: return
 
-        #print "SEEK_RIGHT:",self, self.cleft, self.maxstop, self.minstart, position
+        #print64_t "SEEK_RIGHT:",self, self.cleft, self.maxstop, self.minstart, position
 
         # the ordering of these 3 blocks makes it so the results are
         # ordered nearest to farest from the query position
@@ -577,7 +578,7 @@ cdef class IntervalNode:
         if self.cright is not EmptyNode:
                 self.cright._seek_right(position, results, n, max_dist)
 
-    def neighbors(self, Interval f, int n=1, int max_dist=25000):
+    def neighbors(self, Interval f, int64_t n=1, int64_t max_dist=25000):
         cdef list neighbors = []
 
         cdef IntervalNode right = self.cright
@@ -589,14 +590,14 @@ cdef class IntervalNode:
             left = left.cright
         return [left, right]
 
-    cpdef left(self, Interval f, int n=1, int max_dist=25000, bint overlap=False):
+    cpdef left(self, Interval f, int64_t n=1, int64_t max_dist=25000, bint overlap=False):
         """find n features with a start > than f.end
         f: a Interval object
         n: the number of features to return
         max_dist: the maximum distance to look before giving up.
         """
         cdef list results = []
-        cdef int position
+        cdef int64_t position
         if overlap is True:
             position = f.end
         else:
@@ -611,14 +612,14 @@ cdef class IntervalNode:
             n += 1
         return r[:n]
 
-    cpdef right(self, Interval f, int n=1, int max_dist=25000, bint overlap=False):
+    cpdef right(self, Interval f, int64_t n=1, int64_t max_dist=25000, bint overlap=False):
         """find n features with a stop < than f.start
         f: a Interval object
         n: the number of features to return
         max_dist: the maximum distance to look before giving up.
         """
         cdef list results = []
-        cdef int position
+        cdef int64_t position
         if overlap is True:
             position = f.start
         else:
@@ -656,10 +657,10 @@ cdef class IntervalNode:
     def __hash__(self):
         return hash(self._as_tuple())
 
-    cpdef bint fuzzy_equal(IntervalNode self, IntervalNode other, int fuzzy):
+    cpdef bint  fuzzy_equal(IntervalNode self, IntervalNode other, int64_t  fuzzy):
 
-        cdef int istart, iend
-        cdef int ostart, oend
+        cdef int64_t  istart, iend
+        cdef int64_t  ostart, oend
         if not isinstance(other, IntervalNode):
             return False
 

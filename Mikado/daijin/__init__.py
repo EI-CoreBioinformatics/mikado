@@ -13,21 +13,21 @@ import datetime
 import time
 from snakemake.utils import min_version
 from ..configuration.daijin_configurator import create_daijin_config
-import pkg_resources
+from ..utilities.resources import resource_exists, resource_file, resource_listdir
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
     from yaml import SafeLoader as yLoader
 
-system_hpc_yaml = pkg_resources.resource_filename("Mikado", os.path.join("daijin", "hpc.yaml"))
+system_hpc_yaml = resource_file("Mikado", os.path.join("daijin", "hpc.yaml"))
 
 min_version("3.6")
 
 TIME_START = time.time()
 NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
 
-DAIJIN_DIR = pkg_resources.resource_filename("Mikado", "daijin")
-assert pkg_resources.resource_exists("Mikado", "daijin")
+DAIJIN_DIR = resource_file("Mikado", "daijin")
+assert resource_exists("Mikado", "daijin")
 
 
 # noinspection PyPep8Naming
@@ -197,7 +197,7 @@ default. If one of --json, --yaml, --toml flags is specified, it will override t
     scoring_file.add_argument("--scoring", type=str, default=None,
                          help="""Available scoring files. Either provide your own of choose from
                          one of the pre-packaged scoring files:
-                             {}""".format("\n".join(["- {}".format(_) for _ in pkg_resources.resource_listdir(
+                             {}""".format("\n".join(["- {}".format(_) for _ in resource_listdir(
                              "Mikado", os.path.join("configuration", "scoring_files"))]
                                                 )))
     scoring_file.add_argument("--custom-scoring", type=str, default=None,

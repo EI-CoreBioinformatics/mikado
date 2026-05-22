@@ -1,6 +1,6 @@
 import os
 from shutil import which
-import pkg_resources
+from Mikado.utilities.resources import resource_file
 from Bio.Data import CodonTable
 from Mikado.serializers.blast_serializer.tabular_utils import blast_keys
 import functools
@@ -41,7 +41,7 @@ try:
 except AttributeError:
     CFG=workflow.overwrite_configfile
 
-envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
+envdir = resource_file("Mikado.daijin", "envs")
 
 
 REF = config["reference"]["genome"]

@@ -2,8 +2,8 @@ import os
 import subprocess
 from shutil import which
 import functools
-import pkg_resources
 import re
+from Mikado.utilities.resources import resource_file
 from Mikado.utilities.file_type import filetype
 
 
@@ -15,7 +15,7 @@ except AttributeError:
     
 
 # Short read fields
-envdir = pkg_resources.resource_filename("Mikado.daijin", "envs")
+envdir = resource_file("Mikado.daijin", "envs")
 
 R1 = []
 R2 = []

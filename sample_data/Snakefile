@@ -10,12 +10,12 @@ from Mikado.configuration.configuration import MikadoConfiguration
 import subprocess
 import gzip
 from snakemake import logger as snake_logger
-import pkg_resources
+from Mikado.utilities.resources import resource_file
 import Mikado
 import dataclasses
 import marshmallow_dataclass
 
-prod_conda = pkg_resources.resource_filename("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
+prod_conda = resource_file("Mikado.daijin", os.path.join("envs", "prodigal.yaml"))
 swissprot = "uniprot_sprot_plants.fasta.gz"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 

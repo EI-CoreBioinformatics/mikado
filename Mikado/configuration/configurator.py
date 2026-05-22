@@ -14,9 +14,9 @@ import marshmallow
 from multiprocessing import get_start_method
 from logging import Logger
 import yaml
-from pkg_resources import resource_stream
 from ..exceptions import InvalidConfiguration
 from ..utilities.log_utils import create_default_logger
+from ..utilities.resources import resource_binary_stream
 import random
 import toml
 from .configuration import MikadoConfiguration
@@ -52,7 +52,7 @@ def create_cluster_config(config: Union[MikadoConfiguration, DaijinConfiguration
             cluster_config = args.cluster_config
         else:
             cluster_config = "daijin_hpc.yaml"
-        with open(cluster_config, "wb") as out, resource_stream("Mikado.daijin", "hpc.yaml") as original:
+        with open(cluster_config, "wb") as out, resource_binary_stream("Mikado.daijin", "hpc.yaml") as original:
             for pos, line in enumerate(original):
                 out.write(line)
                 if pos == 0:

@@ -15,7 +15,7 @@ import yaml
 import toml
 import json
 from ..exceptions import InvalidConfiguration
-from pkg_resources import resource_filename
+from ..utilities.resources import resource_file
 try:
     from yaml import CSafeLoader as yLoader
 except ImportError:
@@ -118,7 +118,7 @@ class MikadoConfiguration:
         options = [os.path.abspath(self.pick.scoring_file),
                    os.path.abspath(os.path.join(os.path.dirname(self.filename or ""),
                                                 self.pick.scoring_file)),
-                   os.path.abspath(os.path.join(resource_filename("Mikado.configuration", "scoring_files"),
+                   os.path.abspath(os.path.join(resource_file("Mikado.configuration", "scoring_files"),
                                                 self.pick.scoring_file))]
 
         if self.filename is not None:

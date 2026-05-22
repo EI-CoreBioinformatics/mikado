@@ -5,13 +5,13 @@ import rapidjson as json
 import os
 import toml
 import yaml
-from pkg_resources import resource_stream
 from .configurator import create_cluster_config, load_and_validate_config
 from . import print_config
 from .daijin_configuration import DaijinConfiguration
 from .._transcripts.scoring_configuration import ScoringFile
 from ..exceptions import InvalidConfiguration
 from ..utilities.log_utils import create_default_logger
+from ..utilities.resources import resource_binary_stream
 import sys
 import pysam
 try:
@@ -208,9 +208,9 @@ def create_daijin_config(args: Namespace, config=None, level="ERROR", piped=Fals
     if args.scoring:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
-                with resource_stream("Mikado", os.path.join("configuration",
-                                                            "scoring_files",
-                                                            args.scoring)) as original:
+                with resource_binary_stream("Mikado", os.path.join("configuration",
+                                                                    "scoring_files",
+                                                                    args.scoring)) as original:
                     for line in original:
                         print(line.decode(), file=out, end="")
             args.scoring = os.path.abspath(args.copy_scoring)

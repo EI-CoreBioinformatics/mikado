@@ -87,7 +87,7 @@ setup(
     author_email="lucventurini@gmail.com",
     license="LGPL-3.0-or-later",
     tests_require=["pytest"],
-    setup_requires=["setuptools<80.9"],
+    setup_requires=["setuptools"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Scientific/Engineering :: Bio-Informatics",

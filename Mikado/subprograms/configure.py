@@ -6,7 +6,6 @@ import shutil
 import yaml
 import os
 import re
-from pkg_resources import resource_filename, resource_stream
 import glob
 import argparse
 import sys
@@ -17,6 +16,7 @@ from ..configuration import DaijinConfiguration, MikadoConfiguration
 from ..exceptions import InvalidConfiguration
 from ..utilities import comma_split, percentage, merge_dictionaries
 from ..utilities.namespace import Namespace
+from ..utilities.resources import resource_binary_stream, resource_file
 from ..configuration.configurator import load_and_validate_config
 from ..configuration import print_config
 import tempfile
@@ -136,9 +136,9 @@ switch.")
     if args.scoring is not None:
         if args.copy_scoring is not False:
             with open(args.copy_scoring, "wt") as out:
-                with resource_stream("Mikado", os.path.join("configuration",
-                                                            "scoring_files",
-                                                            args.scoring)) as original:
+                with resource_binary_stream("Mikado", os.path.join("configuration",
+                                                                    "scoring_files",
+                                                                    args.scoring)) as original:
                     for line in original:
                         print(line.decode().rstrip(), file=out)
             args.scoring = args.copy_scoring
@@ -224,7 +224,7 @@ def configure_parser():
     :rtype: argparse.ArgumentParser
     """
 
-    scoring_folder = resource_filename("Mikado", os.path.join("configuration", "scoring_files"))
+    scoring_folder = resource_file("Mikado", os.path.join("configuration", "scoring_files"))
     trailing = re.compile(r"^{}".format(os.path.sep))
     fold_path = re.compile(scoring_folder)
 

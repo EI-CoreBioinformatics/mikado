@@ -5,10 +5,10 @@ import toml
 import os
 from ..configuration import DaijinConfiguration
 from . import get_sub_commands, system_hpc_yaml, NOW
-import pkg_resources
 import shutil
 import sys
 import inspect
+from ..utilities.resources import resource_exists, resource_file
 try:
     import drmaa
     _ = drmaa.Session()
@@ -131,7 +131,7 @@ def assemble_transcripts_pipeline(args):
             os.symlink(os.path.abspath(lr_file), out)
 
     # Launch using SnakeMake
-    assert pkg_resources.resource_exists("Mikado", os.path.join("daijin", "assemble.smk"))
+    assert resource_exists("Mikado", os.path.join("daijin", "assemble.smk"))
 
     additional_config = {}
     if args.threads is not None:
@@ -207,7 +207,6 @@ def assemble_transcripts_pipeline(args):
         raise KeyError("No configfile key found")
 
     snakemake.snakemake(
-        pkg_resources.resource_filename("Mikado",
-                                        os.path.join("daijin", "assemble.smk")),
+        resource_file("Mikado", os.path.join("daijin", "assemble.smk")),
         **kwds
     )

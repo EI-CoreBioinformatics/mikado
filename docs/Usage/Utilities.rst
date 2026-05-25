@@ -5,6 +5,10 @@ Mikado miscellaneous scripts
 
 All these utilities can be accessed with the ``mikado util`` CLI. They perform relatively minor tasks.
 
+The subcommands documented below reflect the current ``mikado util`` CLI. Older
+releases also exposed ``merge_blast`` here, but current versions load BLAST
+input during ``mikado serialise`` instead.
+
 awk_gtf
 ~~~~~~~
 
@@ -59,6 +63,34 @@ Usage::
       -c {Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} [{Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} ...], --category {Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} [{Intronic,Match,Alternative splicing,Unknown,Fragment,Overlap,Extension,Fusion} ...]
       -o OUT, --out OUT
 
+.. _collect-compare-command:
+
+collect_compare
+~~~~~~~~~~~~~~~
+
+This utility collects summary statistics from one or more ``mikado compare``
+``*.stats`` files and writes collapsed tables for selected accuracy levels.
+
+Usage::
+
+    $ mikado util collect_compare --help
+    usage: mikado util collect_compare [-h] [-o OUT] [-fmt  [ ...]]
+                                       [-l {all,f1,sn,pr,matches,missed_novel}
+                                           [{all,f1,sn,pr,matches,missed_novel} ...]]
+                                       [-avf]
+                                       [stat ...]
+
+    positional arguments:
+      stat
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -o OUT, --out OUT     Prefix for the output files.
+      -fmt, --format        List of formats to print the tables into.
+      -l, --levels          Levels to print.
+      -avf, --available-formats
+                            Print out a list of available formats and exit.
+
 convert
 ~~~~~~~
 
@@ -103,28 +135,6 @@ Usage::
       --genes     Flag. If set, the program expects as ids only a list of genes,
                   and will exclude/include all the transcripts children of the
                   selected genes.
-
-.. _merge-blast-command:
-
-merge_blast
-~~~~~~~~~~~
-
-This script merges together various XML BLAST+ files into a single entity. It might be of use when the input data has been chunked into different FASTA files for submission to a cluster queue. It is also capable of converting from ASN files and of dealing with GZipped files.
-
-Usage::
-
-    $ mikado util merge_blast --help
-    usage: mikado.py util merge_blast [-h] [-v] [-l LOG] [--out [OUT]]
-                                      xml [xml ...]
-
-    positional arguments:
-      xml
-
-    optional arguments:
-      -h, --help         show this help message and exit
-      -v, --verbose
-      -l LOG, --log LOG
-      --out [OUT]
 
 .. _metrics-command:
 
@@ -262,6 +272,26 @@ This script is used to collect statistics obtained with from the :ref:`mikado ut
     optional arguments:
       -h, --help  show this help message and exit
 
+analyse_metrics.py
+~~~~~~~~~~~~~~~~~~
+
+This script compares a Mikado metrics table with a reference map and reports,
+for each metric, whether selected reference transcripts tend to match the
+maximum, minimum, or a target value within their loci.
+
+calculate_distances.py
+~~~~~~~~~~~~~~~~~~~~~~
+
+This script reports the nearest neighbouring genes before and after each gene in
+a GFF3 annotation, using the same reference indexing helpers as ``mikado
+compare``.
+
+create_model.py
+~~~~~~~~~~~~~~~
+
+This script builds a candidate scoring model from Mikado TMAP and metrics files.
+It is intended as an exploratory helper when designing a scoring configuration.
+
 bam2gtf.py
 ~~~~~~~~~~
 
@@ -310,6 +340,20 @@ Python3 wrapper for the CLASS [Class2]_ assembler. It will perform the necessary
       --class_help          If called, the wrapper will ask class to display its
                             help and exit.
       -v, --verbose
+
+extract_promoter_regions.py
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This script extracts promoter FASTA sequences for a list of genes from a genome
+FASTA and GFF3 annotation. It can write multiple upstream distances and can
+optionally ignore neighbouring genes or compress the output.
+
+extract_test_case.py
+~~~~~~~~~~~~~~~~~~~~
+
+This script extracts a compact Mikado test case from a prepared GTF, populated
+database, reference FASTA and genomic region. It writes the region FASTA,
+shifted GTF and selected database rows under the requested output prefix.
 
 getFastaFromIds.py
 ~~~~~~~~~~~~~~~~~~
@@ -428,6 +472,13 @@ Quick script to remove sequences from a given organism from SwissProt files, and
       -o ORGANISM, --organism ORGANISM
                             Organism to be excluded
       --format {fasta}      Output format. Choices: fasta. Default: fasta.
+
+remove_utrs.py
+~~~~~~~~~~~~~~
+
+This script strips UTRs from a GFF3/GTF annotation by reducing coding
+transcripts to their CDS coordinates while preserving gene and transcript
+structure.
 
 sanitize_blast_db.py
 ~~~~~~~~~~~~~~~~~~~~

@@ -5,6 +5,7 @@
 .. _ERR1662533_2.fastq.gz: ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR166/003/ERR1662533/ERR1662533_2.fastq.gz
 .. _ERR1662534_1.fastq.gz: ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR166/003/ERR1662534/ERR1662534_1.fastq.gz
 .. _ERR1662534_2.fastq.gz: ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR166/003/ERR1662534/ERR1662534_2.fastq.gz
+.. _UniProt Aedes aegypti proteins: https://rest.uniprot.org/uniprotkb/stream?compressed=true&format=fasta&query=%28taxonomy_id%3A7159%29
 
 
 
@@ -40,6 +41,10 @@ Mikado should be installed and configured properly (see our :ref:`installation i
 * Stringtie (v1.2.4)
 * CLASS2 (v2.12)
 * SAMtools (v1.1 or later)
+* gnuplot, used by the ``samtools plot-bamstats`` helper
+* bgzip, provided by HTSlib
+* BLAST+, required if using BLAST instead of DIAMOND or if converting BLAST ASN
+  input with ``blast_formatter``
 
 
 Input data
@@ -53,7 +58,8 @@ Throughout this tutorial, we will use data coming from EnsEMBL v89, and from the
 
      * ERX1732854_, left (`ERR1662533_1.fastq.gz`_) and right (`ERR1662533_2.fastq.gz`_) reads
      * ERX1732855_, left (`ERR1662534_1.fastq.gz`_) and right (`ERR1662534_2.fastq.gz`_) reads
- * protein sequences for the related species *Aedes aegypti*, `downloaded from Uniprot <"http://www.uniprot.org/uniprot/?sort=score&desc=&compress=yes&query=taxonomy:diptera%20NOT%20taxonomy:%22Drosophila%20(fruit%20flies)%20[7215]%22%20AND%20taxonomy:%22Aedes%20aegypti%22&fil=&format=fasta&force=yes">`_
+ * protein sequences for the related species *Aedes aegypti*, downloaded from
+   `UniProt Aedes aegypti proteins`_
 
 Preparation of the input data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,7 +70,8 @@ First of all, let us set up a folder with the reference data::
     cd Reference;
     wget ftp://ftp.ensembl.org/pub/release-89/gtf/drosophila_melanogaster/Drosophila_melanogaster.BDGP6.89.gtf.gz;
     wget ftp://ftp.ensembl.org/pub/release-89/fasta/drosophila_melanogaster/dna/Drosophila_melanogaster.BDGP6.dna.toplevel.fa.gz;
-    wget "http://www.uniprot.org/uniprot/?sort=score&desc=&compress=yes&query=taxonomy:diptera%20NOT%20taxonomy:%22Drosophila%20(fruit%20flies)%20[7215]%22%20AND%20taxonomy:%22Aedes%20aegypti%22&fil=&format=fasta&force=yes" -O Aedes_aegypti.fasta.gz;
+    wget "https://rest.uniprot.org/uniprotkb/stream?compressed=true&format=fasta&query=%28taxonomy_id%3A7159%29" \
+        -O Aedes_aegypti.fasta.gz;
     gunzip *gz;
     cd ../;
 
